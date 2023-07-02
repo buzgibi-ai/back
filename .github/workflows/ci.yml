@@ -70,7 +70,7 @@ jobs:
     needs: push_to_google_registry 
     steps:
       - uses: actions/checkout@v2
-      - uses: alex-ac/github-action-ssh-docker-compose@master
+      - uses: matiasnu/github-action-ssh-docker-compose@v2.0.1
         with:
           ssh_host: ${{ vars.HOST }}
           ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
