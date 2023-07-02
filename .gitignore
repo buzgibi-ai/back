@@ -1,0 +1,17 @@
+.stack-work/
+*~
+test/*.html
+log/
+.vscode/
+dist/
+stack.yaml.lock
+/dist*
+site/
+.env
+*.lock
+.history/
+.hie/
+*.html
+*.cabal
+.lh
+env.yaml

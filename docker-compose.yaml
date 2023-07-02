@@ -1,0 +1,78 @@
+# version: '3.7'
+services:
+
+  db:
+    image: postgres:latest
+    container_name: "scaffold-db"
+    restart: 'always'
+    ports:
+      - '5432:5432'
+    environment:
+      - DB_USER=${DBUSER}
+      - DB_PASSWORD=3190d261d186aeead3a8deec202737c7775af5c8d455a9e5ba958c48b5fd3f59
+      - DB_DATABASE=${DATABASE}
+      - POSTGRES_PASSWORD=264c0424e4bd463a7d02b9db6896143e1a96cd1c52511119f839d2bc9c934241
+      - POSTGRES_USER=postgres
+    volumes:
+      - ${PWD}/deploy/db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d/
+      - pg_db:/var/lib/postgresql/data
+    networks:
+      scaffold:
+         ipv4_address: 192.168.20.4
+
+  server:
+    image: sclaw/back:${TAG}
+    container_name: "scaffold-server"
+    links:
+      - db
+      - storage
+    depends_on:
+      - db
+      - storage
+      - migration
+    ports:
+      - "12000:12000"
+    networks:
+      - scaffold
+
+  storage:
+    image: minio/minio:latest
+    container_name: "scaffold-file-storage"
+    restart: 'always'
+    ports:
+      - '9001:9001'
+      - '9000:9000'
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: AKIAIOSFODNN7EXAMPLE
+      MINIO_ROOT_PASSWORD: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+    command: server --address ":9000" --console-address ":9001" /data
+    networks:
+      scaffold:
+         ipv4_address: 192.168.20.5
+
+  migration:
+    image: liquibase/liquibase:latest
+    container_name: "scaffold-migration"
+    depends_on:
+      - db
+      - storage
+    volumes:
+      - ${PWD}/migration/:/liquibase/changelog
+      - ${PWD}/migration/liquibase_policy_init.sh:/liquibase/liquibase_policy_init.sh
+    command: ['./liquibase_policy_init.sh' ]
+    networks:
+      - scaffold
+
+volumes:
+  pg_db: {}
+  minio_data: {}
+
+networks:
+  scaffold:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 192.168.20.0/25
+# vim: et:sw=2

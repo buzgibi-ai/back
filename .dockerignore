@@ -1,0 +1,16 @@
+*
+!bin
+!deploy
+!migration
+!nix
+!prog
+!src
+!test
+!tls
+!package.yaml
+!Setup.hs
+!stack.yaml
+!sendgrid
+!.git
+!*openapiv3.yaml
+!scripts
