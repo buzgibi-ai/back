@@ -21,7 +21,7 @@ services:
          ipv4_address: 192.168.20.4
 
   server:
-    image: sclaw/back:${TAG}
+    image: europe-west3-docker.pkg.dev/buzgibi/back/back:${TAG}
     container_name: "scaffold-server"
     links:
       - db
