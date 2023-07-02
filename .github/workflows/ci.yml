@@ -70,9 +70,10 @@ jobs:
     needs: push_to_google_registry 
     steps:
       - uses: actions/checkout@v2
-      - uses: alex-ac/github-action-ssh-docker-compose@master
+      - uses: appleboy/ssh-action@v0.1.10
         with:
-          ssh_host: ${{ vars.HOST }}
-          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh_user: ${{ secrets.SSH_USER }}
-          docker_compose_prefix: buzgibi
+          host: ${{ vars.HOST }}
+          password: ${{ secrets.SSH_PRIVATE_KEY }}
+          username: ${{ secrets.SSH_USER }}
+          script: |
+             ls -la
