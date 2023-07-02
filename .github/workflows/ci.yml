@@ -76,11 +76,12 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd back
+            nix-env -i docker-compose
+            rm -rf back
             echo "DBUSER:sonny\n"\
                  "DATABASE:scaffold\n"\
                  "TAG:latest"\
                  > .env
             git clone https://github.com/buzgibi-ai/back.git .
-            nix-env -i docker-compose 
+            cd back 
             docker-compose up -d
