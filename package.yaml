@@ -197,6 +197,8 @@ library:
     - lifted-async
     - http-conduit
     - telnyx
+    - sendgrid
+    - openai
 
   source-dirs:
     - src/core

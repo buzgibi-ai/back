@@ -16,7 +16,6 @@
 module Main (main) where
 
 import BuildInfo (gitCommit)
-import qualified Cfg.Github as Github
 import qualified Cfg.SendGrid as SendGrid
 import Control.Applicative ((<|>))
 import Control.Exception
@@ -25,11 +24,9 @@ import Control.Lens.Iso.Extended
 import Control.Monad
 import Control.Monad.RWS.Strict (evalRWST)
 import Data.Char (isUpper, toLower)
-import Data.Coerce (coerce)
 import Data.Default.Class
 import Data.Foldable (for_)
 import qualified Data.Map as Map
-import qualified Data.Map.Lazy as MapLazy
 import Data.Maybe
 import Data.Monoid.Colorful (hGetTerm)
 import qualified Data.Pool as Pool
@@ -273,16 +270,10 @@ main = do
   let s@Scaffold.Config.SendGrid {..} = cfg ^. Scaffold.Config.sendGrid
   let sendgrid = fmap ((s,) . SendGrid.configure sendGridUrl) sendGridApiKey
 
-  let github = do
-        k <- envKeys
-        creds_old <- fmap coerce $ envKeysGithub k
-        let cred_new = flip MapLazy.map creds_old $ \x -> (Github.configure (Scaffold.EnvKeys.key x), x)
-        return cred_new
-
   let captcha = envKeys >>= envKeysCaptchaKey
 
   let katipMinio = Minio minioEnv (cfg ^. Scaffold.Config.minio . Scaffold.Config.bucketPrefix)
-  let katipEnv = KatipEnv term hasqlpool manager (cfg ^. service . coerced) katipMinio telegram sendgrid github captcha
+  let katipEnv = KatipEnv term hasqlpool manager (cfg ^. service . coerced) katipMinio telegram sendgrid captcha
 
   let runApp le = runKatipContextT le (mempty @LogContexts) mempty $ App.run appCfg
   bracket env closeScribes $ void . (\x -> evalRWST (App.runAppMonad x) katipEnv def) . runApp

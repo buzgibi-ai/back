@@ -14,7 +14,6 @@ import Scaffold.Api.Controller.Frontend.GetMeta (Meta)
 import Scaffold.Api.Controller.Frontend.Init (Init)
 import Scaffold.Api.Controller.Frontend.Log (FrontendLogRequest)
 import Scaffold.Api.Controller.Frontend.Translate hiding (controller)
-import Scaffold.Transport.Id
 import Scaffold.Transport.Response (Response)
 import Servant.API.Extended
 import Servant.API.Generic (Generic)
@@ -28,7 +27,6 @@ data FrontendApi route = FrontendApi
     _frontendApiInit ::
       route
         :- "init"
-          :> QueryParam' '[Optional, Strict] "browserIdent" (Id "browserIdent")
           :> Get '[JSON] (Response Init),
     _frontendApiTranslate ::
       route

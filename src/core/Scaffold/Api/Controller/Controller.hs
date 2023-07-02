@@ -13,17 +13,9 @@ module Scaffold.Api.Controller.Controller (controller) where
 
 -- controllers
 
-import BuildInfo
 import Control.Monad.Except
-import Control.Monad.Time
-import Data.Aeson
-import Data.Functor
-import Data.Time.Clock.System (getSystemTime, systemSeconds)
-import Data.Version (showVersion)
 import Katip
 import KatipController
-import qualified Network.WebSockets as WS
-import qualified Network.WebSockets.Connection as WS
 import Scaffold.Api
 import qualified Scaffold.Api.Controller.File.Delete as File.Delete
 import qualified Scaffold.Api.Controller.File.Download as File.Download
@@ -43,7 +35,6 @@ import Servant.API.Generic
 import Servant.Auth.Server (AuthResult (..), wwwAuthenticatedErr)
 import Servant.RawM.Server ()
 import Servant.Server.Generic
-import System.Info
 
 controller :: Api (AsServerT KatipControllerM)
 controller = Api {_apiHttp = toServant httpApi}
@@ -52,7 +43,6 @@ httpApi :: HttpApi (AsServerT KatipControllerM)
 httpApi =
   HttpApi
     { _httpApiFile = toServant file,
-      _httpApiAdmin = (`withBasicAuth` toServant . admin),
       _httpApiAuth = toServant auth,
       _httpApiFront = toServant frontend,
       _httpApiUser =
@@ -63,7 +53,6 @@ httpApi =
               throwError $
                 wwwAuthenticatedErr
                   "only for authorized personnel",
-      _httpApiPublic = toServant public,
       _httpApiForeign = toServant _foreign,
       _httpApiReCaptcha = toServant captcha
     }
@@ -93,15 +82,6 @@ file =
             (File.Download.controller option fid w h)
     }
 
-admin :: User -> AdminApi (AsServerT KatipControllerM)
-admin _ =
-  AdminApi
-    { _adminApiTest = do
-        ct <- currentTime
-        runTelegram $location $ show [1, 2]
-        runTelegram $location (show ct) $> Ok ct
-    }
-
 auth :: AuthApi (AsServerT KatipControllerM)
 auth =
   AuthApi
@@ -120,13 +100,13 @@ frontend =
           katipAddNamespace
             (Namespace ["frontend", "log"])
             (Frontend.Log.controller req),
-      _frontendApiInit = \browserIdent ->
+      _frontendApiInit =
         flip
           logExceptionM
           ErrorS
           ( katipAddNamespace
               (Namespace ["frontend", "init"])
-              (Frontend.Init.controller browserIdent)
+              Frontend.Init.controller
           ),
       _frontendApiTranslate =
         \lang ->
@@ -157,31 +137,6 @@ user _ =
           katipAddNamespace
             (Namespace ["user", "profile", "get"])
             undefined
-    }
-
-public :: PublicApi (AsServerT KatipControllerM)
-public =
-  PublicApi
-    { _publicApiGetServerInfo =
-        \(conn :: WS.PendingConnection) ->
-          flip logExceptionM ErrorS $
-            katipAddNamespace
-              (Namespace ["public", "server", "info"])
-              ( liftIO $ do
-                  c <- WS.acceptRequest conn
-                  WS.pingThread c 1 $ do
-                    let serverInfo =
-                          "os: "
-                            <> os
-                            <> ", arch:"
-                            <> arch
-                            <> ", Haskell compiler: "
-                            <> showVersion compilerVersion
-                    st <- getSystemTime
-                    let msg = serverInfo <> ", server time: " <> show (systemSeconds st)
-                    let resp = Ok [msg]
-                    WS.sendDataMessage c (WS.Text (Data.Aeson.encode resp) Nothing)
-              )
     }
 
 _foreign :: ForeignApi (AsServerT KatipControllerM)

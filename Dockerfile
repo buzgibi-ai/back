@@ -40,17 +40,15 @@ RUN . /home/nix/.nix-profile/etc/profile.d/nix.sh && \
       nix-shell ./nix/build.nix \
      --log-format bar-with-logs \ 
      --verbose --command \ 
-     "./scripts/api-generator.sh sendgrid-openapiv3.yaml SendGrid sendgrid . && \
-     ./scripts/api-generator.sh github-openapiv3.yaml GitHub github . && \
+     "./scripts/api-generator.sh ./openapi/sendgrid-openapiv3.yaml SendGrid sendgrid . && \
+     ./scripts/api-generator.sh ./openapi/telnyx-openapiv3.yaml Telnyx telnyx . && \
+     ./scripts/api-generator.sh ./openapi/openai-openapiv3.yaml OpenAI openai . && \
       stack install --system-ghc --fast -j12 --test"
 
 FROM base as main
 
 ARG sendgrid_key
 ARG telegram_bot_key
-ARG github_tth_docs_key
-ARG github_tth_main_key
-ARG github_tth_css
 ARG mute_500
 ARG env_yaml
 ARG env_captcha_key
@@ -66,19 +64,6 @@ WORKDIR /server
 RUN echo \
 "sendgrid: $sendgrid_key\n"\
 "telegrambot: $telegram_bot_key\n"\
-"github:\n"\
-"   frontDocs:\n"\
-"      repo: turkish-trade-house-docs\n"\ 
-"      key: $github_tth_docs_key\n"\
-"      resources: [home.txt, about.txt, services.txt]\n"\
-"   front:\n"\
-"      repo: turkish-trade-house\n"\ 
-"      key: $github_tth_main_key\n"\
-"      resources: [env.yaml]\n"\
-"   frontCSS:\n"\
-"      repo: turkish-trade-house-style-and-css\n"\
-"      key: $github_tth_css\n"\
-"      resources: []\n"\
 "captchakey: $env_captcha_key"\
 > /server/env.yaml
 

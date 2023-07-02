@@ -49,8 +49,7 @@ module KatipController
 
     -- * aux
     runTelegram,
-    sendGrid,
-    github,
+    sendGrid
   )
 where
 
@@ -67,7 +66,6 @@ import Control.Monad.Reader.Class as R
 import Control.Monad.Time
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Data.Default.Class
-import qualified Data.Map as M
 import Data.Monoid.Colorful (Term)
 import qualified Data.Pool as Pool
 import qualified Data.Text as T
@@ -79,7 +77,6 @@ import Katip.Monadic
 import Language.Haskell.TH.Syntax
 import Network.HTTP.Client
 import qualified Network.Minio as Minio
-import "github" OpenAPI.Common as Github
 import "sendgrid" OpenAPI.Common as SendGrid
 import Pretty
 import Scaffold.Config (SendGrid)
@@ -100,7 +97,6 @@ data KatipEnv = KatipEnv
     katipEnvMinio :: !Minio,
     katipEnvTelegram :: !Telegram.Service,
     katipEnvSendGrid :: !(Maybe (SendGrid, SendGrid.Configuration)),
-    katipEnvGithub :: !(Maybe (M.Map T.Text (Github.Configuration, Creds))),
     katipEnvCaptchaKey :: !(Maybe T.Text)
   }
 
