@@ -67,13 +67,12 @@ jobs:
     name: Deploy the server
     runs-on: ubuntu-latest
     environment: google
-    needs: push_to_google_registry 
+    needs: push_to_google_registry
     steps:
       - uses: actions/checkout@v2
-      - uses: chaplyk/docker-compose-remote-action@v1.2
+      - uses: appleboy/ssh-action@v0.1.10
         with:
-          ssh_host: ${{ vars.HOST }}
-          ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh_user: ${{ secrets.SSH_USER }}
-          compose_file: docker-compose.yaml
-          pull: true
+          host: ${{ vars.HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: whoami
