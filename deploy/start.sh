@@ -11,4 +11,4 @@ cat <<EOT >> .env
   TAG=$tag
 EOT
 
-exec docker-compose up
+exec docker-compose up -d
