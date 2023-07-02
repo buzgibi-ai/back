@@ -1,8 +1,6 @@
 #!/bin/sh
 
-rm .env
-
-sha=$(git rev-parse HEAD@{$1})
+sha=$(git rev-parse HEAD@{0})
 branch=$(git rev-parse --abbrev-ref HEAD)
 
 tag="${branch}_${sha}"
