@@ -35,8 +35,6 @@ openapi3-code-generator-exe \
   --generate-optional-empty-request-body=false $file && \
   python $dir/scripts/duplicate.py $dir/src/foreign/$nm/$package.cabal
 
-generate
-
 trap : 0
 
 echo >&2 '
