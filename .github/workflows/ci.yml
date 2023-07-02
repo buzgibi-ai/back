@@ -76,3 +76,4 @@ jobs:
           ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh_user: ${{ secrets.SSH_USER }}
           compose_file: docker-compose.yaml
+          pull: true
