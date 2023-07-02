@@ -77,5 +77,5 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd back
-            scp docker-compose.yaml fclaw007@34.34.174.18:/back
+            scp ${{ github.workspace }}/docker-compose.yaml fclaw007@34.34.174.18:/back
             docker-compose up -d
