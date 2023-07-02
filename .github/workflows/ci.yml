@@ -75,4 +75,7 @@ jobs:
           host: ${{ vars.HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: whoami
+          script: |
+            cd back
+            cp -f ${GITHUB_WORKSPACE}/docker-compose.yaml .
+            docker-compose up -d
