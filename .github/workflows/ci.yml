@@ -70,12 +70,8 @@ jobs:
     needs: push_to_google_registry 
     steps:
       - uses: actions/checkout@v2
-      - uses: astappiev/docker-compose-remote-action@v1
+      - uses: chaplyk/docker-compose-remote-action@v1.2
         with:
           ssh_host: ${{ vars.HOST }}
-          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh_key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh_user: ${{ secrets.SSH_USER }}
-          ssh_host_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
-          ssh_jump_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
-          docker_compose_prefix: back
-
