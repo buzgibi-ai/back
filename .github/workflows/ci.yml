@@ -63,17 +63,16 @@ jobs:
             ${{ steps.meta_tag_1.outputs.tags }}
             ${{ steps.meta_branch_1.outputs.tags }}
 
-   deploy:
-      name: Deploy the server
-      environment: google
-      needs: push_to_google_registry 
-      steps:
-        - uses: actions/checkout@v2
-        - uses: alex-ac/github-action-ssh-docker-compose@master
-          with:
-            ssh_host: ${{ vars.HOST }}
-            ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
-            ssh_user: ${{ secrets.SSH_USER }}
-            docker_compose_prefix: buzgibi
-            docker_compose_down: true
-
+  deploy:
+    name: Deploy the server
+    runs-on: ubuntu-latest
+    environment: google
+    needs: push_to_google_registry 
+    steps:
+      - uses: actions/checkout@v2
+      - uses: alex-ac/github-action-ssh-docker-compose@master
+        with:
+          ssh_host: ${{ vars.HOST }}
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh_user: ${{ secrets.SSH_USER }}
+          docker_compose_prefix: buzgibi
