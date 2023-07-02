@@ -77,11 +77,10 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             rm -rf back
-            mkdir back 
+            git clone https://github.com/buzgibi-ai/back.git
             cd back
             echo "DBUSER:sonny\n"\
                  "DATABASE:scaffold\n"\
                  "TAG:latest"\
                  > .env
-            git clone https://github.com/buzgibi-ai/back.git --bare
-            ssh fclaw007@34.34.174.18 docker-compose up -d
+            docker-compose up -d
