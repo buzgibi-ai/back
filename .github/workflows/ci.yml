@@ -70,11 +70,11 @@ jobs:
     needs: push_to_google_registry 
     steps:
       - uses: actions/checkout@v2
-      - uses: appleboy/ssh-action@v0.1.10
+      - uses: astappiev/docker-compose-remote-action@v1
         with:
-          host: ${{ vars.HOST }}
-          password: ${{ secrets.SSH_PRIVATE_KEY }}
-          username: ${{ secrets.SSH_USER }}
-          script: |
-             ls -la
+          ssh_host: ${{ vars.HOST }}
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh_user: ${{ secrets.SSH_USER }}
+          ssh_host_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+          docker_compose_prefix: back
 
