@@ -52,6 +52,7 @@ ARG telegram_bot_key
 ARG mute_500
 ARG env_yaml
 ARG env_captcha_key
+ARG telnyx_key
 
 ENV MUTE_500 ${mute_500}
 ENV YAML_ENV ${env_yaml}
@@ -64,7 +65,8 @@ WORKDIR /server
 RUN echo \
 "sendgrid: $sendgrid_key\n"\
 "telegrambot: $telegram_bot_key\n"\
-"captchakey: $env_captcha_key"\
+"captchakey: $env_captcha_key\n"\
+"telnyx: $telnyx_key"\
 > /server/env.yaml
 
 COPY --from=server-build --chown=nix:nix /build/bin /server/bin
