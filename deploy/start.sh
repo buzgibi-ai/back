@@ -13,7 +13,7 @@ cat <<EOT >> .env
   TAG=$tag
 EOT
 
-cp ~/ssl/buzgibi.crt nginx/ssl/buzgibi.crt
-cp ~/ssl/buzgibi.key nginx/ssl/buzgibi.key
+cp ~/ssl/buzgibi.crt ./nginx/ssl/buzgibi.crt
+cp ~/ssl/buzgibi.key ./nginx/ssl/buzgibi.key
 
 exec docker-compose up -d
