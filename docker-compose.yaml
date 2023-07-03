@@ -82,12 +82,13 @@ services:
     container_name: scaffold-proxy-server
     volumes:
       - ${PWD}/deploy/nginx/proxy.conf:/etc/nginx/nginx.conf
-      - ${PWD}/deploy/nginx/ssl/buzgibi.crt:/etc/nginx/certs/buzgibi.crt
-      - ${PWD}/deploy/nginx/ssl/buzgibi.key:/etc/nginx/certs/buzgibi.key
+      - ${PWD}/deploy/nginx/ssl/front/buzgibi.crt:/etc/nginx/certs/front/buzgibi.crt
+      - ${PWD}/deploy/nginx/ssl/front/buzgibi.key:/etc/nginx/certs/front/buzgibi.key
+      - ${PWD}/deploy/nginx/ssl/back/buzgibi.crt:/etc/nginx/certs/back/buzgibi.crt
+      - ${PWD}/deploy/nginx/ssl/back/buzgibi.key:/etc/nginx/certs/back/buzgibi.key
       - ${PWD}/deploy/nginx/ssl/global.pass:/etc/keys/global.pass
     ports:
       - 443:443
-      - 80:80
     networks:
       - scaffold
 
