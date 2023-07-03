@@ -79,4 +79,4 @@ jobs:
             rm -rf back
             git clone https://github.com/buzgibi-ai/back.git
             cd back
-            ./deploy/start.sh
+            ./deploy/start.sh 0
