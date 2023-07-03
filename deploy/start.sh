@@ -5,6 +5,10 @@ commit=$1
 sha=$(git rev-parse HEAD@{$commit})
 branch=$(git rev-parse --abbrev-ref HEAD)
 
+echo "go down along the commit tree to $commit commit(s)"
+echo "sha ---> $sha"
+echo "branch ---> $branch"
+
 tag="${branch}_${sha}"
 
 cat <<EOT >> .env
