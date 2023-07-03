@@ -84,7 +84,9 @@ services:
       - ${PWD}/deploy/nginx/proxy.conf:/etc/nginx/nginx.conf
       - ${PWD}/deploy/nginx/ssl/buzgibi.crt:/etc/nginx/certs/buzgibi.crt
       - ${PWD}/deploy/nginx/ssl/buzgibi.key:/etc/nginx/certs/buzgibi.key
+      - ${PWD}/deploy/nginx/ssl/global.pass:/etc/keys/global.pass
     ports:
+      - 443:443
       - 80:80
     networks:
       - scaffold
