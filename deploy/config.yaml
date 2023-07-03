@@ -9,7 +9,7 @@ configServerConnection:
   serverConnectionPort: 12000
 
 configSwagger:
-  swaggerHost: back-g52bgv5bua-ew.a.run.app
+  swaggerHost: api.buzgibi.app
   swaggerPort:
 
 configHasql:
@@ -45,7 +45,8 @@ configCors:
   corsOrigins: 
     [ http://127.0.0.1:8080
     , http://127.0.0.1:3001
-    , https://front-g52bgv5bua-ew.a.run.app
+    , https://buzgibi.app
+    , http://buzgibi.app
     ]
 
 configServerError: true
