@@ -3,7 +3,7 @@ services:
 
   db:
     image: postgres:latest
-    container_name: scaffold-db
+    container_name: buzgibi-db
     restart: 'always'
     ports:
       - 5432:5432
@@ -17,12 +17,12 @@ services:
       - ${PWD}/deploy/db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d/
       - pg_db:/var/lib/postgresql/data
     networks:
-      scaffold:
+      buzgibi:
          ipv4_address: 192.168.22.4
 
   back:
     image: europe-west3-docker.pkg.dev/buzgibi/back/back:${TAG}
-    container_name: scaffold-back
+    container_name: buzgibi-back
     links:
       - db
       - storage
@@ -34,7 +34,7 @@ services:
     ports:
       - 12000:12000
     networks:
-      scaffold:
+      buzgibi:
          ipv4_address: 192.168.22.6
 
   # front:
@@ -44,12 +44,12 @@ services:
   #   ports:
   #     - 3000:3000
   #   networks:
-  #     scaffold:
+  #     buzgibi:
   #       ipv4_address: 192.168.21.7
 
   storage:
     image: minio/minio:latest
-    container_name: scaffold-file-storage
+    container_name: buzgibi-file-storage
     restart: 'always'
     ports:
       - 9001:9001
@@ -61,12 +61,12 @@ services:
       MINIO_ROOT_PASSWORD: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
     command: server --address ":9000" --console-address ":9001" /data
     networks:
-      scaffold:
+      buzgibi:
          ipv4_address: 192.168.22.5
 
   migration:
     image: liquibase/liquibase:latest
-    container_name: scaffold-migration
+    container_name: buzgibi-migration
     depends_on:
       - db
       - storage
@@ -75,11 +75,11 @@ services:
       - ${PWD}/migration/liquibase_policy_init.sh:/liquibase/liquibase_policy_init.sh
     command: ['./liquibase_policy_init.sh']
     networks:
-      - scaffold
+      - buzgibi
 
   proxy-server:
     image: nginx
-    container_name: scaffold-proxy-server
+    container_name: buzgibi-proxy-server
     volumes:
       - ${PWD}/deploy/nginx/proxy.conf:/etc/nginx/nginx.conf
       - ${PWD}/deploy/nginx/ssl/front/buzgibi.crt:/etc/nginx/certs/front/buzgibi.crt
@@ -90,14 +90,14 @@ services:
     ports:
       - 443:443
     networks:
-      - scaffold
+      - buzgibi
 
 volumes:
   pg_db: {}
   minio_data: {}
 
 networks:
-  scaffold:
+  buzgibi:
     driver: bridge
     ipam:
      config:

@@ -3,7 +3,7 @@ configDb:
   dbPort: 5432
   dbUser: sonny
   dbPass: 3190d261d186aeead3a8deec202737c7775af5c8d455a9e5ba958c48b5fd3f59
-  dbDatabase: scaffold
+  dbDatabase: buzgibi
 
 configServerConnection:
   serverConnectionPort: 12000
@@ -46,7 +46,6 @@ configCors:
     [ http://127.0.0.1:8080
     , http://127.0.0.1:3001
     , https://buzgibi.app
-    , http://buzgibi.app
     ]
 
 configServerError: true

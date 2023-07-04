@@ -15,6 +15,11 @@
 
 module Main (main) where
 
+import qualified Buzgibi.Application as App
+import Buzgibi.Auth (User (User))
+import Buzgibi.Config
+import Buzgibi.EnvKeys
+
 import BuildInfo (gitCommit)
 import qualified Cfg.SendGrid as SendGrid
 import Control.Applicative ((<|>))
@@ -51,10 +56,6 @@ import qualified Network.HTTP.Client.TLS as Http
 import qualified Network.Minio as Minio
 import Options.Generic
 import Pretty
-import qualified Scaffold.Application as App
-import Scaffold.Auth (User (User))
-import Scaffold.Config
-import Scaffold.EnvKeys
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath.Posix
 import System.IO
@@ -132,7 +133,7 @@ toSnake = map toLower . concat . underscores . splitR isUpper
 
 main :: IO ()
 main = do
-  cmd@Cmd {..} <- unwrapRecord "scaffold"
+  cmd@Cmd {..} <- unwrapRecord "buzgibi"
   print "------ Cmd: start ------"
   pPrint cmd
   print "------ Cmd: end ------"
@@ -141,25 +142,25 @@ main = do
   envKeys <- fmap join $ for envPath $ \path -> do
     cond <- doesFileExist path
     if cond
-      then fmap Just $ Scaffold.Config.load @EnvKeys path
+      then fmap Just $ Buzgibi.Config.load @EnvKeys path
       else return Nothing
 
   print "------ EnvKeys: start ------"
   pPrint envKeys
   print "------ EnvKeys: end ------"
 
-  rawCfg <- Scaffold.Config.load @Scaffold.Config.Config cfgPath
+  rawCfg <- Buzgibi.Config.load @Buzgibi.Config.Config cfgPath
   let cfg =
         rawCfg
           & db . host %~ (`fromMaybe` localhost)
           & db . port %~ (`fromMaybe` localport)
           & katip . path %~ (\path -> maybe path (</> path) pathToKatip)
-          & Scaffold.Config.minio . host %~ (`fromMaybe` minioHost)
-          & Scaffold.Config.minio . port %~ (`fromMaybe` minioPort)
+          & Buzgibi.Config.minio . host %~ (`fromMaybe` minioHost)
+          & Buzgibi.Config.minio . port %~ (`fromMaybe` minioPort)
           & swagger . host %~ (`fromMaybe` swaggerHost)
           & swagger . port %~ (flip (<|>) swaggerPort)
           & serverConnection . port %~ (`fromMaybe` serverPort)
-          & Scaffold.Config.sendGrid . apiKey %~ (flip (<|>) (join $ fmap envKeysSendgrid envKeys))
+          & Buzgibi.Config.sendGrid . apiKey %~ (flip (<|>) (join $ fmap envKeysSendgrid envKeys))
 
   for_ printCfg $
     \case
@@ -179,7 +180,7 @@ main = do
         HasqlConn.settings
           (x ^. host . stext . textbs)
           (x ^. port . to fromIntegral)
-          (x ^. Scaffold.Config.user . stext . textbs)
+          (x ^. Buzgibi.Config.user . stext . textbs)
           (x ^. pass . stext . textbs)
           (x ^. database . stext . textbs)
 
@@ -214,7 +215,7 @@ main = do
       (permitItem (cfg ^. katip . severity . from stringify))
       (cfg ^. katip . verbosity . from stringify)
   let mkNm = Namespace [("<" ++ $(gitCommit) ++ ">") ^. stext]
-  init_env <- initLogEnv mkNm (cfg ^. katip . Scaffold.Config.env . isoEnv . stext . coerced)
+  init_env <- initLogEnv mkNm (cfg ^. katip . Buzgibi.Config.env . isoEnv . stext . coerced)
 
   createDirectoryIfMissing True cfgAdminStoragePath
   admin_storage <- withFile (cfgAdminStoragePath <> "/" <> "passwords") ReadMode $ \h -> do
@@ -248,17 +249,17 @@ main = do
     flip Minio.mkMinioConn manager $
       Minio.setCreds
         ( Minio.Credentials
-            (cfg ^. Scaffold.Config.minio . accessKey)
-            (cfg ^. Scaffold.Config.minio . secretKey)
+            (cfg ^. Buzgibi.Config.minio . accessKey)
+            (cfg ^. Buzgibi.Config.minio . secretKey)
         )
-        (fromString (cfg ^. Scaffold.Config.minio . host <> ":" <> cfg ^. Scaffold.Config.minio . port))
+        (fromString (cfg ^. Buzgibi.Config.minio . host <> ":" <> cfg ^. Buzgibi.Config.minio . port))
 
-  telegram <- Telegram.mkService manager (cfg ^. Scaffold.Config.telegram & bot %~ (flip (<|>) (join $ fmap envKeysTelegramBot envKeys)))
+  telegram <- Telegram.mkService manager (cfg ^. Buzgibi.Config.telegram & bot %~ (flip (<|>) (join $ fmap envKeysTelegramBot envKeys)))
 
   minioScribe <-
     mkMinioScribe
       minioEnv
-      (cfg ^. Scaffold.Config.minio . logBucket . stext)
+      (cfg ^. Buzgibi.Config.minio . logBucket . stext)
       (permitItem (cfg ^. katip . severity . from stringify))
       (cfg ^. katip . verbosity . from stringify)
 
@@ -267,12 +268,12 @@ main = do
         env'' <- registerScribe "file" file defaultScribeSettings env'
         registerScribe "minio" minioScribe defaultScribeSettings env''
 
-  let s@Scaffold.Config.SendGrid {..} = cfg ^. Scaffold.Config.sendGrid
+  let s@Buzgibi.Config.SendGrid {..} = cfg ^. Buzgibi.Config.sendGrid
   let sendgrid = fmap ((s,) . SendGrid.configure sendGridUrl) sendGridApiKey
 
   let captcha = envKeys >>= envKeysCaptchaKey
 
-  let katipMinio = Minio minioEnv (cfg ^. Scaffold.Config.minio . Scaffold.Config.bucketPrefix)
+  let katipMinio = Minio minioEnv (cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix)
   let katipEnv = KatipEnv term hasqlpool manager (cfg ^. service . coerced) katipMinio telegram sendgrid captcha
 
   let runApp le = runKatipContextT le (mempty @LogContexts) mempty $ App.run appCfg

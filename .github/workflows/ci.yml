@@ -1,4 +1,4 @@
-name: Docker Image for Backend
+name: Docker Image for Backend (Buzgibi)
 
 on: 
   push:

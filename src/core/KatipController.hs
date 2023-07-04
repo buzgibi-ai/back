@@ -53,6 +53,9 @@ module KatipController
   )
 where
 
+import Buzgibi.Config (SendGrid)
+import Buzgibi.EnvKeys
+
 import Control.Concurrent.STM
 import Control.DeepSeq
 import Control.Lens
@@ -79,8 +82,6 @@ import Network.HTTP.Client
 import qualified Network.Minio as Minio
 import "sendgrid" OpenAPI.Common as SendGrid
 import Pretty
-import Scaffold.Config (SendGrid)
-import Scaffold.EnvKeys
 import Servant.Server (Handler)
 import Servant.Server.Internal.ServerError
 import Telegram

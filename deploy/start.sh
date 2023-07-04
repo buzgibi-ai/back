@@ -13,7 +13,7 @@ tag="${branch}_${sha}"
 
 cat <<EOT >> .env
   DBUSER=sonny
-  DATABASE=scaffold
+  DATABASE=buzgibi
   TAG=$tag
 EOT
 

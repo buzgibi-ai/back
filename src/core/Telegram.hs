@@ -8,6 +8,8 @@
 
 module Telegram (Service (..), mkService, TelegramMsg (..), runMsgDeliver, File (..)) where
 
+import Buzgibi.Config (Env (..), Telegram (..))
+
 import Control.Applicative
 import Control.Concurrent.STM
 import qualified Control.Exception as E
@@ -25,7 +27,6 @@ import Katip
 import qualified Network.HTTP.Client as HTTP
 import Network.HTTP.Client.MultipartFormData (PartM (partFilename), formDataBody, partBS, partLBS)
 import qualified Network.HTTP.Types.Status as HTTP
-import Scaffold.Config (Env (..), Telegram (..))
 import Servant.Multipart.File
 
 data Service = Service

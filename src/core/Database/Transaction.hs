@@ -23,6 +23,8 @@ module Database.Transaction
   )
 where
 
+import Buzgibi.Transport.Error
+
 import Control.Exception (throwIO)
 import Control.Lens
 import Control.Lens.Iso.Extended
@@ -49,7 +51,6 @@ import Hasql.TH
 import Katip
 import KatipController
 import PostgreSQL.ErrorCodes
-import Scaffold.Transport.Error
 
 newtype QueryErrorWrapper = QueryErrorWrapper Hasql.QueryError
   deriving (Show)

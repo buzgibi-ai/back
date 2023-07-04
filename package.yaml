@@ -1,10 +1,10 @@
-name:                scaffold
+name:                buzgibi
 version:             0.0.1
 license:             BSD-3-Clause
-author:              "scaffold"
+author:              "Buzgibi"
 maintainer:
  - "Sergey Yakovlev, home<fclaw007@gmail.com>"
-copyright:           "2020"
+copyright:           "2023"
 ghc-options:
   - -threaded
   - -rtsopts
@@ -42,7 +42,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description: Please see the README on GitHub at <https://gitlab.com/edgenode2/server/-/blob/master/README.md>
+description: Please see the README on GitHub at <https://github.com/buzgibi-ai/back/blob/master/README.md>
 
 dependencies:
     - base >= 4.7 && < 5
@@ -209,8 +209,8 @@ executables:
     main:                Main.hs
     source-dirs:         
       - src/main
-    dependencies:        
-      - scaffold
+    dependencies:
+      - buzgibi
       - directory
       - text
       - lens
@@ -235,7 +235,7 @@ tests:
        - prog
        - test
     dependencies:
-    - scaffold
+    - buzgibi
     - servant
     - hspec
     - servant-swagger
