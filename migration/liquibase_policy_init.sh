@@ -19,10 +19,9 @@
 
 /liquibase/liquibase \
     --driver=org.postgresql.Driver \
-    --url=jdbc:postgresql://db:5432/scaffold \
+    --url=jdbc:postgresql://db:5432/buzgibi \
     --changeLogFile=changelog/changelog.xml \
     --username=sonny \
     --password=3190d261d186aeead3a8deec202737c7775af5c8d455a9e5ba958c48b5fd3f59 \
-    --logLevel=info \
-    --hub-mode=off \
+    --log-level info \
     update
