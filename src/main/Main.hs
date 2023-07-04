@@ -16,7 +16,7 @@
 module Main (main) where
 
 import qualified Buzgibi.Application as App
-import Buzgibi.Auth (User (User))
+import Buzgibi.Auth (AuthenticatedUser (AuthenticatedUser))
 import Buzgibi.Config
 import Buzgibi.EnvKeys
 
@@ -224,7 +224,7 @@ main = do
       Map.fromList $
         flip foldMap (T.splitOn "," content) $ \x ->
           case T.splitOn ":" x of
-            [pass, email] -> [(pass, User email)]
+            [pass, email] -> [(pass, AuthenticatedUser email)]
             _ -> []
 
   let appCfg =

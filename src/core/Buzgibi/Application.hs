@@ -23,7 +23,7 @@ module Buzgibi.Application (Cfg (..), AppMonad (..), run) where
 
 import Buzgibi.Api
 import qualified Buzgibi.Api.Controller.Controller as Controller
-import Buzgibi.Auth (User, checkBasicAuth)
+import Buzgibi.Auth (AuthenticatedUser, checkBasicAuth)
 import qualified Buzgibi.Config as Cfg
 import Buzgibi.Transport.Error
 import qualified Buzgibi.Transport.Response as Response
@@ -80,7 +80,7 @@ data Cfg = Cfg
     cfgServerPort :: !Int,
     cfgCors :: !Cfg.Cors,
     cfgServerError :: !Cfg.ServerError,
-    cfgAdminStorage :: !(M.Map T.Text User),
+    cfgAdminStorage :: !(M.Map T.Text AuthenticatedUser),
     mute500 :: !(Maybe Bool)
   }
 
@@ -130,7 +130,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   let server =
         hoistServerWithContext
           (withSwagger api)
-          (Proxy @'[JWTSettings, CookieSettings, BasicAuthData -> IO (AuthResult User)])
+          (Proxy @'[JWTSettings, CookieSettings, BasicAuthData -> IO (AuthResult AuthenticatedUser)])
           (runKatipController cfg (KatipControllerState 0 write_ch))
           ( toServant Controller.controller
               :<|> swaggerSchemaUIServerT

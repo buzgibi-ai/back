@@ -28,7 +28,7 @@ import qualified Buzgibi.Api.Controller.Frontend.Log as Frontend.Log
 import qualified Buzgibi.Api.Controller.Frontend.Translate as Frontend.Translate
 import qualified Buzgibi.Api.Controller.ReCaptcha.Verify as ReCaptcha.Verify
 import qualified Buzgibi.Api.Controller.SendGrid.SendMail as SendGrid.Send
-import Buzgibi.Auth
+import qualified Buzgibi.Auth as Auth
 import Buzgibi.Transport.Model.User (BasicAuth (..))
 import Buzgibi.Transport.Response
 import Servant.API.Generic
@@ -129,7 +129,7 @@ frontend =
           . Frontend.GetMeta.controller
     }
 
-user :: User -> UserApi (AsServerT KatipControllerM)
+user :: Auth.AuthenticatedUser -> UserApi (AsServerT KatipControllerM)
 user _ =
   UserApi
     { _userApiGetProfile = \_ ->

@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Buzgibi.Auth (User (..), withBasicAuth, checkBasicAuth) where
+module Buzgibi.Auth (AuthenticatedUser (..), withBasicAuth, checkBasicAuth) where
 
 import Buzgibi.Transport.Response
 
@@ -18,24 +18,24 @@ import KatipController (KatipControllerM, KatipLoggerLocIO)
 import Servant (BasicAuthData (..))
 import Servant.Auth.Server (AuthResult (..), BasicAuthCfg, FromBasicAuthData (..), FromJWT (decodeJWT), ToJWT (..), wwwAuthenticatedErr)
 
-newtype User = User {email :: T.Text} deriving (Show)
+newtype AuthenticatedUser = AuthenticatedUser {email :: T.Text} deriving (Show)
 
-instance FromJWT User where
+instance FromJWT AuthenticatedUser where
   decodeJWT _ = undefined
 
-instance ToJWT User where
+instance ToJWT AuthenticatedUser where
   encodeJWT _ = emptyClaimsSet
 
-type instance BasicAuthCfg = BasicAuthData -> IO (AuthResult User)
+type instance BasicAuthCfg = BasicAuthData -> IO (AuthResult AuthenticatedUser)
 
-instance FromBasicAuthData User where
+instance FromBasicAuthData AuthenticatedUser where
   fromBasicAuthData basicAuthData authChecker = authChecker basicAuthData
 
-withBasicAuth :: AuthResult User -> (User -> KatipControllerM (Response a)) -> KatipControllerM (Response a)
+withBasicAuth :: AuthResult AuthenticatedUser -> (AuthenticatedUser -> KatipControllerM (Response a)) -> KatipControllerM (Response a)
 withBasicAuth (Authenticated user) runApi = runApi user
 withBasicAuth _ _ = throwError $ wwwAuthenticatedErr "only for authorized personnel"
 
-checkBasicAuth :: KatipLoggerLocIO -> M.Map T.Text User -> BasicAuthData -> IO (AuthResult User)
+checkBasicAuth :: KatipLoggerLocIO -> M.Map T.Text AuthenticatedUser -> BasicAuthData -> IO (AuthResult AuthenticatedUser)
 checkBasicAuth log storage auth_data = do
   log getLoc InfoS $ ls $ show (basicAuthPassword auth_data, basicAuthUsername auth_data)
-  return $ maybe Indefinite (const (Authenticated (User mempty))) $ T.decodeUtf8 (basicAuthPassword auth_data) `M.lookup` storage
+  return $ maybe Indefinite (const (Authenticated (AuthenticatedUser mempty))) $ T.decodeUtf8 (basicAuthPassword auth_data) `M.lookup` storage

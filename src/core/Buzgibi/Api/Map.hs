@@ -20,7 +20,7 @@ import Buzgibi.Api.Foreign as Foreign
 import Buzgibi.Api.Frontend as Front
 import Buzgibi.Api.ReCaptcha as ReCaptcha
 import Buzgibi.Api.User as User
-import Buzgibi.Auth
+import Buzgibi.Auth (AuthenticatedUser)
 import Servant.API
 import Servant.API.Generic
 import qualified Servant.Auth.Server as SA
@@ -46,7 +46,7 @@ data HttpApi route = HttpApi
       route
         :- Tags "User"
           :> "user"
-          :> SA.Auth '[SA.BasicAuth, SA.JWT] User
+          :> SA.Auth '[SA.BasicAuth, SA.JWT] AuthenticatedUser
           :> ToServant UserApi AsApi,
     _httpApiForeign ::
       route
