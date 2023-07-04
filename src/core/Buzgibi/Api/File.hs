@@ -8,10 +8,10 @@
 
 module Buzgibi.Api.File (FileApi (..)) where
 
-import qualified Data.Text as T
 import Buzgibi.Api.Controller.File.Download (Option)
 import Buzgibi.Transport.Id
 import Buzgibi.Transport.Response
+import qualified Data.Text as T
 import Servant.API.Extended
 import Servant.API.Generic
 import Servant.Multipart

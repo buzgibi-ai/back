@@ -16,7 +16,6 @@
 module Buzgibi.Api.Controller.Frontend.GetCookies (controller, cookieTitle, Cookie) where
 
 import Buzgibi.Transport.Response (Response (..))
-
 import Control.Monad.IO.Class
 import Data.Aeson
 import Data.Aeson.Generic.DerivingVia

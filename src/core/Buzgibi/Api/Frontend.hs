@@ -8,13 +8,13 @@
 
 module Buzgibi.Api.Frontend (FrontendApi (..)) where
 
-import qualified Data.Text as T
 import Buzgibi.Api.Controller.Frontend.GetCookies (Cookie)
 import Buzgibi.Api.Controller.Frontend.GetMeta (Meta)
 import Buzgibi.Api.Controller.Frontend.Init (Init)
 import Buzgibi.Api.Controller.Frontend.Log (FrontendLogRequest)
 import Buzgibi.Api.Controller.Frontend.Translate hiding (controller)
 import Buzgibi.Transport.Response (Response)
+import qualified Data.Text as T
 import Servant.API.Extended
 import Servant.API.Generic (Generic)
 

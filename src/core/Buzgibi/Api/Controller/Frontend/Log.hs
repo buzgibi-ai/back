@@ -15,7 +15,6 @@ module Buzgibi.Api.Controller.Frontend.Log (controller, FrontendLogRequest) wher
 
 import Buzgibi.Transport.Payload (Payload (..))
 import Buzgibi.Transport.Response
-
 import Data.Aeson hiding (Error)
 import Data.Aeson.Generic.DerivingVia
 import Data.Char (toLower)

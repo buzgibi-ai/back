@@ -10,17 +10,26 @@ module Buzgibi.Api.User (AuthApi (..), UserApi (..)) where
 
 import Buzgibi.Transport.Model.User
 import Buzgibi.Transport.Response (Response)
-import Servant.API.Extended (JSON, Post, ReqBody, type (:>), Capture)
+import Servant.API.Extended (Capture, Get, JSON, Post, ReqBody, type (:>))
 import Servant.API.Generic (Generic, GenericMode (type (:-)))
 
-newtype AuthApi route = AuthApi
-  { _authApiAuthWithBasic ::
+data AuthApi route = AuthApi
+  { _authApiLogin ::
       route
-        :- "auth"
-          :> "login"
+        :- "login"
           :> Capture "auth_type" AuthType
           :> ReqBody '[JSON] Credentials
-          :> Post '[JSON] (Response AuthToken)
+          :> Post '[JSON] (Response AuthToken),
+    _authApiRegister ::
+      route
+        :- "register"
+          :> ReqBody '[JSON] Credentials
+          :> Post '[JSON] (Response AuthToken),
+    _authApiLogout ::
+      route
+        :- "logout"
+          :> ReqBody '[JSON] AuthToken
+          :> Post '[JSON] (Response ())
   }
   deriving stock (Generic)
 
@@ -28,6 +37,6 @@ newtype UserApi route = UserApi
   { _userApiGetProfile ::
       route
         :- "profile"
-          :> Post '[JSON] (Response ())
+          :> Get '[JSON] (Response ())
   }
   deriving stock (Generic)

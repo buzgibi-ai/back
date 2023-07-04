@@ -5,12 +5,11 @@
 
 module Buzgibi.Api.Controller.File.Upload (controller) where
 
+import BuildInfo
 import Buzgibi.Statement.File as File
 import Buzgibi.Transport.Id
 import Buzgibi.Transport.Model.File
 import Buzgibi.Transport.Response
-
-import BuildInfo
 import Control.Lens
 import Control.Lens.Iso.Extended
 import Control.Monad
@@ -61,7 +60,7 @@ controller bucket x = do
     return $ maybe (Left (MErrIO (userError "minio server didn't respond"))) (fmap (const tpl)) minioResult
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   let (error_xs, success_xs) = partitionEithers es
-  ids <- katipTransaction hasql $ statement File.save success_xs
+  ids <- transactionM hasql $ statement File.save success_xs
   for_ error_xs $ runTelegram $location
   return $ case ids of
     [] -> Errors $ map (asError . (\e -> show e ^. stext)) error_xs

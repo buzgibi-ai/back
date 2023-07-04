@@ -9,7 +9,6 @@
 module Telegram (Service (..), mkService, TelegramMsg (..), runMsgDeliver, File (..)) where
 
 import Buzgibi.Config (Env (..), Telegram (..))
-
 import Control.Applicative
 import Control.Concurrent.STM
 import qualified Control.Exception as E

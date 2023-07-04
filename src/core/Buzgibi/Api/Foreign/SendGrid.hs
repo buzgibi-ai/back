@@ -10,7 +10,6 @@ module Buzgibi.Api.Foreign.SendGrid (SendGridApi (..)) where
 
 import Buzgibi.Api.Controller.SendGrid.SendMail (SendGridSendMailRequest)
 import Buzgibi.Transport.Response (Response)
-
 import Servant.API.Extended (JSON, Post, ReqBody, type (:>))
 import Servant.API.Generic (Generic, GenericMode (type (:-)))
 

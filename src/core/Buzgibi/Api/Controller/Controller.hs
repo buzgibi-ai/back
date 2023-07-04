@@ -13,9 +13,10 @@ module Buzgibi.Api.Controller.Controller (controller) where
 
 -- controllers
 
-import Katip
-import KatipController
 import Buzgibi.Api
+import qualified Buzgibi.Api.Controller.Auth.Login as Auth.Login
+import qualified Buzgibi.Api.Controller.Auth.Logout as Auth.Logout
+import qualified Buzgibi.Api.Controller.Auth.Register as Auth.Register
 import qualified Buzgibi.Api.Controller.File.Delete as File.Delete
 import qualified Buzgibi.Api.Controller.File.Download as File.Download
 import qualified Buzgibi.Api.Controller.File.Patch as File.Patch
@@ -28,8 +29,8 @@ import qualified Buzgibi.Api.Controller.Frontend.Translate as Frontend.Translate
 import qualified Buzgibi.Api.Controller.ReCaptcha.Verify as ReCaptcha.Verify
 import qualified Buzgibi.Api.Controller.SendGrid.SendMail as SendGrid.Send
 import qualified Buzgibi.Auth as Auth
-import Buzgibi.Transport.Model.User (AuthToken (..))
-import Buzgibi.Transport.Response
+import Katip
+import KatipController
 import Servant.API.Generic
 import Servant.RawM.Server ()
 import Servant.Server.Generic
@@ -76,11 +77,21 @@ file =
 auth :: AuthApi (AsServerT KatipControllerM)
 auth =
   AuthApi
-    { _authApiAuthWithBasic = \_ _ ->
+    { _authApiLogin = \_ cred ->
         flip logExceptionM ErrorS $
           katipAddNamespace
-            (Namespace ["auth", "login", "basic"])
-            (return $ Ok $ AuthToken "ZmNsYXcwMDdAZ21haWwuY29tOnRlc3Q=")
+            (Namespace ["auth", "login"])
+            (Auth.Login.controller cred),
+      _authApiRegister = \cred ->
+        flip logExceptionM ErrorS $
+          katipAddNamespace
+            (Namespace ["auth", "register"])
+            (Auth.Register.controller cred),
+      _authApiLogout =
+        flip logExceptionM ErrorS
+          . katipAddNamespace
+            (Namespace ["auth", "logout"])
+          . Auth.Logout.controller
     }
 
 frontend :: FrontendApi (AsServerT KatipControllerM)

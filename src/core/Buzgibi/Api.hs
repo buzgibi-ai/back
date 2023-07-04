@@ -24,9 +24,8 @@ module Buzgibi.Api
   )
 where
 
-import Buzgibi.Api.Map
-
 import BuildInfo
+import Buzgibi.Api.Map
 import Control.Lens
 import Control.Lens.Iso.Extended
 import Data.Proxy

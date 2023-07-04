@@ -17,7 +17,6 @@ module Buzgibi.Api.Controller.SendGrid.SendMail (controller, SendGridSendMailReq
 
 import Buzgibi.Config (Email (..), SendGrid (..), personalizationEmail)
 import Buzgibi.Transport.Response
-
 import Control.Lens
 import Control.Monad (when)
 import Control.Monad.IO.Class
@@ -47,7 +46,7 @@ import OpenAPI.Operations.POSTMailSend
     mkPOSTMailSendRequestBodyPersonalizationssendgrid,
     pOSTMailSend,
     pOSTMailSendRequestBodyPersonalizationssendgridSendAt,
-    pOSTMailSendRequestBodyPersonalizationssendgridSubject
+    pOSTMailSendRequestBodyPersonalizationssendgridSubject,
   )
 import OpenAPI.Types.FromEmailObject (mkFromEmailObject)
 import OpenAPI.Types.ToEmailArray (mkToEmailArrayItem)

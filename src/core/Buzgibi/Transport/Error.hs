@@ -20,7 +20,6 @@ module Buzgibi.Transport.Error
 where
 
 import Buzgibi.Transport.Payload
-
 import Control.Exception
 import Control.Lens hiding ((.=))
 import Data.Aeson.Extended hiding (Error)

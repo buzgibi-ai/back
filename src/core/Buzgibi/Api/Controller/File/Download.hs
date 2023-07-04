@@ -8,13 +8,12 @@
 
 module Buzgibi.Api.Controller.File.Download (controller, Option) where
 
+import BuildInfo
 import Buzgibi.Statement.File as File
 import Buzgibi.Transport.Error
 import Buzgibi.Transport.Id
 import Buzgibi.Transport.Model.File
 import qualified Buzgibi.Transport.Response as Response
-
-import BuildInfo
 import Conduit
 import Control.Lens
 import Control.Lens.Iso.Extended
@@ -60,7 +59,7 @@ controller option id width_m height_m = do
   let notFound = "file {" <> show (coerce @(Id "file") @Int64 id) ^. stext <> "} not found"
   meta <-
     fmap (maybeToRight (asError notFound)) $
-      katipTransaction hasql $
+      transactionM hasql $
         statement File.getMeta id
   minioResp <- fmap join $ for meta $ \x -> do
     Minio {..} <- fmap (^. katipEnv . minio) ask

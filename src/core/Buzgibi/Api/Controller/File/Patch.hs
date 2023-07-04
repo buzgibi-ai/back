@@ -7,12 +7,11 @@
 
 module Buzgibi.Api.Controller.File.Patch (controller) where
 
+import BuildInfo
 import Buzgibi.Statement.File as File
 import Buzgibi.Transport.Id
 import Buzgibi.Transport.Model.File
 import Buzgibi.Transport.Response
-
-import BuildInfo
 import Control.Lens
 import Control.Lens.Iso.Extended
 import Control.Monad
@@ -35,12 +34,12 @@ controller id file = do
   let notFound = "file {" <> show (coerce @(Id "file") @Int64 id) ^. stext <> "} not found"
   resp <-
     fmap (maybeToRight (asError notFound)) $
-      katipTransaction hasql $
+      transactionM hasql $
         statement File.getHashWithBucket id
   let patch (hash, bucket) = do
         Minio {..} <- fmap (^. katipEnv . minio) ask
         void $
-          katipTransaction hasql $
+          transactionM hasql $
             statement
               File.patch
               ( Name (UnicodeText (fileName file)),

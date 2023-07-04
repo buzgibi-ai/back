@@ -16,7 +16,6 @@
 module Buzgibi.Api.Controller.Frontend.Init (controller, Init) where
 
 import Buzgibi.Transport.Response
-
 import Control.Lens
 import Data.Aeson hiding (Error)
 import Data.Aeson.Generic.DerivingVia
@@ -80,4 +79,3 @@ defInit = Init def def
 
 controller :: KatipControllerM (Response Init)
 controller = return $ Ok defInit
- 

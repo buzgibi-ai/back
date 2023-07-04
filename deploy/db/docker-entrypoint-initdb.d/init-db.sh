@@ -62,6 +62,7 @@ init_user_and_db() {
      create extension hstore;
      create extension ltree;
      create extension pg_trgm;
+     create extension pgcrypto;
 EOSQL
 }
 

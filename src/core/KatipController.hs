@@ -36,6 +36,7 @@ module KatipController
     conn,
     telegram,
     captchaKey,
+    jwk,
 
     -- * run
     runKatipController,
@@ -49,13 +50,12 @@ module KatipController
 
     -- * aux
     runTelegram,
-    sendGrid
+    sendGrid,
   )
 where
 
 import Buzgibi.Config (SendGrid)
 import Buzgibi.EnvKeys
-
 import Control.Concurrent.STM
 import Control.DeepSeq
 import Control.Lens
@@ -68,6 +68,7 @@ import qualified Control.Monad.RWS.Strict as RWS
 import Control.Monad.Reader.Class as R
 import Control.Monad.Time
 import Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Crypto.JWT as Jose
 import Data.Default.Class
 import Data.Monoid.Colorful (Term)
 import qualified Data.Pool as Pool
@@ -98,7 +99,8 @@ data KatipEnv = KatipEnv
     katipEnvMinio :: !Minio,
     katipEnvTelegram :: !Telegram.Service,
     katipEnvSendGrid :: !(Maybe (SendGrid, SendGrid.Configuration)),
-    katipEnvCaptchaKey :: !(Maybe T.Text)
+    katipEnvCaptchaKey :: !(Maybe T.Text),
+    katipEnvJwk :: !Jose.JWK
   }
 
 data Minio = Minio {minioConn :: !Minio.MinioConn, minioBucketPrefix :: !T.Text}

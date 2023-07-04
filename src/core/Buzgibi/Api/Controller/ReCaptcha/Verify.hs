@@ -14,7 +14,6 @@
 module Buzgibi.Api.Controller.ReCaptcha.Verify (Token, ReCaptcha, controller) where
 
 import Buzgibi.Transport.Response
-
 import Control.Lens
 import Control.Lens.Iso.Extended (bytesLazy, textbs)
 import Control.Monad (when)

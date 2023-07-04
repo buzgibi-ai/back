@@ -15,7 +15,6 @@
 module Buzgibi.Api.Controller.Frontend.GetMeta (controller, Meta) where
 
 import Buzgibi.Transport.Response
-
 import Data.Aeson hiding (Error)
 import Data.Aeson.Generic.DerivingVia
 import Data.Char (toLower)

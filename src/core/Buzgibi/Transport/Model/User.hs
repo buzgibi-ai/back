@@ -5,18 +5,18 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE InstanceSigs #-}
 
 module Buzgibi.Transport.Model.User (AuthToken (..), Credentials (..), AuthType) where
 
 import Control.Lens
+import Control.Lens.Iso.Extended (jsonb, stext)
 import Data.Aeson
 import Data.Aeson.Generic.DerivingVia
 import Data.Proxy
@@ -25,9 +25,8 @@ import Data.Text (Text)
 import GHC.Exts
 import GHC.Generics (Generic)
 import TH.Mk
-import Control.Lens.Iso.Extended (jsonb, stext)
 
-data AuthType = Basic | JWT
+data AuthType = JWT
   deriving stock (Generic)
   deriving (Enum)
 
@@ -47,7 +46,7 @@ instance ToSchema AuthToken where
       NamedSchema (Just "AuthToken") $
         toSchema (Proxy @Text)
 
-data Credentials = Credentials {login :: Text, password :: Text}
+data Credentials = Credentials {email :: Text, password :: Text}
   deriving stock (Generic)
   deriving
     (ToJSON, FromJSON)
@@ -62,4 +61,4 @@ instance ToSchema Credentials where
       NamedSchema (Just "Credentials") $
         mempty
           & type_ ?~ SwaggerObject
-          & properties .~ fromList [("login", textSchema), ("password", textSchema)]
+          & properties .~ fromList [("email", textSchema), ("password", textSchema)]

@@ -18,7 +18,6 @@
 module Buzgibi.Api.Controller.Frontend.Translate (controller, Lang (..), Translation, Map (..)) where
 
 import Buzgibi.Transport.Response
-
 import Control.Lens
 import Control.Lens.Iso.Extended (jsonb, stext)
 import Data.Aeson (FromJSON, ToJSON)

@@ -16,7 +16,6 @@
 module Main (main) where
 
 import qualified Buzgibi.Application as App
-import Buzgibi.Auth (AuthenticatedUser (AuthenticatedUser))
 import Buzgibi.Config
 import Buzgibi.EnvKeys
 
@@ -31,13 +30,10 @@ import Control.Monad.RWS.Strict (evalRWST)
 import Data.Char (isUpper, toLower)
 import Data.Default.Class
 import Data.Foldable (for_)
-import qualified Data.Map as Map
 import Data.Maybe
 import Data.Monoid.Colorful (hGetTerm)
 import qualified Data.Pool as Pool
 import Data.String
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import Data.Time.Clock.System
 import Data.Traversable (for)
 import GHC.Read
@@ -62,6 +58,8 @@ import System.IO
 import qualified Telegram
 import Text.ParserCombinators.ReadPrec (pfail)
 import qualified Text.Read.Lex as L
+import Crypto.JOSE.JWK (genJWK, KeyMaterialGenParam( RSAGenParam ))
+import Control.Monad.IO.Class
 
 data PrintCfg = Y | N deriving stock (Generic)
 
@@ -93,7 +91,6 @@ data Cmd w = Cmd
     swaggerHost :: w ::: Maybe String <?> "swagger host",
     swaggerPort :: w ::: Maybe Int <?> "swagger port",
     serverPort :: w ::: Maybe Int <?> "server port",
-    cfgAdminStoragePath :: w ::: FilePath <?> "admin storage",
     printCfg :: w ::: Maybe PrintCfg <?> "whether config be printed",
     envPath :: w ::: Maybe FilePath <?> "file for storing sensitive data. it's used only in deployment",
     mute500 :: w ::: Maybe Bool <?> "how to render 500 error"
@@ -217,16 +214,6 @@ main = do
   let mkNm = Namespace [("<" ++ $(gitCommit) ++ ">") ^. stext]
   init_env <- initLogEnv mkNm (cfg ^. katip . Buzgibi.Config.env . isoEnv . stext . coerced)
 
-  createDirectoryIfMissing True cfgAdminStoragePath
-  admin_storage <- withFile (cfgAdminStoragePath <> "/" <> "passwords") ReadMode $ \h -> do
-    content <- T.hGetContents h
-    return $
-      Map.fromList $
-        flip foldMap (T.splitOn "," content) $ \x ->
-          case T.splitOn ":" x of
-            [pass, email] -> [(pass, AuthenticatedUser email)]
-            _ -> []
-
   let appCfg =
         App.Cfg
           (cfg ^. swagger . host . coerced)
@@ -234,7 +221,6 @@ main = do
           (cfg ^. serverConnection . port)
           (cfg ^. cors)
           (cfg ^. serverError)
-          admin_storage
           mute500
 
   manager <-
@@ -273,8 +259,10 @@ main = do
 
   let captcha = envKeys >>= envKeysCaptchaKey
 
+  jwk <- liftIO $ genJWK (RSAGenParam (4096 `div` 8))
+
   let katipMinio = Minio minioEnv (cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix)
-  let katipEnv = KatipEnv term hasqlpool manager (cfg ^. service . coerced) katipMinio telegram sendgrid captcha
+  let katipEnv = KatipEnv term hasqlpool manager (cfg ^. service . coerced) katipMinio telegram sendgrid captcha jwk
 
   let runApp le = runKatipContextT le (mempty @LogContexts) mempty $ App.run appCfg
   bracket env closeScribes $ void . (\x -> evalRWST (App.runAppMonad x) katipEnv def) . runApp

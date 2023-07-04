@@ -28,7 +28,6 @@ module Buzgibi.Transport.Response
 where
 
 import Buzgibi.Transport.Error as Buzgibi
-
 import Control.Lens hiding ((.=))
 import Data.Aeson.Extended hiding (Error)
 import Data.Swagger hiding (Response)

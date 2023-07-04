@@ -21,14 +21,12 @@
 
 module Buzgibi.Application (Cfg (..), AppMonad (..), run) where
 
+import BuildInfo
 import Buzgibi.Api
 import qualified Buzgibi.Api.Controller.Controller as Controller
-import Buzgibi.Auth (AuthenticatedUser, checkBasicAuth)
 import qualified Buzgibi.Config as Cfg
 import Buzgibi.Transport.Error
 import qualified Buzgibi.Transport.Response as Response
-
-import BuildInfo
 import Control.Concurrent.Async
 import Control.Concurrent.Lifted
 import Control.Concurrent.STM.TChan
@@ -41,13 +39,11 @@ import Control.Monad.IO.Class
 import Control.Monad.RWS.Strict as RWS
 import Control.Monad.STM
 import Control.Monad.Trans.Control
-import Crypto.JOSE.JWK
 import Data.Aeson
 import Data.Bool
 import Data.Coerce
 import Data.Either.Combinators
 import Data.Generics.Product.Fields
-import qualified Data.Map as M
 import Data.String.Conv
 import qualified Data.Text as T
 import Katip
@@ -59,7 +55,6 @@ import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
 import Network.Wai
 import qualified Network.Wai.Handler.Warp as Warp
-import qualified Network.Wai.Handler.WarpTLS as Warp
 import Network.Wai.Middleware.Cors
 import qualified Network.Wai.Middleware.Servant.Logger as Middleware
 import Network.Wai.Parse
@@ -70,8 +65,6 @@ import Servant.Auth.Server
 import Servant.Error.Formatters (formatters)
 import Servant.Multipart
 import Servant.Swagger.UI
-import System.Directory
-import System.FilePath.Posix
 import TextShow
 
 data Cfg = Cfg
@@ -80,7 +73,6 @@ data Cfg = Cfg
     cfgServerPort :: !Int,
     cfgCors :: !Cfg.Cors,
     cfgServerError :: !Cfg.ServerError,
-    cfgAdminStorage :: !(M.Map T.Text AuthenticatedUser),
     mute500 :: !(Maybe Bool)
   }
 
@@ -113,8 +105,6 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
 
   $(logTM) DebugS $ ls $ "server run on: " <> "http://127.0.0.1:" <> showt cfgServerPort
 
-  runTelegram logger $ "admin list: " <> show cfgAdminStorage
-
   configKatipEnv <- lift ask
   let initCfg = do
         configEnv <- getLogEnv
@@ -130,7 +120,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   let server =
         hoistServerWithContext
           (withSwagger api)
-          (Proxy @'[JWTSettings, CookieSettings, BasicAuthData -> IO (AuthResult AuthenticatedUser)])
+          (Proxy @'[CookieSettings, JWTSettings])
           (runKatipController cfg (KatipControllerState 0 write_ch))
           ( toServant Controller.controller
               :<|> swaggerSchemaUIServerT
@@ -139,9 +129,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   excep <- katipAddNamespace (Namespace ["exception"]) askLoggerIO
   ctx_logger <- katipAddNamespace (Namespace ["context"]) askLoggerIO
   req_logger <- katipAddNamespace (Namespace ["request"]) askLoggerIO
-  basic_auth <- katipAddNamespace (Namespace ["auth", "basic"]) askLoggerWithLocIO
-
-  jwk <- liftIO $ genJWK (RSAGenParam (4096 `div` 8))
+  auth_logger <- katipAddNamespace (Namespace ["auth"]) askLoggerIO
 
   let settings =
         Warp.defaultSettings
@@ -154,14 +142,11 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
         (defaultMultipartOptions (Proxy @Tmp))
           { generalOptions = clearMaxRequestNumFiles defaultParseRequestBodyOptions
           }
-  let mkCtx = formatters :. defaultJWTSettings jwk :. defaultCookieSettings :. checkBasicAuth basic_auth cfgAdminStorage :. EmptyContext
+  let mkCtx = formatters :. defaultJWTSettings (configKatipEnv ^. jwk) :. defaultCookieSettings :. EmptyContext
   let runServer = serveWithContext (withSwagger api) mkCtx server
   mware_logger <- katipAddNamespace (Namespace ["middleware"]) askLoggerWithLocIO
 
-  path <- liftIO getCurrentDirectory
-  let tls_settings = (Warp.tlsSettings (path </> "tls/certificate") (path </> "tls/key")) {Warp.onInsecure = Warp.AllowInsecure}
-
-  serverAsync <- liftIO $ async $ Warp.runTLS tls_settings settings (middleware cfgCors mware_logger runServer)
+  serverAsync <- liftIO $ async $ Warp.runSettings settings (middleware cfgCors mware_logger runServer)
   mail_logger <- katipAddNamespace (Namespace ["mail"]) askLoggerIO
   teleram_logger <- katipAddNamespace (Namespace ["telegram"]) askLoggerIO
   telegramAsync <- liftIO $ async $ forever $ runMsgDeliver read_ch telegram_service teleram_logger

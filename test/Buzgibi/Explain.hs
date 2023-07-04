@@ -12,6 +12,7 @@
 module Buzgibi.Explain (spec_explain) where
 
 import qualified Buzgibi.Statement.File
+import qualified Buzgibi.Statement.User.Auth 
 
 import Control.Lens
 import Control.Monad.IO.Class
@@ -65,4 +66,9 @@ explainTests =
         "getHashWithBucket" =>> Buzgibi.Statement.File.getHashWithBucket,
         "patch" =>> Buzgibi.Statement.File.patch
       ]
+  , "Buzgibi.Statement.User.Auth" ==>
+     [  "insert" =>> Buzgibi.Statement.User.Auth.insert,
+        "logout" =>> Buzgibi.Statement.User.Auth.logout,
+        "insertToken" =>> Buzgibi.Statement.User.Auth.insertToken
+     ]
   ]

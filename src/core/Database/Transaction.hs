@@ -12,9 +12,9 @@
 
 module Database.Transaction
   ( transactionViolationError,
-    katipTransactionViolationError,
+    transactionMViolationError,
     transaction,
-    katipTransaction,
+    transactionM,
     statement,
     SessionR,
     ParamsShow (..),
@@ -24,7 +24,6 @@ module Database.Transaction
 where
 
 import Buzgibi.Transport.Error
-
 import Control.Exception (throwIO)
 import Control.Lens
 import Control.Lens.Iso.Extended
@@ -183,8 +182,8 @@ statement s@(Hasql.Statement sql _ _ _) a = do
   liftIO $ logger DebugS (ls (sql <> " { params: [" <> (render a ^. stext . textbs)) <> "] }")
   lift $ Hasql.statement a s
 
-katipTransaction :: Pool Hasql.Connection -> ReaderT KatipLoggerIO Session a -> KatipControllerM a
-katipTransaction pool session = katipAddNamespace (Namespace ["db", "hasql"]) askLoggerIO >>= (liftIO . flip (transaction pool) session)
+transactionM :: Pool Hasql.Connection -> ReaderT KatipLoggerIO Session a -> KatipControllerM a
+transactionM pool session = katipAddNamespace (Namespace ["db", "hasql"]) askLoggerIO >>= (liftIO . flip (transaction pool) session)
 
-katipTransactionViolationError :: Pool Hasql.Connection -> ReaderT KatipLoggerIO Session a -> KatipControllerM (Either ViolationError a)
-katipTransactionViolationError pool session = katipAddNamespace (Namespace ["db", "hasql"]) askLoggerIO >>= (liftIO . flip (transactionViolationError pool) session)
+transactionMViolationError :: Pool Hasql.Connection -> ReaderT KatipLoggerIO Session a -> KatipControllerM (Either ViolationError a)
+transactionMViolationError pool session = katipAddNamespace (Namespace ["db", "hasql"]) askLoggerIO >>= (liftIO . flip (transactionViolationError pool) session)

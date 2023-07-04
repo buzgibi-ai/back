@@ -168,7 +168,6 @@ library:
     - tuple-sop
     - generic-random
     - generic-deriving
-    - password
     - ghc-prim
     - base64-bytestring
     - generic-arbitrary
@@ -227,6 +226,7 @@ executables:
       - mtl
       - http-client-tls
       - filepath
+      - jose
 
 tests:
   tasty:
