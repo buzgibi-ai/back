@@ -13,7 +13,6 @@ module Buzgibi.Api.Controller.Controller (controller) where
 
 -- controllers
 
-import Control.Monad.Except
 import Katip
 import KatipController
 import Buzgibi.Api
@@ -29,10 +28,9 @@ import qualified Buzgibi.Api.Controller.Frontend.Translate as Frontend.Translate
 import qualified Buzgibi.Api.Controller.ReCaptcha.Verify as ReCaptcha.Verify
 import qualified Buzgibi.Api.Controller.SendGrid.SendMail as SendGrid.Send
 import qualified Buzgibi.Auth as Auth
-import Buzgibi.Transport.Model.User (BasicAuth (..))
+import Buzgibi.Transport.Model.User (AuthToken (..))
 import Buzgibi.Transport.Response
 import Servant.API.Generic
-import Servant.Auth.Server (AuthResult (..), wwwAuthenticatedErr)
 import Servant.RawM.Server ()
 import Servant.Server.Generic
 
@@ -45,14 +43,7 @@ httpApi =
     { _httpApiFile = toServant file,
       _httpApiAuth = toServant auth,
       _httpApiFront = toServant frontend,
-      _httpApiUser =
-        \case
-          Authenticated u -> toServant $ user u
-          _ ->
-            const $
-              throwError $
-                wwwAuthenticatedErr
-                  "only for authorized personnel",
+      _httpApiUser = (`Auth.withAuth` (toServant . user)),
       _httpApiForeign = toServant _foreign,
       _httpApiReCaptcha = toServant captcha
     }
@@ -85,11 +76,11 @@ file =
 auth :: AuthApi (AsServerT KatipControllerM)
 auth =
   AuthApi
-    { _authApiAuthWithBasic = \_ ->
+    { _authApiAuthWithBasic = \_ _ ->
         flip logExceptionM ErrorS $
           katipAddNamespace
             (Namespace ["auth", "login", "basic"])
-            (return $ Ok $ BasicAuth "ZmNsYXcwMDdAZ21haWwuY29tOnRlc3Q=")
+            (return $ Ok $ AuthToken "ZmNsYXcwMDdAZ21haWwuY29tOnRlc3Q=")
     }
 
 frontend :: FrontendApi (AsServerT KatipControllerM)
@@ -132,7 +123,7 @@ frontend =
 user :: Auth.AuthenticatedUser -> UserApi (AsServerT KatipControllerM)
 user _ =
   UserApi
-    { _userApiGetProfile = \_ ->
+    { _userApiGetProfile =
         flip logExceptionM ErrorS $
           katipAddNamespace
             (Namespace ["user", "profile", "get"])

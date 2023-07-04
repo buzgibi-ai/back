@@ -9,8 +9,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE InstanceSigs #-}
 
-module Buzgibi.Transport.Model.User (BasicAuth (..), BasicCredentials (..)) where
+module Buzgibi.Transport.Model.User (AuthToken (..), Credentials (..), AuthType) where
 
 import Control.Lens
 import Data.Aeson
@@ -19,32 +23,43 @@ import Data.Proxy
 import Data.Swagger
 import Data.Text (Text)
 import GHC.Exts
-import GHC.Generics
+import GHC.Generics (Generic)
+import TH.Mk
+import Control.Lens.Iso.Extended (jsonb, stext)
 
-newtype BasicAuth = BasicAuth Text
+data AuthType = Basic | JWT
+  deriving stock (Generic)
+  deriving (Enum)
+
+mkToSchemaAndJSON ''AuthType
+mkEnumConvertor ''AuthType
+mkParamSchemaEnum ''AuthType [|isoAuthType . jsonb|]
+mkFromHttpApiDataEnum ''AuthType [|from stext . from isoAuthType . to Right|]
+
+newtype AuthToken = AuthToken Text
   deriving stock (Generic)
   deriving anyclass (ToParamSchema)
   deriving newtype (ToJSON, FromJSON)
 
-instance ToSchema BasicAuth where
+instance ToSchema AuthToken where
   declareNamedSchema _ =
     pure $
-      NamedSchema (Just "BasicAuth") $
+      NamedSchema (Just "AuthToken") $
         toSchema (Proxy @Text)
 
-data BasicCredentials = BasicCredentials {login :: Text, password :: Text}
+data Credentials = Credentials {login :: Text, password :: Text}
   deriving stock (Generic)
   deriving
     (ToJSON, FromJSON)
     via WithOptions
-          '[FieldLabelModifier '[UserDefined (StripConstructor BasicCredentials)]]
-          BasicCredentials
+          '[FieldLabelModifier '[UserDefined (StripConstructor Credentials)]]
+          Credentials
 
-instance ToSchema BasicCredentials where
+instance ToSchema Credentials where
   declareNamedSchema _ = do
     textSchema <- declareSchemaRef (Proxy @Text)
     pure $
-      NamedSchema (Just "BasicCredentials") $
+      NamedSchema (Just "Credentials") $
         mempty
           & type_ ?~ SwaggerObject
           & properties .~ fromList [("login", textSchema), ("password", textSchema)]

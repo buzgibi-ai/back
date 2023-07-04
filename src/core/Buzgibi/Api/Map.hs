@@ -46,7 +46,7 @@ data HttpApi route = HttpApi
       route
         :- Tags "User"
           :> "user"
-          :> SA.Auth '[SA.BasicAuth, SA.JWT] AuthenticatedUser
+          :> SA.Auth '[SA.JWT, SA.BasicAuth] AuthenticatedUser
           :> ToServant UserApi AsApi,
     _httpApiForeign ::
       route

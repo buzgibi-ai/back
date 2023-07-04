@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Buzgibi.Auth (AuthenticatedUser (..), withBasicAuth, checkBasicAuth) where
+module Buzgibi.Auth (AuthenticatedUser (..), withAuth, checkBasicAuth) where
 
 import Buzgibi.Transport.Response
 
@@ -31,9 +31,9 @@ type instance BasicAuthCfg = BasicAuthData -> IO (AuthResult AuthenticatedUser)
 instance FromBasicAuthData AuthenticatedUser where
   fromBasicAuthData basicAuthData authChecker = authChecker basicAuthData
 
-withBasicAuth :: AuthResult AuthenticatedUser -> (AuthenticatedUser -> KatipControllerM (Response a)) -> KatipControllerM (Response a)
-withBasicAuth (Authenticated user) runApi = runApi user
-withBasicAuth _ _ = throwError $ wwwAuthenticatedErr "only for authorized personnel"
+withAuth :: AuthResult AuthenticatedUser -> (AuthenticatedUser -> KatipControllerM (Response a)) -> KatipControllerM (Response a)
+withAuth (Authenticated user) runApi = runApi user
+withAuth _ _ = throwError $ wwwAuthenticatedErr "only for authorized personnel"
 
 checkBasicAuth :: KatipLoggerLocIO -> M.Map T.Text AuthenticatedUser -> BasicAuthData -> IO (AuthResult AuthenticatedUser)
 checkBasicAuth log storage auth_data = do
