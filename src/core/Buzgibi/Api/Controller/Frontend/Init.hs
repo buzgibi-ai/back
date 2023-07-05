@@ -12,6 +12,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Buzgibi.Api.Controller.Frontend.Init (controller, Init) where
 
@@ -36,7 +37,9 @@ import Buzgibi.Auth (validateJwt)
 import Servant.Auth.Server (defaultJWTSettings)
 import Data.Coerce
 import Control.Monad.IO.Class
-import Control.Lens.Iso.Extended (textbs)
+import Control.Lens.Iso.Extended (textbs, jsonb, stext)
+import TH.Mk
+import Data.Traversable (for)
 
 data Env = Env
   { envToTelegram :: !Bool,
@@ -60,12 +63,25 @@ deriveToSchemaFieldLabelModifier
        in (fromMaybe s (stripPrefix (toLower head : tail) s)) & ix 0 %~ toLower
     |]
 
+
+data JWTStatus = Valid | Invalid | Skip
+  deriving stock (Generic)
+  deriving (Enum)
+
+instance Default JWTStatus where
+  def = Valid
+
+mkToSchemaAndJSON ''JWTStatus
+mkEnumConvertor ''JWTStatus
+mkParamSchemaEnum ''JWTStatus [|isoJWTStatus . jsonb|]
+mkFromHttpApiDataEnum ''JWTStatus [|from stext . from isoJWTStatus . to Right|]
+
 data Init = Init
   { sha :: !T.Text,
     shaCss :: !T.Text,
     cookies :: ![T.Text],
     env :: !(Maybe Env),
-    isJwtValid :: !Bool
+    isJwtValid :: !JWTStatus
   }
   deriving stock (Generic)
   deriving
@@ -86,8 +102,10 @@ deriveToSchemaFieldLabelModifier
 
 defInit = Init def def def def def
 
-controller :: AuthToken -> KatipControllerM (Response Init)
+controller :: Maybe AuthToken -> KatipControllerM (Response Init)
 controller token = do
-  key <- fmap (^. katipEnv . jwk) ask
-  res <- liftIO $ validateJwt (defaultJWTSettings key) $ coerce token^.textbs
-  return $ Ok $ defInit { isJwtValid = case res of Left _ -> False; _ -> True }
+  tokenResp <- for token $ \tk -> do
+    key <- fmap (^. katipEnv . jwk) ask
+    res <- liftIO $ validateJwt (defaultJWTSettings key) $ coerce tk^.textbs
+    return $ case res of Left _ -> Invalid; _ -> Valid  
+  return $ Ok $ defInit { isJwtValid = fromMaybe Skip tokenResp }

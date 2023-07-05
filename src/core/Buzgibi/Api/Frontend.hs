@@ -28,8 +28,8 @@ data FrontendApi route = FrontendApi
     _frontendApiInit ::
       route
         :- "init"
-          :> ReqBody '[JSON] AuthToken
-          :> Post '[JSON] (Response Init),
+          :> QueryParam' '[Optional] "token" AuthToken
+          :> Get '[JSON] (Response Init),
     _frontendApiTranslate ::
       route
         :- "translate"
