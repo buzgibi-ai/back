@@ -53,7 +53,6 @@ ARG mute_500
 ARG env_yaml
 ARG env_captcha_key
 ARG telnyx_key
-ARG github_buzgibi_key
 
 ENV MUTE_500 ${mute_500}
 ENV YAML_ENV ${env_yaml}
@@ -68,15 +67,6 @@ RUN echo \
 "telegrambot: $telegram_bot_key\n"\
 "captchakey: $env_captcha_key\n"\
 "telnyx: $telnyx_key"\
-"github:\n"\
-"   front:\n"\
-"      owner: buzgibi\n"\ 
-"      repo: front\n"\
-"      key: $github_buzgibi_key\n"\
-"   frontCss:\n"\
-"      owner: buzgibi\n"\ 
-"      repo: front-css\n"\ 
-"      key: $github_buzgibi_key\n"\
 > /server/env.yaml
 
 COPY --from=server-build --chown=nix:nix /build/bin /server/bin
