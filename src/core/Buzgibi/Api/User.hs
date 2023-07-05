@@ -12,6 +12,8 @@ import Buzgibi.Transport.Model.User
 import Buzgibi.Transport.Response (Response)
 import Servant.API.Extended (Capture, Get, JSON, Post, ReqBody, type (:>))
 import Servant.API.Generic (Generic, GenericMode (type (:-)))
+import qualified Servant.Auth.Server as SA
+import Buzgibi.Auth (AuthenticatedUser, JWT)
 
 data AuthApi route = AuthApi
   { _authApiLogin ::
@@ -37,6 +39,7 @@ newtype UserApi route = UserApi
   { _userApiGetProfile ::
       route
         :- "profile"
+          :> SA.Auth '[JWT] AuthenticatedUser
           :> Get '[JSON] (Response ())
   }
   deriving stock (Generic)

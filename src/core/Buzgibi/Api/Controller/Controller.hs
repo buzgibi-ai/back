@@ -44,7 +44,7 @@ httpApi =
     { _httpApiFile = toServant file,
       _httpApiAuth = toServant auth,
       _httpApiFront = toServant frontend,
-      _httpApiUser = (`Auth.withAuth` (toServant . user)),
+      _httpApiUser = toServant user,
       _httpApiForeign = toServant _foreign,
       _httpApiReCaptcha = toServant captcha
     }
@@ -52,22 +52,25 @@ httpApi =
 file :: FileApi (AsServerT KatipControllerM)
 file =
   FileApi
-    { _fileApiUpload = \bucket files ->
-        flip logExceptionM ErrorS $
-          katipAddNamespace
-            (Namespace ["file", "upload"])
-            (File.Upload.controller bucket files),
-      _fileApiPatch = \fid file ->
-        flip logExceptionM ErrorS $
-          katipAddNamespace
-            (Namespace ["file", "patch"])
-            (File.Patch.controller fid file),
-      _fileApiDelete =
-        flip logExceptionM ErrorS
-          . katipAddNamespace
-            (Namespace ["file", "delete"])
-          . File.Delete.controller,
-      _fileApiDownload = \option fid w h ->
+    { _fileApiUpload = \auth bucket files ->
+        auth `Auth.withAuth` \_ -> 
+          flip logExceptionM ErrorS $
+            katipAddNamespace
+              (Namespace ["file", "upload"])
+              (File.Upload.controller bucket files),
+      _fileApiPatch = \auth fid file ->
+        auth `Auth.withAuth` \_ ->
+          flip logExceptionM ErrorS $
+            katipAddNamespace
+              (Namespace ["file", "patch"])
+              (File.Patch.controller fid file),
+      _fileApiDelete = \auth ident ->
+        auth `Auth.withAuth` \_ ->
+          flip logExceptionM ErrorS $
+            katipAddNamespace
+              (Namespace ["file", "delete"])
+              (File.Delete.controller ident),
+      _fileApiDownload = \_ option fid w h ->
         flip logExceptionM ErrorS $
           katipAddNamespace
             (Namespace ["file", "download"])
@@ -131,14 +134,15 @@ frontend =
           . Frontend.GetMeta.controller
     }
 
-user :: Auth.AuthenticatedUser -> UserApi (AsServerT KatipControllerM)
-user _ =
+user :: UserApi (AsServerT KatipControllerM)
+user =
   UserApi
-    { _userApiGetProfile =
-        flip logExceptionM ErrorS $
-          katipAddNamespace
-            (Namespace ["user", "profile", "get"])
-            undefined
+    { _userApiGetProfile = \auth ->
+        auth `Auth.withAuth` \_ ->
+          flip logExceptionM ErrorS $
+            katipAddNamespace
+              (Namespace ["user", "profile", "get"])
+              undefined
     }
 
 _foreign :: ForeignApi (AsServerT KatipControllerM)

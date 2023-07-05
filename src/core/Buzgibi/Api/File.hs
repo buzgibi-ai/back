@@ -17,29 +17,35 @@ import Servant.API.Generic
 import Servant.Multipart
 import Servant.Multipart.File
 import Servant.RawM
+import qualified Servant.Auth.Server as SA
+import Buzgibi.Auth (AuthenticatedUser, JWT)
 
 data FileApi route = FileApi
   { _fileApiUpload ::
       route
         :- Description "upload to server"
+          :> SA.Auth '[JWT] AuthenticatedUser
           :> Capture "bucket" T.Text
           :> MultipartForm Tmp Files
           :> Put '[JSON] (Response [Id "file"]),
     _fileApiPatch ::
       route
         :- Description "patch file by replacing new one"
+          :> SA.Auth '[JWT] AuthenticatedUser
           :> Capture "file_id" (Id "file")
           :> MultipartForm Tmp File
           :> Patch '[JSON] (Response ()),
     _fileApiDelete ::
       route
         :- Description "delete file"
+          :> SA.Auth '[JWT] AuthenticatedUser
           :> Capture "file_id" (Id "file")
           :> Delete '[JSON] (Response ()),
     _fileApiDownload ::
       route
         :- Description "download from server"
           :> "download"
+          :> Capture "user_id" (Id "user")
           :> Capture "option" Option
           :> Capture "file_id" (Id "file")
           :> QueryParam "width" Int
