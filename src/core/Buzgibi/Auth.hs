@@ -7,7 +7,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Buzgibi.Auth (AuthenticatedUser (..), JWT,  generateJWT, withAuth) where
+module Buzgibi.Auth (AuthenticatedUser (..), JWT,  generateJWT, validateJwt, withAuth) where
 
 import Buzgibi.Transport.Response
 
@@ -61,28 +61,30 @@ instance ToJWT AuthenticatedUser where
 instance IsAuth JWT AuthenticatedUser where
   type AuthArgs JWT = '[JWTSettings]
   runAuth _ _ = \cfg -> do
-    res <- ask >>= Except.runExceptT . validateJwt cfg
+    res <- ask >>= Except.runExceptT . go cfg
     fromEither res
     where 
-      validateJwt :: JWTSettings -> Request -> Except.ExceptT AuthError AuthCheck AuthenticatedUser
-      validateJwt cfg req = do 
+      go :: JWTSettings -> Request -> Except.ExceptT AuthError AuthCheck AuthenticatedUser
+      go cfg req = do 
         header <- Except.except $ maybeToRight NoAuthHeader $ lookup "Authorization" (requestHeaders req)
         let bearer = "Bearer "
         let (mbearer, token) = BS.splitAt (BS.length bearer) header
         unless (mbearer `constEq` bearer) $
           Except.throwE NoBearer 
-        usere <- liftIO $ go cfg token
+        usere <- liftIO $ validateJwt cfg token
         Except.except usere
       fromEither (Left NoAuthHeader) = fail "NoAuthHeader"
       fromEither (Left NoBearer) = fail "NoBearer"
       fromEither (Left TokenInvalid) = fail "TokenInvalid"
       fromEither (Right user) = pure user
-      go cfg@JWTSettings {..} input = do
-         keys <- validationKeys
-         verifiedJWT <- runJOSE @Jose.JWTError $ do
-           unverifiedJWT <- Jose.decodeCompact (BSL.fromStrict input)
-           Jose.verifyClaims (jwtSettingsToJwtValidationSettings cfg) keys unverifiedJWT   
-         pure $ join $ bimap (const TokenInvalid) (first (const JWTError) . decodeJWT) verifiedJWT
+
+validateJwt :: JWTSettings -> BS.ByteString -> IO (Either AuthError AuthenticatedUser)
+validateJwt cfg@JWTSettings {..} input = do
+    keys <- validationKeys
+    verifiedJWT <- runJOSE @Jose.JWTError $ do
+      unverifiedJWT <- Jose.decodeCompact (BSL.fromStrict input)
+      Jose.verifyClaims (jwtSettingsToJwtValidationSettings cfg) keys unverifiedJWT   
+    pure $ join $ bimap (const TokenInvalid) (first (const JWTError) . decodeJWT) verifiedJWT
 
 withAuth :: AuthResult AuthenticatedUser -> (AuthenticatedUser -> KatipControllerM (Response a)) -> KatipControllerM (Response a)
 withAuth (Authenticated user) runApi = runApi user

@@ -105,14 +105,13 @@ frontend =
           katipAddNamespace
             (Namespace ["frontend", "log"])
             (Frontend.Log.controller req),
-      _frontendApiInit =
+      _frontendApiInit = 
+        \token ->
         flip
-          logExceptionM
-          ErrorS
-          ( katipAddNamespace
+          logExceptionM ErrorS $
+            katipAddNamespace
               (Namespace ["frontend", "init"])
-              Frontend.Init.controller
-          ),
+              (Frontend.Init.controller token),
       _frontendApiTranslate =
         \lang ->
           flip logExceptionM ErrorS $

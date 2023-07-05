@@ -15,6 +15,7 @@
 
 module Buzgibi.Api.Controller.Frontend.Init (controller, Init) where
 
+import Buzgibi.Transport.Model.User (AuthToken (..))
 import Buzgibi.Transport.Response
 import Control.Lens
 import Data.Aeson hiding (Error)
@@ -31,6 +32,11 @@ import Data.Text.Extended ()
 import Data.Typeable (typeRep)
 import GHC.Generics hiding (from, to)
 import KatipController hiding (Service)
+import Buzgibi.Auth (validateJwt)
+import Servant.Auth.Server (defaultJWTSettings)
+import Data.Coerce
+import Control.Monad.IO.Class
+import Control.Lens.Iso.Extended (textbs)
 
 data Env = Env
   { envToTelegram :: !Bool,
@@ -55,8 +61,11 @@ deriveToSchemaFieldLabelModifier
     |]
 
 data Init = Init
-  { cookies :: ![T.Text],
-    env :: !(Maybe Env)
+  { sha :: !T.Text,
+    shaCss :: !T.Text,
+    cookies :: ![T.Text],
+    env :: !(Maybe Env),
+    isJwtValid :: !Bool
   }
   deriving stock (Generic)
   deriving
@@ -75,7 +84,10 @@ deriveToSchemaFieldLabelModifier
        in maybe s (map toLower) (stripPrefix (toLower head : tail) s)
     |]
 
-defInit = Init def def
+defInit = Init def def def def def
 
-controller :: KatipControllerM (Response Init)
-controller = return $ Ok defInit
+controller :: AuthToken -> KatipControllerM (Response Init)
+controller token = do
+  key <- fmap (^. katipEnv . jwk) ask
+  res <- liftIO $ validateJwt (defaultJWTSettings key) $ coerce token^.textbs
+  return $ Ok $ defInit { isJwtValid = case res of Left _ -> False; _ -> True }

@@ -37,7 +37,6 @@ module KatipController
     telegram,
     captchaKey,
     jwk,
-
     -- * run
     runKatipController,
 
