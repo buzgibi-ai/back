@@ -4,6 +4,15 @@
 
 [[ -z "${YAML_ENV}" ]] && env_yaml='env.yaml' || env_yaml="${YAML_ENV}"
 
+echo 'set up cron job'
+
+#write out current crontab
+crontab -l > commits_job
+#echo new cron into cron file
+echo "*/5 * * * * sh /server/scripts/front.commits.sh" >> commits_job
+#install new cron file
+crontab commits_job
+rm commits_job
 
 echo 'launch server..'
 . /home/nix/.nix-profile/etc/profile.d/nix.sh && \
