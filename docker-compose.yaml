@@ -37,15 +37,15 @@ services:
       buzgibi:
          ipv4_address: 192.168.22.6
 
-  front:
-    image: europe-west3-docker.pkg.dev/buzgibi/front/front
-    container_name: scaffold-front
-    restart: 'always'
-    ports:
-      - 3000:3000
-    networks:
-      buzgibi:
-        ipv4_address: 192.168.21.7
+  # front:
+  #   image: europe-west3-docker.pkg.dev/buzgibi/front/front
+  #   container_name: scaffold-front
+  #   restart: 'always'
+  #   ports:
+  #     - 3000:3000
+  #   networks:
+  #     buzgibi:
+  #       ipv4_address: 192.168.22.7
 
   storage:
     image: minio/minio:latest
