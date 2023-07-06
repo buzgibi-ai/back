@@ -33,6 +33,8 @@ services:
       - proxy-server
     ports:
       - 12000:12000
+    volumes:
+      - ${HOME}/env.yaml:/server/env.yaml
     networks:
       buzgibi:
          ipv4_address: 192.168.22.6

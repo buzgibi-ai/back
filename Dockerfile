@@ -47,14 +47,6 @@ RUN . /home/nix/.nix-profile/etc/profile.d/nix.sh && \
 
 FROM base as main
 
-ARG sendgrid_key
-ARG telegram_bot_key
-ARG mute_500
-ARG env_yaml
-ARG env_captcha_key
-ARG telnyx_key
-ARG github_key
-
 ENV MUTE_500 ${mute_500}
 ENV YAML_ENV ${env_yaml}
 
@@ -62,18 +54,6 @@ ENV YAML_ENV ${env_yaml}
 EXPOSE 12000/tcp
 
 WORKDIR /server
-
-RUN echo \
-"sendgrid: $sendgrid_key\n"\
-"telegrambot: $telegram_bot_key\n"\
-"captchakey: $env_captcha_key\n"\
-"telnyx: $telnyx_key\n"\
-"github:\n"\
-"  key: $github_key\n"\
-"  repos:\n"\
-"    - front\n"\
-"    - front-css\n"\
-> /server/env.yaml
 
 COPY --from=server-build --chown=nix:nix /build/bin /server/bin
 COPY --from=server-build --chown=nix:nix /build/deploy /server/deploy
