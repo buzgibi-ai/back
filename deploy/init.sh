@@ -4,8 +4,6 @@
 
 [[ -z "${YAML_ENV}" ]] && env_yaml='env.yaml' || env_yaml="${YAML_ENV}"
 
-echo 'set up cron job'
-
 echo 'launch server..'
 . /home/nix/.nix-profile/etc/profile.d/nix.sh && \
   nix-shell deploy.nix \
