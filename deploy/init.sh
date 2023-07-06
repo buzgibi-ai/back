@@ -10,7 +10,7 @@ echo 'launch server..'
     --log-format bar-with-logs \
     --verbose \
     --command \
-    "./bin/server \
+    "$PWD/bin/server \
         --cfg_path deploy/config.yaml \
         --path_to_katip deploy \
         --path_to_jwk deploy \
