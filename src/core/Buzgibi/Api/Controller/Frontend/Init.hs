@@ -16,6 +16,7 @@
 
 module Buzgibi.Api.Controller.Frontend.Init (controller, Init) where
 
+import Buzgibi.EnvKeys (repos, key)
 import Buzgibi.Transport.Model.User (AuthToken (..))
 import Buzgibi.Transport.Response
 import Control.Lens
@@ -40,6 +41,21 @@ import Control.Monad.IO.Class
 import Control.Lens.Iso.Extended (textbs, jsonb, stext)
 import TH.Mk
 import Data.Traversable (for)
+import qualified GitHub.Auth as GitHub 
+import qualified GitHub as GitHub
+import Control.Concurrent.Async (forConcurrently)
+import Data.String (fromString)
+import Data.Bifunctor (second, first)
+import qualified Data.Vector as V
+import Data.Either.Combinators (maybeToRight)
+import Control.Monad (join)
+import Buzgibi.Api.Controller.Utils (withError)
+
+data Error = Front404 | Github
+
+instance Show Error where
+  show Front404 = "front info cannot be obtained"
+  show Github = "github responded with error"
 
 data Env = Env
   { envToTelegram :: !Bool,
@@ -107,5 +123,19 @@ controller token = do
   tokenResp <- for token $ \tk -> do
     key <- fmap (^. katipEnv . jwk) ask
     res <- liftIO $ validateJwt (defaultJWTSettings key) $ coerce tk^.textbs
-    return $ case res of Left _ -> Invalid; _ -> Valid  
-  return $ Ok $ defInit { isJwtValid = fromMaybe Skip tokenResp }
+    return $ case res of Left _ -> Invalid; _ -> Valid
+  
+  github <- fmap (^. katipEnv . github) ask
+  resp <- fmap (join . maybeToRight Front404) $
+    for github $ \val -> liftIO $ do
+      fmap (first (const Github) . sequence) $ 
+        forConcurrently (val^.repos) $ \repo -> do
+          let query = 
+                GitHub.commitsForR 
+                "buzgibi-ai" 
+                (fromString (repo^.from stext)) 
+                (GitHub.FetchAtLeast 1)
+          fmap (second (GitHub.untagName . V.head . fmap GitHub.commitSha)) $ 
+            GitHub.github (GitHub.OAuth (val^.key.textbs)) query
+
+  return $ withError resp $ \[front, css] -> defInit { sha = front, shaCss = css, isJwtValid = fromMaybe Skip tokenResp }

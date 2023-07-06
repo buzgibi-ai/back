@@ -37,6 +37,7 @@ module KatipController
     telegram,
     captchaKey,
     jwk,
+    github,
     -- * run
     runKatipController,
 
@@ -99,7 +100,8 @@ data KatipEnv = KatipEnv
     katipEnvTelegram :: !Telegram.Service,
     katipEnvSendGrid :: !(Maybe (SendGrid, SendGrid.Configuration)),
     katipEnvCaptchaKey :: !(Maybe T.Text),
-    katipEnvJwk :: !Jose.JWK
+    katipEnvJwk :: !Jose.JWK,
+    katipEnvGithub :: !(Maybe Github)
   }
 
 data Minio = Minio {minioConn :: !Minio.MinioConn, minioBucketPrefix :: !T.Text}

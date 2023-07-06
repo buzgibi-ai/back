@@ -198,6 +198,7 @@ library:
     - telnyx
     - sendgrid
     - openai
+    - github
 
   source-dirs:
     - src/core

@@ -18,10 +18,21 @@ import Data.Aeson.Generic.DerivingVia
 import qualified Data.Text as T
 import GHC.Generics
 
+
+data Github = Github { githubKey :: !T.Text, githubRepos :: ![T.Text]  } 
+  deriving stock (Generic)
+  deriving stock (Show)
+  deriving
+    (FromJSON)
+    via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Github)]]
+          Github
+
 data EnvKeys = EnvKeys
   { envKeysSendgrid :: !(Maybe T.Text),
     envKeysTelegramBot :: !(Maybe T.Text),
-    envKeysCaptchaKey :: !(Maybe T.Text)
+    envKeysCaptchaKey :: !(Maybe T.Text),
+    envKeysGithub :: !(Maybe Github)
   }
   deriving stock (Generic)
   deriving stock (Show)
@@ -32,3 +43,4 @@ data EnvKeys = EnvKeys
           EnvKeys
 
 makeFields ''EnvKeys
+makeFields ''Github

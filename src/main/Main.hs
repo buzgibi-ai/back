@@ -258,11 +258,12 @@ main = do
   let sendgrid = fmap ((s,) . SendGrid.configure sendGridUrl) sendGridApiKey
 
   let captcha = envKeys >>= envKeysCaptchaKey
+  let github = envKeys >>= envKeysGithub
 
   jwk <- liftIO $ genJWK (RSAGenParam (4096 `div` 8))
 
   let katipMinio = Minio minioEnv (cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix)
-  let katipEnv = KatipEnv term hasqlpool manager (cfg ^. service . coerced) katipMinio telegram sendgrid captcha jwk
+  let katipEnv = KatipEnv term hasqlpool manager (cfg ^. service . coerced) katipMinio telegram sendgrid captcha jwk github
 
   let runApp le = runKatipContextT le (mempty @LogContexts) mempty $ App.run appCfg
   bracket env closeScribes $ void . (\x -> evalRWST (App.runAppMonad x) katipEnv def) . runApp
