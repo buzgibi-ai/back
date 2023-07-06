@@ -50,13 +50,8 @@ jobs:
         uses: docker/build-push-action@v4.0.0
         with:
           build-args: |
-            sendgrid_key=${{ secrets.SENDGRID_KEY }}
-            telegram_bot_key=${{ secrets.TELEGRAM_BOT_KEY }}
-            telnyx_key=${{ secrets.TELNYX_KEY }}
             mute_500=${{ vars.MUTE_500 }}
             env_yaml=${{ vars.ENV_YAML }}
-            env_captcha_key=${{ vars.ENV_CAPTCHA_KEY }}
-            github_key=${{ secrets.FRONT_REPO_KEY }}
           context: .
           file: ./Dockerfile
           push: true
