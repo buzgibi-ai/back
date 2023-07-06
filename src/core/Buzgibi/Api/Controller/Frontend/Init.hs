@@ -13,6 +13,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Buzgibi.Api.Controller.Frontend.Init (controller, Init) where
 
@@ -50,12 +51,16 @@ import qualified Data.Vector as V
 import Data.Either.Combinators (maybeToRight)
 import Control.Monad (join)
 import Buzgibi.Api.Controller.Utils (withError)
+import Data.List (find)
+import Data.Yaml (decodeEither', prettyPrintParseException)
+import Data.ByteString.Base64 (decodeLenient)
 
-data Error = Front404 | Github
+data Error = Front404 | Github | Yaml T.Text
 
 instance Show Error where
   show Front404 = "front info cannot be obtained"
   show Github = "github responded with error"
+  show (Yaml e) = "yaml error: " <> e^.from stext
 
 data Env = Env
   { envToTelegram :: !Bool,
@@ -132,10 +137,28 @@ controller token = do
         forConcurrently (val^.repos) $ \repo -> do
           let query = 
                 GitHub.commitsForR 
-                "buzgibi-ai" 
+                "buzgibi-ai"
                 (fromString (repo^.from stext)) 
                 (GitHub.FetchAtLeast 1)
           fmap (second (GitHub.untagName . V.head . fmap GitHub.commitSha)) $ 
             GitHub.github (GitHub.OAuth (val^.key.textbs)) query
 
-  return $ withError resp $ \[front, css] -> defInit { sha = front, shaCss = css, isJwtValid = fromMaybe Skip tokenResp }
+  let front_repo = do 
+          val <- github
+          repo <- find (== "front") (val^.repos)
+          pure (val^.key, repo)
+      
+  file <- fmap (join . maybeToRight Front404) $ 
+    for front_repo $ \(key, repo) -> 
+      liftIO $
+        fmap (first (const Github)) $ 
+          GitHub.github (GitHub.OAuth (key^.textbs)) $ 
+            GitHub.contentsForR "buzgibi-ai" (fromString (repo^.from stext)) "env.yaml" Nothing
+
+  return $ withError ((,) <$> resp <*> getContent file) $ \([front, css], env) -> defInit { sha = front, shaCss = css, env = env, isJwtValid = fromMaybe Skip tokenResp }
+
+getContent (Right (GitHub.ContentFile (GitHub.ContentFileData {contentFileContent}))) = 
+  first (Yaml . T.pack . prettyPrintParseException) $ 
+    decodeEither' $ 
+      contentFileContent ^. textbs . to decodeLenient
+getContent _ = Left Front404
