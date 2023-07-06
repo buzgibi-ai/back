@@ -47,6 +47,9 @@ RUN . /home/nix/.nix-profile/etc/profile.d/nix.sh && \
 
 FROM base as main
 
+ARG mute_500
+ARG env_yaml
+
 ENV MUTE_500 ${mute_500}
 ENV YAML_ENV ${env_yaml}
 
