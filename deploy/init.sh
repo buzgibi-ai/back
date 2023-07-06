@@ -1,8 +1,9 @@
 #!/bin/sh
 
-[[ -z "${MUTE_500}" ]] && mute500='True' || mute500="${MUTE_500}"
-
-[[ -z "${YAML_ENV}" ]] && env_yaml='env.yaml' || env_yaml="${YAML_ENV}"
+if [[ -z "${MUTE_500}" ]]; 
+then mute500="${MUTE_500}"
+else mute500='True'
+fi
 
 echo 'launch server..'
 . /home/nix/.nix-profile/etc/profile.d/nix.sh && \
@@ -15,5 +16,5 @@ echo 'launch server..'
         --path_to_katip deploy \
         --path_to_jwk deploy \
         --print_cfg y \
-        --env_path $env_yaml \
+        --env_path $HOME/env.yaml \
         --mute500 $mute500"
