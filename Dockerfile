@@ -4,9 +4,7 @@ RUN apt update && \
     apt install -y curl && \
     apt install -y tar && \
     apt install -y xz-utils && \
-    apt install -y locales && \
-    apt install -y cron && \
-    apt install -y jq
+    apt install -y locales
 
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
     locale-gen
@@ -75,7 +73,6 @@ COPY --from=server-build --chown=nix:nix /build/bin /server/bin
 COPY --from=server-build --chown=nix:nix /build/deploy /server/deploy
 COPY --from=server-build --chown=nix:nix /build/migration /server/migration
 COPY --from=server-build --chown=nix:nix /build/tls /server/tls
-COPY --from=server-build --chown=nix:nix /build/scripts /server/scripts
 COPY --from=server-build --chown=nix:nix /build/package.yaml /build/nix/deploy.nix /build/stack.yaml /build/Setup.hs /server/
 
 ENTRYPOINT ["/server/deploy/init.sh"]
