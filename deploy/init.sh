@@ -16,5 +16,5 @@ echo 'launch server..'
         --path_to_katip deploy \
         --path_to_jwk deploy \
         --print_cfg y \
-        --env_path $HOME/env.yaml \
+        --env_path $PWD/env.yaml \
         --mute500 $mute500"
