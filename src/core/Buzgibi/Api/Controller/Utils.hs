@@ -21,7 +21,7 @@ data ContentError = Resource404 | Yaml T.Text
 
 instance Show ContentError where
     show Resource404 = "resource not found"
-    show (Yaml e) = "yaml cannot ve parsed"
+    show (Yaml e) = "yaml cannot ve parsed. error: " <> show e
 
 getContent :: FromJSON a => Either e GitHub.Content -> Either ContentError a
 getContent (Right (GitHub.ContentFile (GitHub.ContentFileData {contentFileContent}))) = 

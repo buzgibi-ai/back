@@ -17,6 +17,7 @@
 
 module Buzgibi.Api.Controller.Frontend.Translate (controller, Lang (..), Translation, Map (..)) where
 
+import Buzgibi.Api.Controller.Frontend.Translate.Enum as Enum
 import Buzgibi.Api.Controller.Utils (withError, getContent, ContentError (..))
 import Buzgibi.Transport.Response
 import Control.Lens
@@ -97,7 +98,8 @@ instance (ToSchema k, ToSchema v, Typeable k, Typeable v) => ToSchema (Map k v) 
               ]
 
 data Translation = Translation
-  { translationPage :: [Map T.Text T.Text]
+  { translationPage :: [Map Enum.Page T.Text],
+    translationMenu :: [Map Enum.Menu T.Text]
   }
   deriving stock (Generic)
   deriving
