@@ -1,9 +1,6 @@
 #!/bin/sh
 
-if [[ -z "${MUTE_500}" ]]; 
-then mute500="${MUTE_500}"
-else mute500='True'
-fi
+mute500="${MUTE_500:-True}"
 
 env_file=$(realpath -s env.yaml)
 

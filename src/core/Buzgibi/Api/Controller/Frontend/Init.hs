@@ -13,7 +13,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE NamedFieldPuns #-}
 
 module Buzgibi.Api.Controller.Frontend.Init (controller, Init) where
 
@@ -50,17 +49,14 @@ import Data.Bifunctor (second, first)
 import qualified Data.Vector as V
 import Data.Either.Combinators (maybeToRight)
 import Control.Monad (join)
-import Buzgibi.Api.Controller.Utils (withError)
+import Buzgibi.Api.Controller.Utils (withError, getContent,  ContentError (..))
 import Data.List (find)
-import Data.Yaml (decodeEither', prettyPrintParseException)
-import Data.ByteString.Base64 (decodeLenient)
 
-data Error = Front404 | Github | Yaml T.Text
+data Error = Github | Content ContentError
 
 instance Show Error where
-  show Front404 = "front info cannot be obtained"
-  show Github = "github responded with error"
-  show (Yaml e) = "yaml error: " <> e^.from stext
+  show Github = "cannot find resource on github"
+  show (Content e) = show e
 
 data Env = Env
   { envToTelegram :: !Bool,
@@ -131,7 +127,7 @@ controller token = do
     return $ case res of Left _ -> Invalid; _ -> Valid
   
   github <- fmap (^. katipEnv . github) ask
-  resp <- fmap (join . maybeToRight Front404) $
+  resp <- fmap (join . maybeToRight (Content Resource404)) $
     for github $ \val -> liftIO $ do
       fmap (first (const Github) . sequence) $ 
         forConcurrently (val^.repos) $ \repo -> do
@@ -148,17 +144,11 @@ controller token = do
           repo <- find (== "front") (val^.repos)
           pure (val^.key, repo)
       
-  file <- fmap (join . maybeToRight Front404) $ 
+  file <- fmap (join . maybeToRight (Content Resource404)) $ 
     for front_repo $ \(key, repo) -> 
       liftIO $
         fmap (first (const Github)) $ 
           GitHub.github (GitHub.OAuth (key^.textbs)) $ 
             GitHub.contentsForR "buzgibi-ai" (fromString (repo^.from stext)) "env.yaml" Nothing
 
-  return $ withError ((,) <$> resp <*> getContent file) $ \([front, css], env) -> defInit { sha = front, shaCss = css, env = env, isJwtValid = fromMaybe Skip tokenResp }
-
-getContent (Right (GitHub.ContentFile (GitHub.ContentFileData {contentFileContent}))) = 
-  first (Yaml . T.pack . prettyPrintParseException) $ 
-    decodeEither' $ 
-      contentFileContent ^. textbs . to decodeLenient
-getContent _ = Left Front404
+  return $ withError ((,) <$> resp <*> first Content (getContent file)) $ \([front, css], env) -> defInit { sha = front, shaCss = css, env = env, isJwtValid = fromMaybe Skip tokenResp }
