@@ -1,20 +1,11 @@
 #!/bin/sh
 
-commit=$1
-
-sha=$(git rev-parse HEAD@{$commit})
-branch=$(git rev-parse --abbrev-ref HEAD)
-
-echo "go down along the commit tree to $commit commit(s)"
-echo "sha ---> $sha"
-echo "branch ---> $branch"
-
-tag="${branch}_${sha}"
+sha=$(git log -n 1 --pretty=format:"%H")
 
 cat <<EOT >> .env
   DBUSER=sonny
   DATABASE=buzgibi
-  TAG=$tag
+  TAG=master_${sha}
 EOT
 
 cp ~/ssl/front/buzgibi.crt ./deploy/nginx/ssl/front/buzgibi.crt

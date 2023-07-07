@@ -21,7 +21,7 @@ services:
          ipv4_address: 192.168.22.4
 
   back:
-    image: europe-west3-docker.pkg.dev/buzgibi/back/back:latest
+    image: europe-west3-docker.pkg.dev/buzgibi/back/back:${TAG}
     container_name: buzgibi-back
     links:
       - db
