@@ -67,7 +67,9 @@ explainTests =
         "patch" =>> Buzgibi.Statement.File.patch
       ]
   , "Buzgibi.Statement.User.Auth" ==>
-     [  "insert" =>> Buzgibi.Statement.User.Auth.insert,
+     [  "insertUser" =>> Buzgibi.Statement.User.Auth.insertUser,
+        "insertJwt" =>> Buzgibi.Statement.User.Auth.insertJwt,
+        "getUserIdByEmail" =>> Buzgibi.Statement.User.Auth.getUserIdByEmail,
         "logout" =>> Buzgibi.Statement.User.Auth.logout,
         "insertToken" =>> Buzgibi.Statement.User.Auth.insertToken
      ]
