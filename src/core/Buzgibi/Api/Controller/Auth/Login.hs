@@ -15,23 +15,29 @@ import KatipController
 import Control.Lens.Iso.Extended
 import Data.Traversable (for)
 import Data.Bifunctor (first)
+import Data.Either.Combinators (maybeToRight)
 
-data Error = User404 | JWT
+data Error = User404 | JWT | WrongPass
 
 instance Show Error where 
-    show User404 = "user or password wrong"
+    show User404 = "user wrong"
     show JWT = "jwt generation error"
+    show WrongPass = "wrong pass"
 
 controller :: Credentials -> KatipControllerM (Response AuthToken)
 controller cred = do
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   key <- fmap (^. katipEnv . jwk) ask
-  token <- liftIO $ Auth.generateJWT key $ email cred
-  resp <- fmap (join . first (const JWT)) $ for token $ \tk -> do
-    resp <- transactionM hasql $
-      statement Auth.insertToken 
-       (email cred, password cred, tk^.bytesLazy.from textbs)
-    return $
-      if resp then Right $ tk^.bytesLazy.from textbs
-      else Left User404
-  return $ withError resp AuthToken
+  let mkToken = liftIO . Auth.generateJWT key
+  res <- fmap join $ transactionM hasql $ do 
+    identm <- statement Auth.getUserIdByEmail (email cred)
+    fmap (maybeToRight User404) $ 
+      for identm $ \ident -> do 
+        tokene <- mkToken ident
+        fmap (join . first (const JWT)) $ 
+          for tokene $ \tokenbs -> do
+            let token = tokenbs^.bytesLazy.from textbs
+            res <- statement Auth.insertToken  (email cred, password cred, token)
+            return $ if res then Right token
+                     else Left WrongPass
+  return $ withError res AuthToken

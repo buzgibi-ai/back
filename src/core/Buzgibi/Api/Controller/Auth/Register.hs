@@ -15,6 +15,7 @@ import Control.Lens.Iso.Extended
 import Data.Traversable (for)
 import Control.Monad (join)
 import Data.Bifunctor (first)
+import Data.Either.Combinators (maybeToRight)
 
 data Error = UserTaken | JWT
 
@@ -26,12 +27,14 @@ controller :: Credentials -> KatipControllerM (Response AuthToken)
 controller cred = do
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   key <- fmap (^. katipEnv . jwk) ask
-  token <- liftIO $ Auth.generateJWT key $ email cred
-  res <- fmap (join . first (const JWT)) $ for token $ \tk -> do
-    res <- transactionM hasql $ 
-      statement Auth.insert
-        (email cred, password cred, tk^.bytesLazy.from textbs)
-    return $ 
-      if res then Right $ tk^.bytesLazy.from textbs
-      else Left UserTaken
+  let mkToken = liftIO . Auth.generateJWT key
+  res <- fmap join $ transactionM hasql $ do 
+    identm <- statement Auth.insertUser (email cred, password cred)
+    fmap (maybeToRight UserTaken) $ for identm $ \ident -> do 
+      tokene <- mkToken ident
+      fmap (first (const JWT)) $ 
+        for tokene $ \tokenbs -> do
+          let token = tokenbs^.bytesLazy.from textbs
+          _ <- statement Auth.insertJwt (ident, token)
+          return token
   return $ withError res AuthToken

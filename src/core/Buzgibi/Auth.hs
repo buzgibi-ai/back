@@ -6,8 +6,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE DeriveGeneric #-}
 
-module Buzgibi.Auth (AuthenticatedUser (..), JWT,  generateJWT, validateJwt, withAuth) where
+module Buzgibi.Auth (AuthenticatedUser (..), JWT,  UserIdentClaims, generateJWT, validateJwt, withAuth) where
 
 import Buzgibi.Transport.Response
 
@@ -36,8 +39,10 @@ import Servant.Auth.Server.Internal.ConfigTypes (jwtSettingsToJwtValidationSetti
 import Data.Bifunctor (first)
 import Control.Lens
 import Control.Monad.Time (currentTime)
-import Data.String (fromString)
 import Data.Time.Clock (addUTCTime)
+import GHC.Generics (Generic)
+import Data.Aeson.Generic.DerivingVia
+import Data.Aeson (FromJSON, ToJSON)
 
 data AuthError = NoAuthHeader | NoBearer | TokenInvalid | JWTError
 
@@ -94,14 +99,30 @@ withAuth e _ = return $ Error $ asError @T.Text $ "only for authorized personnel
       mkError NoSuchUser = "no user found"
       mkError Indefinite = "an authentication procedure cannot be carried out"
 
-generateJWT :: Jose.JWK -> T.Text -> IO (Either Jose.JWTError BSL.ByteString)
-generateJWT jwk email = do
+generateJWT :: Jose.JWK -> Int64 -> IO (Either Jose.JWTError BSL.ByteString)
+generateJWT jwk ident = do
   t <- currentTime
   let claims = 
        Jose.emptyClaimsSet
-       & Jose.claimIss ?~ fromString (T.unpack email)
        & Jose.claimExp ?~ Jose.NumericDate (addUTCTime 864000 t)
        & Jose.claimIat ?~ Jose.NumericDate t
+  let user = UserIdentClaims claims ident
   Jose.runJOSE $ do
     alg <- Jose.bestJWSAlg jwk
-    fmap encodeCompact $ Jose.signClaims jwk (Jose.newJWSHeader ((), alg)) claims
+    fmap encodeCompact $ Jose.signJWT jwk (Jose.newJWSHeader ((), alg)) user
+
+data UserIdentClaims = 
+     UserIdentClaims 
+     { 
+        userIdentClaimsJwtClaims :: Jose.ClaimsSet, 
+        userIdentClaimsIdent :: Int64 
+     }
+  deriving stock (Generic)
+  deriving
+    (ToJSON, FromJSON)
+    via WithOptions
+          '[FieldLabelModifier '[UserDefined FirstLetterToLower, UserDefined (StripConstructor UserIdentClaims)]]
+          UserIdentClaims
+
+instance Jose.HasClaimsSet UserIdentClaims where
+  claimsSet f s = fmap (\a' -> s { userIdentClaimsJwtClaims = a' }) (f (userIdentClaimsJwtClaims s))

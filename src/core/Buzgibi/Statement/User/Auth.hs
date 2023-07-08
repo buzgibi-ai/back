@@ -3,27 +3,34 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Buzgibi.Statement.User.Auth (insert, insertToken, logout) where
+module Buzgibi.Statement.User.Auth (insertUser, insertJwt, insertToken, logout, getUserIdByEmail) where
 
 import qualified Data.Text as T
 import qualified Hasql.Statement as HS
 import Hasql.TH
 import Control.Lens
 import Data.Coerce
+import Data.Int (Int64)
 
-insert :: HS.Statement (T.Text, T.Text, T.Text) Bool
-insert =
+insertUser :: HS.Statement (T.Text, T.Text) (Maybe Int64)
+insertUser =
+    [maybeStatement|
+      insert into auth.user
+      (email, pass)
+      values ($1 :: text, crypt($2 :: text, gen_salt('md5')))
+      on conflict on constraint email__uk do nothing
+      returning id :: int8|]
+
+insertJwt :: HS.Statement (Int64, T.Text) Bool
+insertJwt =
     dimap coerce (> 0) $
     [rowsAffectedStatement|
-       with new_user as (
-         insert into auth.user
-         (email, pass)
-         values ($1 :: text, crypt($2 :: text, gen_salt('md5')))
-         on conflict on constraint email__uk do nothing
-         returning id :: int8)
        insert into auth.jwt 
        (user_id, jwt) 
-       select id :: int8, $3 :: text from new_user|]
+       values ($1 :: int8, $2 :: text)|]
+
+getUserIdByEmail :: HS.Statement T.Text (Maybe Int64)
+getUserIdByEmail = [maybeStatement|select id :: int8 from auth.user where email = $1 :: text|]
 
 insertToken :: HS.Statement (T.Text, T.Text, T.Text) Bool
 insertToken =
