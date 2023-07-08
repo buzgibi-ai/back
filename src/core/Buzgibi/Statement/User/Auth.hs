@@ -54,5 +54,5 @@ insertToken =
        select id :: int8, $3 :: text from user_ident 
        where (select is_pass_valid from user_ident)|]
 
-logout :: HS.Statement T.Text Bool
-logout = dimap coerce (> 0) $ [rowsAffectedStatement| update auth.jwt set is_valid = false where jwt = $1 :: text and is_valid |]
+logout :: HS.Statement Int64 Bool
+logout = dimap coerce (> 0) $ [rowsAffectedStatement| update auth.jwt set is_valid = false where user_id = $1 :: int8 and is_valid |]

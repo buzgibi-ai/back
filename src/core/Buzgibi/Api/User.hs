@@ -30,7 +30,7 @@ data AuthApi route = AuthApi
     _authApiLogout ::
       route
         :- "logout"
-          :> ReqBody '[JSON] AuthToken
+          :> SA.Auth '[JWT] AuthenticatedUser
           :> Post '[JSON] (Response ())
   }
   deriving stock (Generic)

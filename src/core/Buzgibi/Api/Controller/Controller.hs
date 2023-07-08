@@ -90,11 +90,12 @@ auth =
           katipAddNamespace
             (Namespace ["auth", "register"])
             (Auth.Register.controller cred),
-      _authApiLogout =
-        flip logExceptionM ErrorS
-          . katipAddNamespace
-            (Namespace ["auth", "logout"])
-          . Auth.Logout.controller
+      _authApiLogout = \auth ->
+        auth `Auth.withAuth` \user ->
+          flip logExceptionM ErrorS $
+            katipAddNamespace
+              (Namespace ["auth", "logout"])
+              (Auth.Logout.controller user)
     }
 
 frontend :: FrontendApi (AsServerT KatipControllerM)

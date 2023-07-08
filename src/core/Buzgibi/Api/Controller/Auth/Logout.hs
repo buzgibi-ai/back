@@ -1,27 +1,30 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Buzgibi.Api.Controller.Auth.Logout (controller) where
 
+import Buzgibi.Auth (AuthenticatedUser (..))
 import qualified Buzgibi.Statement.User.Auth as Auth
-import Buzgibi.Transport.Model.User (AuthToken (..))
 import Buzgibi.Transport.Response (Response)
 import Buzgibi.Api.Controller.Utils (withError)
 import Control.Lens
 import Database.Transaction
 import KatipController
-import Data.Coerce
+import Katip
 
-data Error = Token404
+data Error = User404
 
 instance Show Error where 
-    show Token404 = "user or password wrong"
+    show User404 = "user or password wrong or jwt is invalid"
 
-controller :: AuthToken -> KatipControllerM (Response ())
-controller token = do
+controller :: AuthenticatedUser -> KatipControllerM (Response ())
+controller AuthenticatedUser { ident } = do
+  $(logTM) DebugS (logStr ("user ident ---> " <> show ident))
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   resp <- transactionM hasql $ do
-    resp <- statement Auth.logout $ coerce token 
+    resp <- statement Auth.logout ident 
     return $
       if resp then Right ()
-      else Left Token404
+      else Left User404
   return $ withError resp id

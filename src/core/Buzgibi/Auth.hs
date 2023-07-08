@@ -9,6 +9,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Buzgibi.Auth (AuthenticatedUser (..), JWT,  UserIdentClaims, generateJWT, validateJwt, withAuth) where
 
@@ -27,7 +28,7 @@ import Network.Wai (requestHeaders)
 import qualified Control.Monad.Trans.Except as Except
 import Data.Either.Combinators (maybeToRight)
 import qualified Data.ByteString as BS
-import Control.Monad (unless, join)
+import Control.Monad (unless)
 import Data.ByteArray (constEq)
 import Servant.Auth.Server.Internal.Types (AuthCheck (..))
 import Network.Wai (Request)
@@ -43,8 +44,9 @@ import Data.Time.Clock (addUTCTime)
 import GHC.Generics (Generic)
 import Data.Aeson.Generic.DerivingVia
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Traversable (for)
 
-data AuthError = NoAuthHeader | NoBearer | TokenInvalid | JWTError
+data AuthError = NoAuthHeader | NoBearer | TokenInvalid
 
 data JWT
 
@@ -55,10 +57,10 @@ instance HasSecurity JWT where
       type_ = SecuritySchemeApiKey (ApiKeyParams "Authorization" ApiKeyHeader)
       desc  = "JSON Web Token-based API key"
 
-data AuthenticatedUser = AuthenticatedUser {ident :: Int64, email :: T.Text} deriving (Show)
+newtype AuthenticatedUser = AuthenticatedUser {ident :: Int64} deriving (Show)
 
 instance FromJWT AuthenticatedUser where
-  decodeJWT _ = Right $ AuthenticatedUser 0 ""
+  decodeJWT _ = Right $ AuthenticatedUser 0
 
 instance ToJWT AuthenticatedUser where
   encodeJWT _ = emptyClaimsSet
@@ -86,10 +88,12 @@ instance IsAuth JWT AuthenticatedUser where
 validateJwt :: JWTSettings -> BS.ByteString -> IO (Either AuthError AuthenticatedUser)
 validateJwt cfg@JWTSettings {..} input = do
     keys <- validationKeys
-    verifiedJWT <- runJOSE @Jose.JWTError $ do
+    userClaimSet <- runJOSE @Jose.JWTError $ do
       unverifiedJWT <- Jose.decodeCompact (BSL.fromStrict input)
-      Jose.verifyClaims (jwtSettingsToJwtValidationSettings cfg) keys unverifiedJWT   
-    pure $ join $ bimap (const TokenInvalid) (first (const JWTError) . decodeJWT) verifiedJWT
+      Jose.verifyJWT (jwtSettingsToJwtValidationSettings cfg) keys unverifiedJWT
+    fmap (first (const TokenInvalid)) $ 
+      for userClaimSet $ \UserIdentClaims {userIdentClaimsIdent} -> 
+        return $ AuthenticatedUser userIdentClaimsIdent
 
 withAuth :: AuthResult AuthenticatedUser -> (AuthenticatedUser -> KatipControllerM (Response a)) -> KatipControllerM (Response a)
 withAuth (Authenticated user) runApi = runApi user
