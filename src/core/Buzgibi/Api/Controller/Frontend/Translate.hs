@@ -99,7 +99,8 @@ instance (ToSchema k, ToSchema v, Typeable k, Typeable v) => ToSchema (Map k v) 
 
 data Translation = Translation
   { translationPage :: [Map Enum.Page T.Text],
-    translationMenu :: [Map Enum.Menu T.Text]
+    translationMenu :: [Map Enum.Menu T.Text],
+    translationCopyright :: T.Text
   }
   deriving stock (Generic)
   deriving
