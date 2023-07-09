@@ -27,11 +27,11 @@ controller :: Credentials -> KatipControllerM (Response AuthToken)
 controller cred = do
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   key <- fmap (^. katipEnv . jwk) ask
-  let mkToken = liftIO . Auth.generateJWT key
+  let mkToken ident = liftIO . Auth.generateJWT key ident
   res <- fmap join $ transactionM hasql $ do 
     identm <- statement Auth.insertUser (email cred, password cred)
     fmap (maybeToRight UserTaken) $ for identm $ \ident -> do 
-      tokene <- mkToken ident
+      tokene <- mkToken ident $ email cred
       fmap (first (const JWT)) $ 
         for tokene $ \tokenbs -> do
           let token = tokenbs^.bytesLazy.from textbs

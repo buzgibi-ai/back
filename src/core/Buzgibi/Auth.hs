@@ -103,14 +103,14 @@ withAuth e _ = return $ Error $ asError @T.Text $ "only for authorized personnel
       mkError NoSuchUser = "no user found"
       mkError Indefinite = "an authentication procedure cannot be carried out"
 
-generateJWT :: Jose.JWK -> Int64 -> IO (Either Jose.JWTError BSL.ByteString)
-generateJWT jwk ident = do
+generateJWT :: Jose.JWK -> Int64 -> T.Text -> IO (Either Jose.JWTError BSL.ByteString)
+generateJWT jwk ident email = do
   t <- currentTime
   let claims = 
        Jose.emptyClaimsSet
        & Jose.claimExp ?~ Jose.NumericDate (addUTCTime 864000 t)
        & Jose.claimIat ?~ Jose.NumericDate t
-  let user = UserIdentClaims claims ident
+  let user = UserIdentClaims claims ident email
   Jose.runJOSE $ do
     alg <- Jose.bestJWSAlg jwk
     fmap encodeCompact $ Jose.signJWT jwk (Jose.newJWSHeader ((), alg)) user
@@ -118,8 +118,9 @@ generateJWT jwk ident = do
 data UserIdentClaims = 
      UserIdentClaims 
      { 
-        userIdentClaimsJwtClaims :: Jose.ClaimsSet, 
-        userIdentClaimsIdent :: Int64 
+        userIdentClaimsJwtClaims :: !Jose.ClaimsSet,
+        userIdentClaimsIdent :: !Int64,
+        userIdentClaimsEmail :: !T.Text
      }
   deriving stock (Generic)
   deriving
