@@ -1,14 +1,15 @@
 #!/bin/sh
 
-sha_front=$(curl -H "Accept: application/vnd.github+json" \
-  -H "Authorization: Bearer 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"\
-  -H "X-GitHub-Api-Version: 2022-11-28" \
-  https://api.github.com/repos/buzgibi-ai/front/commits/master | jq -r '.sha')
+git clone https://github.com/buzgibi-ai/front.git
+
+sha_front=$(cd front && git log -n 1 --pretty=format:"%H")
 
 sha_back=$(git log -n 1 --pretty=format:"%H")
 
 echo 'back sha --> ' + $sha_back
 echo 'front sha --> ' + $sha_front
+
+rm -rf front
 
 cat <<EOT >> .env
   DBUSER=sonny
