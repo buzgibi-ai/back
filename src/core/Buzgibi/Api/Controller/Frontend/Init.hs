@@ -52,10 +52,10 @@ import Control.Monad (join)
 import Buzgibi.Api.Controller.Utils (withError, getContent,  ContentError (..))
 import Data.List (find)
 
-data Error = Github | Content ContentError
+data Error = Github GitHub.Error | Content ContentError
 
 instance Show Error where
-  show Github = "cannot find resource on github"
+  show (Github e) = "cannot find resource on github: " <> show e 
   show (Content e) = show e
 
 data Env = Env
@@ -129,7 +129,7 @@ controller token = do
   github <- fmap (^. katipEnv . github) ask
   resp <- fmap (join . maybeToRight (Content Resource404)) $
     for github $ \val -> liftIO $ do
-      fmap (first (const Github) . sequence) $ 
+      fmap (first Github . sequence) $ 
         forConcurrently (val^.repos) $ \repo -> do
           let query = 
                 GitHub.commitsForR 
@@ -147,7 +147,7 @@ controller token = do
   file <- fmap (join . maybeToRight (Content Resource404)) $ 
     for front_repo $ \(key, repo) -> 
       liftIO $
-        fmap (first (const Github)) $ 
+        fmap (first Github) $ 
           GitHub.github (GitHub.OAuth (key^.textbs)) $ 
             GitHub.contentsForR "buzgibi-ai" (fromString (repo^.from stext)) "env.yaml" Nothing
 
