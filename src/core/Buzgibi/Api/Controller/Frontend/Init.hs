@@ -16,6 +16,7 @@
 
 module Buzgibi.Api.Controller.Frontend.Init (controller, Init) where
 
+import Buzgibi.Api.Controller.Frontend.GetCookies (cookieTitle) 
 import Buzgibi.EnvKeys (repos, key)
 import Buzgibi.Transport.Model.User (AuthToken (..))
 import Buzgibi.Transport.Response
@@ -151,4 +152,11 @@ controller token = do
           GitHub.github (GitHub.OAuth (key^.textbs)) $ 
             GitHub.contentsForR "buzgibi-ai" (fromString (repo^.from stext)) "env.yaml" Nothing
 
-  return $ withError ((,) <$> resp <*> first Content (getContent file)) $ \([front, css], env) -> defInit { sha = front, shaCss = css, env = env, isJwtValid = fromMaybe Skip tokenResp }
+  return $ withError ((,) <$> resp <*> first Content (getContent file)) $ 
+    \([front, css], env) -> 
+      defInit { 
+        cookies = [cookieTitle],
+         sha = front, 
+         shaCss = css, 
+         env = env, 
+         isJwtValid = fromMaybe Skip tokenResp }
