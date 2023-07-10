@@ -21,7 +21,7 @@ services:
          ipv4_address: 192.168.22.4
 
   back:
-    image: europe-west3-docker.pkg.dev/buzgibi/back/back:${TAG}
+    image: europe-west3-docker.pkg.dev/buzgibi/back/back:${BACK_TAG}
     container_name: buzgibi-back
     links:
       - db
@@ -41,7 +41,7 @@ services:
          ipv4_address: 192.168.22.6
 
   front:
-    image: europe-west3-docker.pkg.dev/buzgibi/front/front:latest
+    image: europe-west3-docker.pkg.dev/buzgibi/front/front:${FRONT_TAG}
     container_name: buzgibi-front
     restart: 'always'
     ports:

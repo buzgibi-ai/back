@@ -1,11 +1,20 @@
 #!/bin/sh
 
-sha=$(git log -n 1 --pretty=format:"%H")
+sha_front=$(curl -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer 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"\
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  https://api.github.com/repos/buzgibi-ai/front/commits/master | jq -r '.sha')
+
+sha_back=$(git log -n 1 --pretty=format:"%H")
+
+echo 'back sha --> ' + $sha_back
+echo 'front sha --> ' + $sha_front
 
 cat <<EOT >> .env
   DBUSER=sonny
   DATABASE=buzgibi
-  TAG=master_${sha}
+  BACK_TAG=master_${sha_back}
+  FRONT_TAG=master_${sha_front}
 EOT
 
 cp ~/ssl/front/buzgibi.crt ./deploy/nginx/ssl/front/buzgibi.crt
