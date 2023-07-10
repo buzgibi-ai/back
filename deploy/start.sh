@@ -1,7 +1,7 @@
 #!/bin/sh
 
 sha_front=$(curl -H "Accept: application/vnd.github+json" \
-  -H "Authorization: Bearer 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"\
+  -H "Authorization: Bearer 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"\
   -H "X-GitHub-Api-Version: 2022-11-28" \
   https://api.github.com/repos/buzgibi-ai/front/commits/master | jq -r '.sha')
 
