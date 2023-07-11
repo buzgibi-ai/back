@@ -28,6 +28,10 @@ import qualified Buzgibi.Api.Controller.Frontend.Log as Frontend.Log
 import qualified Buzgibi.Api.Controller.Frontend.Translate as Frontend.Translate
 import qualified Buzgibi.Api.Controller.ReCaptcha.Verify as ReCaptcha.Verify
 import qualified Buzgibi.Api.Controller.SendGrid.SendMail as SendGrid.Send
+import qualified Buzgibi.Api.Controller.User.GetHistory as User.GetHistory 
+import qualified Buzgibi.Api.Controller.User.GetProfile as User.GetProfile 
+import qualified Buzgibi.Api.Controller.User.MakeEnquiry as User.MakeEnquiry
+
 import qualified Buzgibi.Auth as Auth
 import Katip
 import KatipController
@@ -138,11 +142,23 @@ user :: UserApi (AsServerT KatipControllerM)
 user =
   UserApi
     { _userApiGetProfile = \auth ->
-        auth `Auth.withAuth` \_ ->
+        auth `Auth.withAuth` \ident ->
           flip logExceptionM ErrorS $
             katipAddNamespace
               (Namespace ["user", "profile", "get"])
-              undefined
+              $ User.GetProfile.controller ident
+    , _userApiMakeEnquiry = \auth enquiry ->
+        auth `Auth.withAuth` \ident ->
+          flip logExceptionM ErrorS $
+            katipAddNamespace
+              (Namespace ["user", "enquiry", "make"])
+              $ User.MakeEnquiry.controller ident enquiry
+    , _userApiGetEnquiryHistory = \auth -> 
+        auth `Auth.withAuth` \ident ->
+          flip logExceptionM ErrorS $
+            katipAddNamespace
+              (Namespace ["user", "enquiry", "history"])
+              $ User.GetHistory.controller ident
     }
 
 _foreign :: ForeignApi (AsServerT KatipControllerM)

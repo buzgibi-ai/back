@@ -14,6 +14,7 @@ import Servant.API.Extended (Capture, Get, JSON, Post, ReqBody, type (:>))
 import Servant.API.Generic (Generic, GenericMode (type (:-)))
 import qualified Servant.Auth.Server as SA
 import Buzgibi.Auth (AuthenticatedUser, JWT)
+import qualified Data.Text as T
 
 data AuthApi route = AuthApi
   { _authApiLogin ::
@@ -35,10 +36,22 @@ data AuthApi route = AuthApi
   }
   deriving stock (Generic)
 
-newtype UserApi route = UserApi
+data UserApi route = UserApi
   { _userApiGetProfile ::
       route
         :- "profile"
+          :> SA.Auth '[JWT] AuthenticatedUser
+          :> Get '[JSON] (Response ())
+  , _userApiMakeEnquiry ::
+      route
+        :- "enquiry"
+          :> SA.Auth '[JWT] AuthenticatedUser
+          :> ReqBody '[JSON] T.Text
+          :> Post '[JSON] (Response ())
+  , _userApiGetEnquiryHistory ::
+      route
+        :- "enquiry"
+          :> "history" 
           :> SA.Auth '[JWT] AuthenticatedUser
           :> Get '[JSON] (Response ())
   }
