@@ -16,6 +16,8 @@ create table customer.enquiry (
     created timestamptz not null default now(),
     processed timestamptz,
     enquiry_status text not null,
+    latitude double not null,
+    longtitude double not null,
     constraint enquiry__user_id_fk foreign key (user_id) references customer.profile(id));
 
 create table customer.enquiry_file (

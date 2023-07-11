@@ -23,12 +23,10 @@ import Buzgibi.Transport.Response
 import Control.Lens
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson.Generic.DerivingVia
-import Data.Char (toLower)
 import Data.Default.Class
-import Data.List (stripPrefix)
 import Data.Proxy (Proxy (..))
 import Data.Swagger hiding (Response)
-import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier)
+import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier, modify)
 import qualified Data.Text as T
 import Data.Typeable (Typeable, typeRep, typeRepTyCon)
 import GHC.Exts
@@ -44,12 +42,6 @@ import Data.Traversable (for)
 import Control.Monad.IO.Class
 import Buzgibi.EnvKeys (key, translation)
 import Control.Monad (join)
-
-modify :: forall a. Typeable a => String -> String
-modify =
-  \s ->
-    let (head : tail) = show (typeRep (Proxy @a))
-     in maybe s (map toLower) (stripPrefix (toLower head : tail) s)
 
 data Error = Github | Content ContentError
 
@@ -110,7 +102,7 @@ data Translation = Translation
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Translation)]]
           Translation
 
-deriveToSchemaFieldLabelModifier ''Translation [|modify @Translation|]
+deriveToSchemaFieldLabelModifier ''Translation [|modify (Proxy @Translation)|]
 
 mkToSchemaAndJSON ''Lang
 mkEnumConvertor ''Lang

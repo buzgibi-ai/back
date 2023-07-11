@@ -8,13 +8,13 @@
 
 module Buzgibi.Api.User (AuthApi (..), UserApi (..)) where
 
+import Buzgibi.Api.Controller.User.MakeEnquiry (Enquiry)
 import Buzgibi.Transport.Model.User
 import Buzgibi.Transport.Response (Response)
 import Servant.API.Extended (Capture, Get, JSON, Post, ReqBody, type (:>))
 import Servant.API.Generic (Generic, GenericMode (type (:-)))
 import qualified Servant.Auth.Server as SA
 import Buzgibi.Auth (AuthenticatedUser, JWT)
-import qualified Data.Text as T
 
 data AuthApi route = AuthApi
   { _authApiLogin ::
@@ -46,7 +46,7 @@ data UserApi route = UserApi
       route
         :- "enquiry"
           :> SA.Auth '[JWT] AuthenticatedUser
-          :> ReqBody '[JSON] T.Text
+          :> ReqBody '[JSON] Enquiry
           :> Post '[JSON] (Response ())
   , _userApiGetEnquiryHistory ::
       route
