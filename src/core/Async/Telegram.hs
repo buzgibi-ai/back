@@ -6,7 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Telegram (Service (..), mkService, TelegramMsg (..), runMsgDeliver, File (..)) where
+module Async.Telegram (Service (..), mkService, TelegramMsg (..), async, File (..)) where
 
 import Buzgibi.Config (Env (..), Telegram (..))
 import Control.Applicative
@@ -110,8 +110,8 @@ mkService mgr Telegram {..} = do
              in split (x : xs) new
        in reverse . split []
 
-runMsgDeliver :: TChan TelegramMsg -> Service -> (Severity -> LogStr -> IO ()) -> IO ()
-runMsgDeliver ch service log = atomically (readTChan ch) >>= sequence_ . (`telegramMsgEliminator` run service log)
+async :: TChan TelegramMsg -> Service -> (Severity -> LogStr -> IO ()) -> IO ()
+async ch service log = atomically (readTChan ch) >>= sequence_ . (`telegramMsgEliminator` run service log)
 
 telegramMsgEliminator :: forall r. TelegramMsg -> (forall a. Typeable a => a -> r) -> r
 telegramMsgEliminator (TelegramMsg _ msg) f = f msg

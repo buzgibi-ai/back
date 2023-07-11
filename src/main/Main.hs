@@ -55,7 +55,7 @@ import Pretty
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath.Posix
 import System.IO
-import qualified Telegram
+import qualified Async.Telegram
 import Text.ParserCombinators.ReadPrec (pfail)
 import qualified Text.Read.Lex as L
 import Crypto.JOSE.JWK (genJWK, KeyMaterialGenParam( RSAGenParam ))
@@ -240,7 +240,7 @@ main = do
         )
         (fromString (cfg ^. Buzgibi.Config.minio . host <> ":" <> cfg ^. Buzgibi.Config.minio . port))
 
-  telegram <- Telegram.mkService manager (cfg ^. Buzgibi.Config.telegram & bot %~ (flip (<|>) (join $ fmap envKeysTelegramBot envKeys)))
+  telegram <- Async.Telegram.mkService manager (cfg ^. Buzgibi.Config.telegram & bot %~ (flip (<|>) (join $ fmap envKeysTelegramBot envKeys)))
 
   minioScribe <-
     mkMinioScribe

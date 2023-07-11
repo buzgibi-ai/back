@@ -66,6 +66,7 @@ import Servant.Error.Formatters (formatters)
 import Servant.Multipart
 import Servant.Swagger.UI
 import TextShow
+import qualified Async.Telegram as Telegram 
 
 data Cfg = Cfg
   { cfgHost :: !String,
@@ -93,7 +94,7 @@ newtype AppMonad a = AppMonad {runAppMonad :: RWS.RWST KatipEnv KatipLogger Kati
 run :: Cfg -> KatipContextT AppMonad ()
 run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   telegram_service <- fmap (^. telegram) ask
-  let runTelegram l msg = void $ fork $ liftIO $ sendMsg telegram_service l (mkPretty ("At module " <> $location) msg ^. stext)
+  let runTelegram l msg = void $ fork $ liftIO $ Telegram.sendMsg telegram_service l (mkPretty ("At module " <> $location) msg ^. stext)
   logger <- katipAddNamespace (Namespace ["application"]) askLoggerIO
 
   version_e <- liftIO getVersion
@@ -149,7 +150,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   serverAsync <- liftIO $ async $ Warp.runSettings settings (middleware cfgCors mware_logger runServer)
   mail_logger <- katipAddNamespace (Namespace ["mail"]) askLoggerIO
   teleram_logger <- katipAddNamespace (Namespace ["telegram"]) askLoggerIO
-  telegramAsync <- liftIO $ async $ forever $ runMsgDeliver read_ch telegram_service teleram_logger
+  telegramAsync <- liftIO $ async $ forever $ Telegram.async read_ch telegram_service teleram_logger
   liftIO (void (waitAnyCancel [serverAsync, telegramAsync])) `logExceptionM` ErrorS
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application

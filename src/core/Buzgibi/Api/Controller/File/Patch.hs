@@ -25,6 +25,7 @@ import Database.Transaction
 import Katip
 import KatipController
 import Network.Minio hiding (Bucket)
+import Servant.Multipart.File 
 
 controller :: Id "file" -> File -> KatipControllerM (Response ())
 controller id file = do
