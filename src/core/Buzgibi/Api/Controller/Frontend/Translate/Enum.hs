@@ -34,8 +34,18 @@ data Menu = MenuHome | MenuSignUp | MenuSignIn
 instance Default Menu where
   def = MenuSignUp
 
+data Resource = ResourceUser | ResourceStub
+  deriving stock (Generic)
+  deriving (Enum)
+
+instance Default Resource where
+  def = ResourceUser
+
 mkToSchemaAndJSON ''Page
 mkEnumConvertor ''Page
 
 mkToSchemaAndJSON ''Menu
 mkEnumConvertor ''Menu
+
+mkToSchemaAndJSON ''Resource
+mkEnumConvertor ''Resource

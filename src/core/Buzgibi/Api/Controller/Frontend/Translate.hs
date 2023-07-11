@@ -68,7 +68,7 @@ instance Show Lang where
 instance Default Lang where
   def = English
 
-data Map k v = Map {mapKey :: k, mapValue :: v}
+data Map k v = Map {mapKey :: !k, mapValue :: !v}
   deriving stock (Generic)
   deriving
     (FromJSON, ToJSON)
@@ -98,9 +98,10 @@ instance (ToSchema k, ToSchema v, Typeable k, Typeable v) => ToSchema (Map k v) 
               ]
 
 data Translation = Translation
-  { translationPage :: [Map Enum.Page T.Text],
-    translationMenu :: [Map Enum.Menu T.Text],
-    translationCopyright :: T.Text
+  { translationPage :: ![Map Enum.Page [Map T.Text T.Text]],
+    translationMenu :: ![Map Enum.Menu T.Text],
+    translationCopyright :: !T.Text,
+    translationResource :: ![Map Enum.Resource [Map T.Text T.Text]]
   }
   deriving stock (Generic)
   deriving
