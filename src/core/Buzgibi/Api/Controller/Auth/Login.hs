@@ -11,7 +11,7 @@ import Control.Lens
 import Control.Monad.IO.Class
 import Control.Monad (join)
 import Database.Transaction
-import KatipController
+import Katip.Controller
 import Control.Lens.Iso.Extended
 import Data.Traversable (for)
 import Data.Bifunctor (first)

@@ -19,6 +19,7 @@ module Buzgibi.Api
     SendGridApi (..),
     ForeignApi (..),
     ReCaptchaApi (..),
+    WebhookApi (..),
     api,
     swaggerHttpApi,
   )

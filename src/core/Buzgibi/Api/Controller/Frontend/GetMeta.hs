@@ -24,7 +24,7 @@ import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier)
 import qualified Data.Text as T
 import Data.Typeable (typeRep)
 import GHC.Generics hiding (Meta)
-import KatipController
+import Katip.Controller
 
 data Meta = Meta {description :: !T.Text, robot :: !(Maybe T.Text)}
   deriving stock (Generic)

@@ -28,7 +28,7 @@ import Data.Text.Extended ()
 import Data.Time.Clock (DiffTime, UTCTime, addUTCTime, getCurrentTime, secondsToNominalDiffTime)
 import Data.Typeable (typeRep)
 import GHC.Generics
-import KatipController
+import Katip.Controller
 import System.Random (getStdGen, randomR)
 import TH.Mk
 

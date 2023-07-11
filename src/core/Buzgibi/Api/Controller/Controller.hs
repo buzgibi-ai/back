@@ -31,10 +31,11 @@ import qualified Buzgibi.Api.Controller.SendGrid.SendMail as SendGrid.Send
 import qualified Buzgibi.Api.Controller.User.GetHistory as User.GetHistory 
 import qualified Buzgibi.Api.Controller.User.GetProfile as User.GetProfile 
 import qualified Buzgibi.Api.Controller.User.MakeEnquiry as User.MakeEnquiry
+import qualified Buzgibi.Api.Controller.Webhook.CatchBark as Webhook.CatchBark
 
 import qualified Buzgibi.Auth as Auth
 import Katip
-import KatipController
+import Katip.Controller
 import Servant.API.Generic
 import Servant.RawM.Server ()
 import Servant.Server.Generic
@@ -162,7 +163,11 @@ user =
     }
 
 _foreign :: ForeignApi (AsServerT KatipControllerM)
-_foreign = ForeignApi {_foreignApiSendGrid = toServant sendgrid}
+_foreign = 
+  ForeignApi 
+  { _foreignApiSendGrid = toServant sendgrid, 
+    _foreignApiWebhook = toServant webhook 
+  }
 
 sendgrid :: SendGridApi (AsServerT KatipControllerM)
 sendgrid =
@@ -173,6 +178,16 @@ sendgrid =
             (Namespace ["sendgrid", "send"])
           . SendGrid.Send.controller
     }
+
+webhook :: WebhookApi (AsServerT KatipControllerM)
+webhook = 
+  WebhookApi 
+  { _webhookApiBark =
+       flip logExceptionM ErrorS
+         . katipAddNamespace
+           (Namespace ["webhook", "bark"])
+         .  Webhook.CatchBark.controller
+  }
 
 captcha :: ReCaptchaApi (AsServerT KatipControllerM)
 captcha =

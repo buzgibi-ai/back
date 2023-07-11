@@ -19,8 +19,9 @@
 {-# OPTIONS_GHC -fno-warn-unused-local-binds #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
-module Buzgibi.Application (Cfg (..), AppMonad (..), run) where
+module Buzgibi.App (Cfg (..), AppM (..), run) where
 
+import Buzgibi.AppM
 import BuildInfo
 import Buzgibi.Api
 import qualified Buzgibi.Api.Controller.Controller as Controller
@@ -33,12 +34,10 @@ import Control.Concurrent.STM.TChan
 import Control.Exception
 import Control.Lens
 import Control.Lens.Iso.Extended
-import Control.Monad.Base (MonadBase)
 import Control.Monad.Catch
 import Control.Monad.IO.Class
 import Control.Monad.RWS.Strict as RWS
 import Control.Monad.STM
-import Control.Monad.Trans.Control
 import Data.Aeson
 import Data.Bool
 import Data.Coerce
@@ -47,7 +46,7 @@ import Data.Generics.Product.Fields
 import Data.String.Conv
 import qualified Data.Text as T
 import Katip
-import KatipController
+import Katip.Controller
 import Language.Haskell.TH.Syntax (Loc)
 import qualified Network.HTTP.Types as H
 import Network.HTTP.Types.Header.Extended
@@ -66,7 +65,8 @@ import Servant.Error.Formatters (formatters)
 import Servant.Multipart
 import Servant.Swagger.UI
 import TextShow
-import qualified Async.Telegram as Telegram 
+import qualified Async.Telegram as Telegram
+import qualified Async.Bark as Bark
 
 data Cfg = Cfg
   { cfgHost :: !String,
@@ -77,21 +77,7 @@ data Cfg = Cfg
     mute500 :: !(Maybe Bool)
   }
 
-newtype AppMonad a = AppMonad {runAppMonad :: RWS.RWST KatipEnv KatipLogger KatipState IO a}
-  deriving newtype (Functor)
-  deriving newtype (Applicative)
-  deriving newtype (Monad)
-  deriving newtype (MonadIO)
-  deriving newtype (MonadReader KatipEnv)
-  deriving newtype (MonadState KatipState)
-  deriving newtype (MonadWriter KatipLogger)
-  deriving newtype (MonadRWS KatipEnv KatipLogger KatipState)
-  deriving newtype (MonadBase IO)
-  deriving newtype (MonadBaseControl IO)
-  deriving newtype (MonadCatch)
-  deriving newtype (MonadThrow)
-
-run :: Cfg -> KatipContextT AppMonad ()
+run :: Cfg -> KatipContextT AppM ()
 run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   telegram_service <- fmap (^. telegram) ask
   let runTelegram l msg = void $ fork $ liftIO $ Telegram.sendMsg telegram_service l (mkPretty ("At module " <> $location) msg ^. stext)
@@ -151,7 +137,8 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   mail_logger <- katipAddNamespace (Namespace ["mail"]) askLoggerIO
   teleram_logger <- katipAddNamespace (Namespace ["telegram"]) askLoggerIO
   telegramAsync <- liftIO $ async $ forever $ Telegram.async read_ch telegram_service teleram_logger
-  liftIO (void (waitAnyCancel [serverAsync, telegramAsync])) `logExceptionM` ErrorS
+  barkAsync <- undefined Bark.async
+  liftIO (void (waitAnyCancel [serverAsync, telegramAsync, barkAsync])) `logExceptionM` ErrorS
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application
 middleware cors log app = mkCors cors $ Middleware.logMw log app
@@ -223,7 +210,7 @@ mkCors cfg_cors =
               <> [methodPut, methodPatch, methodDelete, methodOptions]
           & field @"corsIgnoreFailures" .~ True
 
-askLoggerWithLocIO :: KatipContextT AppMonad (Maybe Loc -> Severity -> LogStr -> IO ())
+askLoggerWithLocIO :: KatipContextT AppM (Maybe Loc -> Severity -> LogStr -> IO ())
 askLoggerWithLocIO = do
   ctx <- getKatipContext
   ns <- getKatipNamespace

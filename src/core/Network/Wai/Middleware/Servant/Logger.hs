@@ -7,7 +7,7 @@ import Control.Lens
 import Control.Lens.Iso.Extended
 import Katip
 import Katip.Core (getLoc)
-import KatipController
+import Katip.Controller
 import Network.Wai
 import System.CPUTime
 import Text.Printf

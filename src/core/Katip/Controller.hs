@@ -11,7 +11,7 @@
 {-# OPTIONS_GHC -fno-warn-missing-methods #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
-module KatipController
+module Katip.Controller
   ( Config (..),
     KatipControllerM (..),
     KatipEnv (..),
@@ -43,7 +43,6 @@ module KatipController
 
     -- * re-export
     module R,
-    module Telegram,
 
     -- * katip
     askLoggerIO,
@@ -85,7 +84,7 @@ import "sendgrid" OpenAPI.Common as SendGrid
 import Pretty
 import Servant.Server (Handler)
 import Servant.Server.Internal.ServerError
-import Telegram
+import Async.Telegram
 
 type KatipLoggerIO = Severity -> LogStr -> IO ()
 
@@ -97,7 +96,7 @@ data KatipEnv = KatipEnv
     katipEnvHttpReqManager :: !Manager,
     katipEnvApiKeys :: ![(String, String)],
     katipEnvMinio :: !Minio,
-    katipEnvTelegram :: !Telegram.Service,
+    katipEnvTelegram :: !Async.Telegram.Service,
     katipEnvSendGrid :: !(Maybe (SendGrid, SendGrid.Configuration)),
     katipEnvCaptchaKey :: !(Maybe T.Text),
     katipEnvJwk :: !Jose.JWK,

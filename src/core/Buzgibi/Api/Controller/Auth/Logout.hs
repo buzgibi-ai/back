@@ -10,7 +10,7 @@ import Buzgibi.Transport.Response (Response)
 import Buzgibi.Api.Controller.Utils (withError)
 import Control.Lens
 import Database.Transaction
-import KatipController
+import Katip.Controller
 import Katip
 
 data Error = User404

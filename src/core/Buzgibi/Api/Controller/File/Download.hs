@@ -34,7 +34,7 @@ import Data.Traversable
 import Database.Transaction
 import Hash
 import Katip
-import KatipController
+import Katip.Controller
 import Network.HTTP.Types
 import qualified Network.HTTP.Types as H
 import Network.HTTP.Types.Header

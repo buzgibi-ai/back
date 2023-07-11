@@ -34,7 +34,7 @@ import qualified Data.Text as T
 import Data.Text.Extended ()
 import Data.Typeable (typeRep)
 import GHC.Generics hiding (from, to)
-import KatipController hiding (Service)
+import Katip.Controller hiding (Service)
 import Buzgibi.Auth (validateJwt)
 import Servant.Auth.Server (defaultJWTSettings)
 import Data.Coerce

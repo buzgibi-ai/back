@@ -10,7 +10,7 @@ import Buzgibi.Api.Controller.Utils (withError)
 import Control.Lens
 import Control.Monad.IO.Class
 import Database.Transaction
-import KatipController
+import Katip.Controller
 import Control.Lens.Iso.Extended
 import Data.Traversable (for)
 import Control.Monad (join)

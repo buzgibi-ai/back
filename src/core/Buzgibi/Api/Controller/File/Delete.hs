@@ -16,7 +16,7 @@ import Data.Coerce
 import Data.Int
 import Database.Transaction
 import Katip
-import KatipController
+import Katip.Controller
 
 controller :: Id "file" -> KatipControllerM (Response ())
 controller id = do

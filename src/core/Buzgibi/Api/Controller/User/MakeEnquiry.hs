@@ -22,7 +22,7 @@ import Buzgibi.Transport.Response
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson.Generic.DerivingVia
 import GHC.Generics (Generic)
-import KatipController (KatipControllerM)
+import Katip.Controller (KatipControllerM)
 import qualified Data.Text as T
 import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier, modify)
 import Data.Proxy (Proxy (..))

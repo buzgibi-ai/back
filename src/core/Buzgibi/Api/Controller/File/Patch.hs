@@ -23,7 +23,7 @@ import Data.Int
 import Data.Traversable
 import Database.Transaction
 import Katip
-import KatipController
+import Katip.Controller
 import Network.Minio hiding (Bucket)
 import Servant.Multipart.File 
 

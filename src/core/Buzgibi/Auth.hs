@@ -17,7 +17,7 @@ import Buzgibi.Transport.Response
 
 import Crypto.JWT
 import qualified Data.Text as T
-import KatipController (KatipControllerM)
+import Katip.Controller (KatipControllerM)
 import Servant.Auth.Server (AuthResult (..), FromJWT (decodeJWT), ToJWT (..), JWTSettings (..))
 import Servant.Auth.Server.Internal.Class (IsAuth (..))
 import Data.Int (Int64)

@@ -36,7 +36,7 @@ import Data.Typeable (typeRep)
 import GHC.Exts
 import GHC.Generics
 import Katip
-import KatipController
+import Katip.Controller
 import Network.HTTP.Client (responseBody, responseStatus)
 import Network.HTTP.Types.Status (accepted202, ok200)
 import "sendgrid" OpenAPI.Common

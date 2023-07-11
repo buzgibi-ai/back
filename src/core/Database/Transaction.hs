@@ -48,7 +48,7 @@ import qualified Hasql.Session as Hasql
 import qualified Hasql.Statement as Hasql
 import Hasql.TH
 import Katip
-import KatipController
+import Katip.Controller
 import PostgreSQL.ErrorCodes
 
 newtype QueryErrorWrapper = QueryErrorWrapper Hasql.QueryError

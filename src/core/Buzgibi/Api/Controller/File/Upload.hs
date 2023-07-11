@@ -23,7 +23,7 @@ import Data.Traversable
 import Database.Transaction
 import Hash
 import Katip
-import KatipController
+import Katip.Controller
 import Network.Minio
 import Servant.Multipart.File
 import System.Directory

@@ -30,7 +30,7 @@ import Data.Typeable (typeRep)
 import GHC.Exts
 import GHC.Generics (Generic)
 import Katip
-import KatipController
+import Katip.Controller
 import qualified Network.HTTP.Client as Http
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types.Header (hContentType)

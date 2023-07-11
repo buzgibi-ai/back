@@ -15,7 +15,7 @@
 
 module Main (main) where
 
-import qualified Buzgibi.Application as App
+import qualified Buzgibi.App as App
 import Buzgibi.Config
 import Buzgibi.EnvKeys
 
@@ -40,7 +40,7 @@ import GHC.Read
 import qualified Hasql.Connection as HasqlConn
 import Katip
 import Katip.Scribes.Minio (mkMinioScribe)
-import KatipController
+import Katip.Controller
 import Network.HTTP.Client
   ( ManagerSettings
       ( managerConnCount,

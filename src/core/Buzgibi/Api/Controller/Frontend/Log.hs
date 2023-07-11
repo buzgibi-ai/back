@@ -26,7 +26,7 @@ import qualified Data.Text as T
 import Data.Typeable (typeRep)
 import GHC.Generics
 import Katip
-import KatipController
+import Katip.Controller
 
 data FrontendLogRequest = FrontendLogRequest {build :: T.Text, payload :: Payload}
   deriving stock (Generic)
