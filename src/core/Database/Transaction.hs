@@ -163,6 +163,16 @@ instance {-# OVERLAPS #-} (ParamsShow a, ParamsShow b, ParamsShow c) => ParamsSh
 instance {-# OVERLAPS #-} (ParamsShow a, ParamsShow b, ParamsShow c, ParamsShow d) => ParamsShow (a, b, c, d) where
   render x = render (x ^. _1) <> ", " <> render (x ^. _2) <> ", " <> render (x ^. _3) <> ", " <> render (x ^. _4)
 
+instance {-# OVERLAPS #-} (ParamsShow a, ParamsShow b, ParamsShow c, ParamsShow d, ParamsShow e) => ParamsShow (a, b, c, d, e) where
+  render x = render (x ^. _1) <> ", " <> render (x ^. _2) <> ", " <> render (x ^. _3) <> ", " <> render (x ^. _4) <> ", " <> render (x ^. _5)
+
+instance {-# OVERLAPS #-} (ParamsShow a, ParamsShow b, ParamsShow c, ParamsShow d, ParamsShow e, ParamsShow f) => ParamsShow (a, b, c, d, e, f) where
+  render x = render (x ^. _1) <> ", " <> render (x ^. _2) <> ", " <> render (x ^. _3) <> ", " <> render (x ^. _4) <> ", " <> render (x ^. _5) <> ", " <> render (x ^. _6)
+
+instance {-# OVERLAPS #-} (ParamsShow a, ParamsShow b, ParamsShow c, ParamsShow d, ParamsShow e, ParamsShow f, ParamsShow g) => ParamsShow (a, b, c, d, e, f, g) where
+  render x = render (x ^. _1) <> ", " <> render (x ^. _2) <> ", " <> render (x ^. _3) <> ", " <> render (x ^. _4) <> ", " <> render (x ^. _5) <> ", " <> render (x ^. _6) <> ", " <> render (x ^. _7)
+
+
 instance ParamsShow a => ParamsShow [a] where
   render xs = intercalate ", " $ map render xs
 
