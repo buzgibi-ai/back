@@ -199,6 +199,7 @@ library:
     - sendgrid
     - openai
     - github
+    - quickcheck-instances 
 
   source-dirs:
     - src/core
