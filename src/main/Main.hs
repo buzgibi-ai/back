@@ -255,15 +255,24 @@ main = do
         registerScribe "minio" minioScribe defaultScribeSettings env''
 
   let s@Buzgibi.Config.SendGrid {..} = cfg ^. Buzgibi.Config.sendGrid
-  let sendgrid = fmap ((s,) . SendGrid.configure sendGridUrl) sendGridApiKey
-
-  let captcha = envKeys >>= envKeysCaptchaKey
-  let github = envKeys >>= envKeysGithub
 
   jwk <- liftIO $ genJWK (RSAGenParam (4096 `div` 8))
 
   let katipMinio = Minio minioEnv (cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix)
-  let katipEnv = KatipEnv term hasqlpool manager (cfg ^. service . coerced) katipMinio telegram sendgrid captcha jwk github
+  let katipEnv = 
+        defKatipEnv 
+         { katipEnvTerminal = term,
+           katipEnvHasqlDbPool = hasqlpool,
+            katipEnvHttpReqManager = manager,
+            katipEnvApiKeys = (cfg ^. service . coerced),
+            katipEnvMinio = katipMinio,
+            katipEnvTelegram = telegram,
+            katipEnvSendGrid = fmap ((s,) . SendGrid.configure sendGridUrl) sendGridApiKey,
+            katipEnvCaptchaKey = envKeys >>= envKeysCaptchaKey,
+            katipEnvJwk = jwk,
+            katipEnvGithub = envKeys >>= envKeysGithub,
+            katipEnvBark = envKeys >>= envKeysBark
+         }
 
   let runApp le = runKatipContextT le (mempty @LogContexts) mempty $ App.run appCfg
   bracket env closeScribes $ void . (\x -> evalRWST (App.runAppMonad x) katipEnv def) . runApp

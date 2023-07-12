@@ -27,11 +27,21 @@ data Github = Github {githubKey :: !T.Text, githubRepos :: ![T.Text], githubTran
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Github)]]
           Github
 
+data Bark = Bark { barkKey :: !T.Text, barkVersion :: !T.Text  }
+  deriving stock (Generic)
+  deriving stock (Show)
+  deriving
+    (FromJSON)
+    via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Bark)]]
+          Bark
+
 data EnvKeys = EnvKeys
   { envKeysSendgrid :: !(Maybe T.Text),
     envKeysTelegramBot :: !(Maybe T.Text),
     envKeysCaptchaKey :: !(Maybe T.Text),
-    envKeysGithub :: !(Maybe Github)
+    envKeysGithub :: !(Maybe Github),
+    envKeysBark :: !(Maybe Bark)
   }
   deriving stock (Generic)
   deriving stock (Show)
@@ -43,3 +53,4 @@ data EnvKeys = EnvKeys
 
 makeFields ''EnvKeys
 makeFields ''Github
+makeFields ''Bark

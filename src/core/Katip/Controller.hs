@@ -21,6 +21,7 @@ module Katip.Controller
     KatipLoggerLocIO,
     KatipControllerState (..),
     Minio (..),
+    defKatipEnv,
 
     -- * lens
     nm,
@@ -38,6 +39,7 @@ module Katip.Controller
     captchaKey,
     jwk,
     github,
+    bark,
 
     -- * run
     runKatipController,
@@ -101,8 +103,24 @@ data KatipEnv = KatipEnv
     katipEnvSendGrid :: !(Maybe (SendGrid, SendGrid.Configuration)),
     katipEnvCaptchaKey :: !(Maybe T.Text),
     katipEnvJwk :: !Jose.JWK,
-    katipEnvGithub :: !(Maybe Github)
+    katipEnvGithub :: !(Maybe Github),
+    katipEnvBark :: !(Maybe Bark)
   }
+
+defKatipEnv :: KatipEnv
+defKatipEnv = 
+      KatipEnv
+      undefined 
+      undefined 
+      undefined 
+      undefined 
+      undefined 
+      undefined 
+      undefined 
+      undefined 
+      undefined 
+      undefined 
+      undefined
 
 data Minio = Minio {minioConn :: !Minio.MinioConn, minioBucketPrefix :: !T.Text}
 
