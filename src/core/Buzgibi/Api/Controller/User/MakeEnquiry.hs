@@ -17,21 +17,20 @@
 
 module Buzgibi.Api.Controller.User.MakeEnquiry (controller, Enquiry) where
 
-import Buzgibi.Auth (AuthenticatedUser) 
+import Buzgibi.Auth (AuthenticatedUser)
 import Buzgibi.Transport.Response
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson.Generic.DerivingVia
+import Data.Proxy (Proxy (..))
+import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier, modify)
+import qualified Data.Text as T
 import GHC.Generics (Generic)
 import Katip.Controller (KatipControllerM)
-import qualified Data.Text as T
-import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier, modify)
-import Data.Proxy (Proxy (..))
 
-data Location =
-     Location 
-     { locationLatitude :: Double, 
-       locationLongitude :: Double 
-     }
+data Location = Location
+  { locationLatitude :: Double,
+    locationLongitude :: Double
+  }
   deriving stock (Generic)
   deriving stock (Show)
   deriving
@@ -40,11 +39,10 @@ data Location =
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Location)]]
           Location
 
-data Enquiry = 
-     Enquiry 
-     { enquiryEnquiry :: !T.Text, 
-       enquiryLocation :: Location 
-     }
+data Enquiry = Enquiry
+  { enquiryEnquiry :: !T.Text,
+    enquiryLocation :: Location
+  }
   deriving stock (Generic)
   deriving stock (Show)
   deriving

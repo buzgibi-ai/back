@@ -6,8 +6,8 @@ module Network.Wai.Middleware.Servant.Logger (logMw) where
 import Control.Lens
 import Control.Lens.Iso.Extended
 import Katip
-import Katip.Core (getLoc)
 import Katip.Controller
+import Katip.Core (getLoc)
 import Network.Wai
 import System.CPUTime
 import Text.Printf

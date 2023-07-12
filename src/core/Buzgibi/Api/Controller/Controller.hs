@@ -28,11 +28,10 @@ import qualified Buzgibi.Api.Controller.Frontend.Log as Frontend.Log
 import qualified Buzgibi.Api.Controller.Frontend.Translate as Frontend.Translate
 import qualified Buzgibi.Api.Controller.ReCaptcha.Verify as ReCaptcha.Verify
 import qualified Buzgibi.Api.Controller.SendGrid.SendMail as SendGrid.Send
-import qualified Buzgibi.Api.Controller.User.GetHistory as User.GetHistory 
-import qualified Buzgibi.Api.Controller.User.GetProfile as User.GetProfile 
+import qualified Buzgibi.Api.Controller.User.GetHistory as User.GetHistory
+import qualified Buzgibi.Api.Controller.User.GetProfile as User.GetProfile
 import qualified Buzgibi.Api.Controller.User.MakeEnquiry as User.MakeEnquiry
 import qualified Buzgibi.Api.Controller.Webhook.CatchBark as Webhook.CatchBark
-
 import qualified Buzgibi.Auth as Auth
 import Katip
 import Katip.Controller
@@ -58,7 +57,7 @@ file :: FileApi (AsServerT KatipControllerM)
 file =
   FileApi
     { _fileApiUpload = \auth bucket files ->
-        auth `Auth.withAuth` \_ -> 
+        auth `Auth.withAuth` \_ ->
           flip logExceptionM ErrorS $
             katipAddNamespace
               (Namespace ["file", "upload"])
@@ -111,11 +110,12 @@ frontend =
           katipAddNamespace
             (Namespace ["frontend", "log"])
             (Frontend.Log.controller req),
-      _frontendApiInit = 
+      _frontendApiInit =
         \token ->
-        flip
-          logExceptionM ErrorS $
-            katipAddNamespace
+          flip
+            logExceptionM
+            ErrorS
+            $ katipAddNamespace
               (Namespace ["frontend", "init"])
               (Frontend.Init.controller token),
       _frontendApiTranslate =
@@ -144,30 +144,30 @@ user =
   UserApi
     { _userApiGetProfile = \auth ->
         auth `Auth.withAuth` \ident ->
-          flip logExceptionM ErrorS $
-            katipAddNamespace
+          flip logExceptionM ErrorS
+            $ katipAddNamespace
               (Namespace ["user", "profile", "get"])
-              $ User.GetProfile.controller ident
-    , _userApiMakeEnquiry = \auth enquiry ->
+            $ User.GetProfile.controller ident,
+      _userApiMakeEnquiry = \auth enquiry ->
         auth `Auth.withAuth` \ident ->
-          flip logExceptionM ErrorS $
-            katipAddNamespace
+          flip logExceptionM ErrorS
+            $ katipAddNamespace
               (Namespace ["user", "enquiry", "make"])
-              $ User.MakeEnquiry.controller ident enquiry
-    , _userApiGetEnquiryHistory = \auth -> 
+            $ User.MakeEnquiry.controller ident enquiry,
+      _userApiGetEnquiryHistory = \auth ->
         auth `Auth.withAuth` \ident ->
-          flip logExceptionM ErrorS $
-            katipAddNamespace
+          flip logExceptionM ErrorS
+            $ katipAddNamespace
               (Namespace ["user", "enquiry", "history"])
-              $ User.GetHistory.controller ident
+            $ User.GetHistory.controller ident
     }
 
 _foreign :: ForeignApi (AsServerT KatipControllerM)
-_foreign = 
-  ForeignApi 
-  { _foreignApiSendGrid = toServant sendgrid, 
-    _foreignApiWebhook = toServant webhook 
-  }
+_foreign =
+  ForeignApi
+    { _foreignApiSendGrid = toServant sendgrid,
+      _foreignApiWebhook = toServant webhook
+    }
 
 sendgrid :: SendGridApi (AsServerT KatipControllerM)
 sendgrid =
@@ -180,14 +180,14 @@ sendgrid =
     }
 
 webhook :: WebhookApi (AsServerT KatipControllerM)
-webhook = 
-  WebhookApi 
-  { _webhookApiBark =
-       flip logExceptionM ErrorS
-         . katipAddNamespace
-           (Namespace ["webhook", "bark"])
-         .  Webhook.CatchBark.controller
-  }
+webhook =
+  WebhookApi
+    { _webhookApiBark =
+        flip logExceptionM ErrorS
+          . katipAddNamespace
+            (Namespace ["webhook", "bark"])
+          . Webhook.CatchBark.controller
+    }
 
 captcha :: ReCaptchaApi (AsServerT KatipControllerM)
 captcha =

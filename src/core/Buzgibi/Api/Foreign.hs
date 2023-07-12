@@ -9,12 +9,12 @@
 module Buzgibi.Api.Foreign
   ( ForeignApi (..),
     module SendGrid,
-    module WebhookApi
+    module WebhookApi,
   )
 where
 
-import Buzgibi.Api.Foreign.Webhook as WebhookApi 
 import Buzgibi.Api.Foreign.SendGrid as SendGrid
+import Buzgibi.Api.Foreign.Webhook as WebhookApi
 import Servant.API.Extended (AsApi, ToServant, type (:>))
 import Servant.API.Generic (Generic, GenericMode (type (:-)))
 
@@ -22,9 +22,9 @@ data ForeignApi route = ForeignApi
   { _foreignApiSendGrid ::
       route
         :- "sendgrid"
-          :> ToServant SendGridApi AsApi
-  , _foreignApiWebhook ::
-       route
+          :> ToServant SendGridApi AsApi,
+    _foreignApiWebhook ::
+      route
         :- "webhook"
           :> ToServant WebhookApi AsApi
   }

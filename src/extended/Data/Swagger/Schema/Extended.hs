@@ -1,6 +1,6 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE RankNTypes #-}
 
 module Data.Swagger.Schema.Extended
   ( schemaOptions,
@@ -10,7 +10,7 @@ module Data.Swagger.Schema.Extended
     deriveToSchemaFieldLabelModifier,
     deriveToSchemaConstructorTag,
     module Data.Swagger.Schema,
-    modify
+    modify,
   )
 where
 
@@ -18,16 +18,16 @@ import Control.Lens ((^.))
 import Control.Lens.Iso.Extended (stext)
 import Data.Aeson (defaultOptions)
 import Data.Aeson.Extended (aesonOptions)
+import Data.Char (toLower)
+import Data.List (stripPrefix)
 import Data.Proxy (Proxy (..))
 import Data.Swagger
 import Data.Swagger.Schema
 import Data.Time.Clock (DiffTime)
-import Language.Haskell.TH
-import Type.Reflection (typeRep)
 import Data.Typeable (Typeable)
 import qualified Data.Typeable as T (typeRep)
-import Data.Char (toLower)
-import Data.List (stripPrefix)
+import Language.Haskell.TH
+import Type.Reflection (typeRep)
 
 schemaOptionsDef :: SchemaOptions
 schemaOptionsDef = fromAesonOptions defaultOptions
@@ -71,7 +71,6 @@ deriveToSchemaConstructorTag name modify =
 
 instance ToSchema DiffTime where
   declareNamedSchema _ = pure $ NamedSchema (Just $ (show (typeRep @DiffTime)) ^. stext) $ toSchema (Proxy @Int)
-
 
 modify :: forall a. Typeable a => Proxy a -> String -> String
 modify proxy =

@@ -18,8 +18,7 @@ import Data.Aeson.Generic.DerivingVia
 import qualified Data.Text as T
 import GHC.Generics
 
-
-data Github = Github { githubKey :: !T.Text, githubRepos :: ![T.Text], githubTranslation :: T.Text } 
+data Github = Github {githubKey :: !T.Text, githubRepos :: ![T.Text], githubTranslation :: T.Text}
   deriving stock (Generic)
   deriving stock (Show)
   deriving

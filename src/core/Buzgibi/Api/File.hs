@@ -9,16 +9,16 @@
 module Buzgibi.Api.File (FileApi (..)) where
 
 import Buzgibi.Api.Controller.File.Download (Option)
+import Buzgibi.Auth (AuthenticatedUser, JWT)
 import Buzgibi.Transport.Id
 import Buzgibi.Transport.Response
 import qualified Data.Text as T
 import Servant.API.Extended
 import Servant.API.Generic
+import qualified Servant.Auth.Server as SA
 import Servant.Multipart
 import Servant.Multipart.File
 import Servant.RawM
-import qualified Servant.Auth.Server as SA
-import Buzgibi.Auth (AuthenticatedUser, JWT)
 
 data FileApi route = FileApi
   { _fileApiUpload ::

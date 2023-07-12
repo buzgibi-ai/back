@@ -13,7 +13,6 @@ import Buzgibi.Transport.Response (Response)
 import Servant.API.Extended (JSON, Post, ReqBody, type (:>))
 import Servant.API.Generic (Generic, GenericMode (type (:-)))
 
-
 newtype WebhookApi route = WebhookApi
   { _webhookApiBark ::
       route

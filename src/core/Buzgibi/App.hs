@@ -21,10 +21,11 @@
 
 module Buzgibi.App (Cfg (..), AppM (..), run) where
 
-import Buzgibi.AppM
+import qualified Async.Telegram as Telegram
 import BuildInfo
 import Buzgibi.Api
 import qualified Buzgibi.Api.Controller.Controller as Controller
+import Buzgibi.AppM
 import qualified Buzgibi.Config as Cfg
 import Buzgibi.Transport.Error
 import qualified Buzgibi.Transport.Response as Response
@@ -65,8 +66,6 @@ import Servant.Error.Formatters (formatters)
 import Servant.Multipart
 import Servant.Swagger.UI
 import TextShow
-import qualified Async.Telegram as Telegram
-import qualified Async.Bark as Bark
 
 data Cfg = Cfg
   { cfgHost :: !String,
@@ -137,8 +136,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   mail_logger <- katipAddNamespace (Namespace ["mail"]) askLoggerIO
   teleram_logger <- katipAddNamespace (Namespace ["telegram"]) askLoggerIO
   telegramAsync <- liftIO $ async $ forever $ Telegram.async read_ch telegram_service teleram_logger
-  barkAsync <- undefined Bark.async
-  liftIO (void (waitAnyCancel [serverAsync, telegramAsync, barkAsync])) `logExceptionM` ErrorS
+  liftIO (void (waitAnyCancel [serverAsync, telegramAsync])) `logExceptionM` ErrorS
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application
 middleware cors log app = mkCors cors $ Middleware.logMw log app

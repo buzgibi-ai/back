@@ -24,8 +24,8 @@ import Data.Swagger
 import Data.Text (Text)
 import GHC.Exts
 import GHC.Generics (Generic)
-import TH.Mk
 import Servant.API (FromHttpApiData (parseQueryParam))
+import TH.Mk
 
 data AuthType = JWT
   deriving stock (Generic)
@@ -42,7 +42,7 @@ newtype AuthToken = AuthToken Text
   deriving newtype (ToJSON, FromJSON)
 
 instance FromHttpApiData AuthToken where
-  parseQueryParam = Right . AuthToken 
+  parseQueryParam = Right . AuthToken
 
 instance ToSchema AuthToken where
   declareNamedSchema _ =

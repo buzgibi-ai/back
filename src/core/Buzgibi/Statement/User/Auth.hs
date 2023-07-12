@@ -5,16 +5,16 @@
 
 module Buzgibi.Statement.User.Auth (insertUser, insertJwt, insertToken, logout, getUserIdByEmail) where
 
-import qualified Data.Text as T
-import qualified Hasql.Statement as HS
-import Hasql.TH
 import Control.Lens
 import Data.Coerce
 import Data.Int (Int64)
+import qualified Data.Text as T
+import qualified Hasql.Statement as HS
+import Hasql.TH
 
 insertUser :: HS.Statement (T.Text, T.Text) (Maybe Int64)
 insertUser =
-    [maybeStatement|
+  [maybeStatement|
       insert into auth.user
       (email, pass)
       values ($1 :: text, crypt($2 :: text, gen_salt('md5')))
@@ -23,7 +23,7 @@ insertUser =
 
 insertJwt :: HS.Statement (Int64, T.Text) Bool
 insertJwt =
-    dimap coerce (> 0) $
+  dimap coerce (> 0) $
     [rowsAffectedStatement|
        insert into auth.jwt 
        (user_id, jwt) 
@@ -34,7 +34,7 @@ getUserIdByEmail = [maybeStatement|select id :: int8 from auth.user where email 
 
 insertToken :: HS.Statement (T.Text, T.Text, T.Text) Bool
 insertToken =
-    dimap coerce (> 0) $
+  dimap coerce (> 0) $
     [rowsAffectedStatement|
        with
          user_ident as (

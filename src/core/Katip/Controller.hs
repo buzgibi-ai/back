@@ -38,6 +38,7 @@ module Katip.Controller
     captchaKey,
     jwk,
     github,
+
     -- * run
     runKatipController,
 
@@ -53,6 +54,7 @@ module Katip.Controller
   )
 where
 
+import Async.Telegram
 import Buzgibi.Config (SendGrid)
 import Buzgibi.EnvKeys
 import Control.Concurrent.STM
@@ -84,7 +86,6 @@ import "sendgrid" OpenAPI.Common as SendGrid
 import Pretty
 import Servant.Server (Handler)
 import Servant.Server.Internal.ServerError
-import Async.Telegram
 
 type KatipLoggerIO = Severity -> LogStr -> IO ()
 
