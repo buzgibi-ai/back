@@ -15,8 +15,9 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module Buzgibi.Api.Controller.User.MakeEnquiry (controller, Enquiry) where
+module Buzgibi.Api.Controller.User.MakeEnquiry (controller, Request) where
 
+import qualified Buzgibi.Statement.User.Enquiry as Enquiry
 import Buzgibi.Auth (AuthenticatedUser)
 import Buzgibi.Transport.Response
 import Data.Aeson (FromJSON, ToJSON)
@@ -25,7 +26,10 @@ import Data.Proxy (Proxy (..))
 import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier, modify)
 import qualified Data.Text as T
 import GHC.Generics (Generic)
-import Katip.Controller (KatipControllerM)
+import Database.Transaction
+import Katip.Controller
+import Control.Lens
+import Data.Default.Class
 
 data Location = Location
   { locationLatitude :: Double,
@@ -39,7 +43,7 @@ data Location = Location
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Location)]]
           Location
 
-data Enquiry = Enquiry
+data Request = Request
   { enquiryEnquiry :: !T.Text,
     enquiryLocation :: Location
   }
@@ -48,11 +52,15 @@ data Enquiry = Enquiry
   deriving
     (ToJSON, FromJSON)
     via WithOptions
-          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Enquiry)]]
-          Enquiry
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Request)]]
+          Request
 
 deriveToSchemaFieldLabelModifier ''Location [|modify (Proxy @Location)|]
-deriveToSchemaFieldLabelModifier ''Enquiry [|modify (Proxy @Enquiry)|]
+deriveToSchemaFieldLabelModifier ''Request [|modify (Proxy @Request)|]
 
-controller :: AuthenticatedUser -> Enquiry -> KatipControllerM (Response ())
-controller _ _ = undefined
+controller :: AuthenticatedUser -> Request -> KatipControllerM (Response ())
+controller _ _ = do
+  hasql <- fmap (^. katipEnv . hasqlDbPool) ask
+  _ <- transactionM hasql $ statement Enquiry.create $ def @Enquiry.Enquiry
+  return $ Ok ()
+

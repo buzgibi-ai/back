@@ -13,6 +13,7 @@ module Buzgibi.Explain (spec_explain) where
 
 import qualified Buzgibi.Statement.File
 import qualified Buzgibi.Statement.User.Auth 
+import qualified Buzgibi.Statement.User.Enquiry
 
 import Control.Lens
 import Control.Monad.IO.Class
@@ -73,4 +74,6 @@ explainTests =
         "logout" =>> Buzgibi.Statement.User.Auth.logout,
         "insertToken" =>> Buzgibi.Statement.User.Auth.insertToken
      ]
+  , "Buzgibi.Statement.User.Enquiry" ==>
+     [ "create" =>> Buzgibi.Statement.User.Enquiry.create ] 
   ]
