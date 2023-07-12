@@ -39,7 +39,6 @@ import Data.Typeable (Typeable, typeRep, typeRepTyCon)
 import GHC.Exts
 import GHC.Generics (Generic)
 import qualified GitHub as GitHub
-import qualified GitHub.Auth as GitHub
 import Katip.Controller
 import TH.Mk
 

@@ -47,7 +47,6 @@ import Data.Typeable (typeRep)
 import qualified Data.Vector as V
 import GHC.Generics hiding (from, to)
 import qualified GitHub as GitHub
-import qualified GitHub.Auth as GitHub
 import Katip.Controller hiding (Service)
 import Servant.Auth.Server (defaultJWTSettings)
 import TH.Mk
