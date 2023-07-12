@@ -85,6 +85,7 @@ services:
     container_name: buzgibi-proxy-server
     volumes:
       - ${PWD}/deploy/nginx/proxy.conf:/etc/nginx/nginx.conf
+      - ${HOME}/.htpasswd:/etc/apache2/.htpasswd
       - ${PWD}/deploy/nginx/ssl/front/buzgibi.crt:/etc/nginx/certs/front/buzgibi.crt
       - ${PWD}/deploy/nginx/ssl/front/buzgibi.key:/etc/nginx/certs/front/buzgibi.key
       - ${PWD}/deploy/nginx/ssl/back/buzgibi.crt:/etc/nginx/certs/back/buzgibi.crt
