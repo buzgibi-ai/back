@@ -75,5 +75,8 @@ explainTests =
         "insertToken" =>> Buzgibi.Statement.User.Auth.insertToken
      ]
   , "Buzgibi.Statement.User.Enquiry" ==>
-     [ "create" =>> Buzgibi.Statement.User.Enquiry.create ] 
+     [ "insertBark" =>> Buzgibi.Statement.User.Enquiry.insertBark,
+       "updateBark" =>> Buzgibi.Statement.User.Enquiry.updateBark,
+       "insertVoice" =>> Buzgibi.Statement.User.Enquiry.insertVoice 
+     ] 
   ]

@@ -9,7 +9,6 @@
 module Buzgibi.Api.Foreign.Webhook (WebhookApi (..)) where
 
 import Buzgibi.Transport.Payload (Payload)
-import Buzgibi.Transport.Response (Response)
 import Servant.API.Extended (JSON, Post, ReqBody, type (:>))
 import Servant.API.Generic (Generic, GenericMode (type (:-)))
 
@@ -18,6 +17,6 @@ newtype WebhookApi route = WebhookApi
       route
         :- "bark"
           :> ReqBody '[JSON] Payload
-          :> Post '[JSON] (Response ())
+          :> Post '[JSON] ()
   }
   deriving stock (Generic)

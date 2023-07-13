@@ -24,6 +24,7 @@ module Buzgibi.Transport.Response
     fromEither,
     fromEithers,
     liftMaybe,
+    toEither
   )
 where
 
@@ -113,3 +114,7 @@ fromEithers = either (Errors . map asError) Ok
 liftMaybe :: AsError e => Maybe a -> e -> Response a
 liftMaybe (Just x) _ = Ok x
 liftMaybe Nothing e = Buzgibi.Transport.Response.Error (asError e)
+
+toEither :: Response a -> Either [Error] a
+toEither (Response (Just x) _ _) = Right x
+toEither (Response Nothing _ es) = Left es

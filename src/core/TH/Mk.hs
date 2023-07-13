@@ -75,7 +75,7 @@ mkToSchemaAndDefJSON name = do
   return $ x ++ y
 
 mkEnumConvertor :: Name -> Q [Dec]
-mkEnumConvertor name =
+mkEnumConvertor name = 
   do
     TyConI (DataD _ _ _ _ xs _) <- reify name
     let stripUnderScore = filter (not . (`elem` ("_" :: String))) . nameBase
@@ -207,4 +207,5 @@ mkEncoder name = do
       case nameModule t of
         Just "Data.Text.Internal" -> ConT (mkName ("T." <> nameBase t))
         Just "Data.Text.Internal.Lazy" -> ConT (mkName ("LT." <> nameBase t))
+        Just "Data.ByteString" -> ConT (mkName ("B." <> nameBase t))
         _ -> ConT (mkName (nameBase t))

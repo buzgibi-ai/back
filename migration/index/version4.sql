@@ -30,19 +30,22 @@ create table customer.enquiry_report (
 create schema if not exists foreign_api;
 create table foreign_api.bark (
     id bigserial primary key,
+    enquiry_id bigserial not null,
+    bark_ident text not null,
     bark_status text not null,
-    payload jsonb not null,
-    created timestamptz not null default now(),
-    modified timestamptz);
+    req jsonb not null,
+    created timestamptz not null default now(), 
+    modified timestamptz,
+    constraint bark__enquiry_id_fk foreign key (enquiry_id) references customer.enquiry(id),
+    constraint bark__bark_ident_unique unique (bark_ident));
 
 create table customer.enquiry_bark (
     enquiry_id bigserial not null,
-    voice_id bigserial not null,
+    voice_id bigserial,
     bark_id bigserial not null,
-    constraint enquiry_file__enquiry_id_fk foreign key (enquiry_id) references customer.enquiry(id),
-    constraint enquiry_file__voice_id_fk foreign key (voice_id) references storage.file(id),
-    constraint enquiry_file__bark_id_fk foreign key (bark_id) references foreign_api.bark(id),
-    constraint enquiry_file__enquiry_voice unique (enquiry_id, voice_id));
+    constraint enquiry_bark__enquiry_id_fk foreign key (enquiry_id) references customer.enquiry(id),
+    constraint enquiry_bark__bark_id_fk foreign key (bark_id) references foreign_api.bark(id),
+    constraint enquiry_bark__enquiry_bark unique (enquiry_id, bark_id));
 
 -- fill user profile with existing users from auth.user
 insert into customer.profile

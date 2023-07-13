@@ -8,7 +8,7 @@
 
 module Buzgibi.Api.User (AuthApi (..), UserApi (..)) where
 
-import Buzgibi.Api.Controller.User.MakeEnquiry (Request)
+import Buzgibi.Api.Controller.User.MakeEnquiry (Enquiry)
 import Buzgibi.Auth (AuthenticatedUser, JWT)
 import Buzgibi.Transport.Model.User
 import Buzgibi.Transport.Response (Response)
@@ -46,7 +46,7 @@ data UserApi route = UserApi
       route
         :- "enquiry"
           :> SA.Auth '[JWT] AuthenticatedUser
-          :> ReqBody '[JSON] Request
+          :> ReqBody '[JSON] Enquiry
           :> Post '[JSON] (Response ()),
     _userApiGetEnquiryHistory ::
       route

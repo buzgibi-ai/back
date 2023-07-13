@@ -21,7 +21,6 @@ module Katip.Controller
     KatipLoggerLocIO,
     KatipControllerState (..),
     Minio (..),
-    defKatipEnv,
 
     -- * lens
     nm,
@@ -106,21 +105,6 @@ data KatipEnv = KatipEnv
     katipEnvGithub :: !(Maybe Github),
     katipEnvBark :: !(Maybe Bark)
   }
-
-defKatipEnv :: KatipEnv
-defKatipEnv = 
-      KatipEnv
-      undefined 
-      undefined 
-      undefined 
-      undefined 
-      undefined 
-      undefined 
-      undefined 
-      undefined 
-      undefined 
-      undefined 
-      undefined
 
 data Minio = Minio {minioConn :: !Minio.MinioConn, minioBucketPrefix :: !T.Text}
 

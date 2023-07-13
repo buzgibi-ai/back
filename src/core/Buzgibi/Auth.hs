@@ -72,7 +72,7 @@ instance IsAuth JWT AuthenticatedUser where
       go :: JWTSettings -> Request -> Except.ExceptT AuthError AuthCheck AuthenticatedUser
       go cfg req = do
         header <- Except.except $ maybeToRight NoAuthHeader $ lookup "Authorization" (requestHeaders req)
-        let bearer = "Bearer "
+        let bearer = "Token "
         let (mbearer, token) = BS.splitAt (BS.length bearer) header
         unless (mbearer `constEq` bearer) $
           Except.throwE NoBearer

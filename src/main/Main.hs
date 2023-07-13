@@ -260,7 +260,7 @@ main = do
 
   let katipMinio = Minio minioEnv (cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix)
   let katipEnv = 
-        defKatipEnv 
+        KatipEnv 
          { katipEnvTerminal = term,
            katipEnvHasqlDbPool = hasqlpool,
             katipEnvHttpReqManager = manager,
