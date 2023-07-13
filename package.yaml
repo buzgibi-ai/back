@@ -206,7 +206,7 @@ library:
     - src/extended
 
 executables:
-  server:
+  buzgibi:
     main:                Main.hs
     source-dirs:         
       - src/main
