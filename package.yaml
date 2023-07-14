@@ -177,9 +177,8 @@ library:
     - warp-tls
     - tls
     - crypto-random
-    - smtp-mail
     - network
-    - mime-mail
+    - mime-types
     - cprng-aes
     - ginger
     - reflection
