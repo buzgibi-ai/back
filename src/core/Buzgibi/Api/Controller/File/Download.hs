@@ -51,16 +51,15 @@ mkFromHttpApiDataEnum ''Option [|from stext . from isoOption . to Right|]
 
 imageMimeTypes = ["image/apng", "image/bmp", "image/gif", "image/x-icon", "image/jpeg", "image/png", "image/svg+xml", "image/tiff", "image/webp"]
 
-controller :: Option -> Id "file" -> Maybe Int -> Maybe Int -> KatipControllerM Application
-controller option id width_m height_m = do
+controller :: Id "user" -> Option -> Id "file" -> Maybe Int -> Maybe Int -> KatipControllerM Application
+controller userId option id width_m height_m = do
   runTelegram $location (option, id, width_m, height_m)
   $(logTM) DebugS (logStr (show (option, id, width_m, height_m)))
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   let notFound = "file {" <> show (coerce @(Id "file") @Int64 id) ^. stext <> "} not found"
   meta <-
     fmap (maybeToRight (asError notFound)) $
-      transactionM hasql $
-        statement File.getMeta id
+      transactionM hasql $ statement File.getMeta (userId, id)
   minioResp <- fmap join $ for meta $ \x -> do
     Minio {..} <- fmap (^. katipEnv . minio) ask
     let bucket = minioBucketPrefix <> "." <> x ^. _4 . coerced

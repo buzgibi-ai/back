@@ -75,20 +75,26 @@ save =
           x(hash, title, mime, bucket, exts)
           returning id :: int8|]
 
-getMeta :: HS.Statement (Id "file") (Maybe (Hash, Name, Mime, Bucket, [T.Text]))
+getMeta :: HS.Statement (Id "user", Id "file") (Maybe (Hash, Name, Mime, Bucket, [T.Text]))
 getMeta =
-  dimap (^. coerced) (fmap mkTpl) $
+  dimap (\x -> x & _1 %~ coerce & _2 %~ coerce) (fmap mkTpl) $
     [maybeStatement|
-    select 
-      hash :: text, 
-      title :: text,
-      mime :: text, 
-      bucket :: text, 
-      array(select trim(both '"' from cast(el as text)) 
+      select
+       f.hash :: text, 
+       f.title :: text,
+       f.mime :: text, 
+       f.bucket :: text,
+       array(select trim(both '"' from cast(el as text)) 
             from json_array_elements(exts) as el) :: text[]
-    from storage.file
-    where id = $1 :: int8
-          and not is_deleted|]
+      from 
+      customer.enquiry as ce
+      inner join customer.enquiry_bark as eb
+      on ce.id = eb.enquiry_id
+      inner join storage.file as f
+      on eb.voice_id = f.id
+      where ce.user_id = $1 :: int8 
+            and f.id = $2 :: int8 
+            and not is_deleted|]
   where
     mkTpl x = x & _1 %~ coerce & _2 %~ coerce & _3 %~ coerce & _4 %~ coerce & _5 %~ V.toList @T.Text
 
