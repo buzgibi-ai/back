@@ -18,25 +18,27 @@ import Servant.API
 import Servant.Multipart
 import Servant.Swagger
 import qualified Servant.Swagger.Internal
+import Network.Mime (fileNameExtensions)
 
 newtype Files = Files {filesXs :: [File]} deriving (Show)
 
 data File = File
   { fileName :: !T.Text,
     fileMime :: !T.Text,
-    filePath :: !FilePath
+    filePath :: !FilePath,
+    fileExts :: ![T.Text]  
   }
   deriving (Show, Typeable)
 
 instance FromMultipart Tmp Files where
   fromMultipart x =
     Right $ Files $ flip map (files x) $ \FileData {..} ->
-      File fdFileName fdFileCType fdPayload
+      File fdFileName fdFileCType fdPayload $ fileNameExtensions fdFileName
 
 instance FromMultipart Tmp File where
   fromMultipart x = mkFile <$> lookupFile "payloadFile" x
     where
-      mkFile FileData {..} = File fdFileName fdFileCType fdPayload
+      mkFile FileData {..} = File fdFileName fdFileCType fdPayload $ fileNameExtensions fdFileName
 
 instance (Typeable a, HasSwagger sub) => HasSwagger (MultipartForm tag a :> sub) where
   toSwagger _ =

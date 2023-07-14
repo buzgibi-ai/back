@@ -1,6 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 
-module Buzgibi.Api.Controller.Utils (withError, getContent, ContentError (..)) where
+module Buzgibi.Api.Controller.Utils (withError, getContent, ContentError (..), extractMIMEandExts) where
 
 import Buzgibi.Transport.Response
 import Control.Lens
@@ -12,6 +13,9 @@ import qualified Data.Text as T
 import Data.Yaml (decodeEither', prettyPrintParseException)
 import qualified GitHub as GitHub
 import GitHub.Data.Content (contentFileContent)
+import Network.HTTP.Types.URI (extractPath)
+import Network.Mime (defaultMimeLookup, fileNameExtensions)
+import qualified Data.ByteString as B
 
 withError :: Show e => Either e a -> (a -> b) -> Response b
 withError (Left e) _ = Error $ asError (show e ^. stext)
@@ -29,3 +33,6 @@ getContent (Right (GitHub.ContentFile (GitHub.ContentFileData {contentFileConten
     decodeEither' $
       contentFileContent ^. textbs . to decodeLenient
 getContent _ = Left Resource404
+
+extractMIMEandExts :: T.Text -> (B.ByteString, [T.Text])
+extractMIMEandExts uri = let path = extractPath (uri^.textbs)^.from textbs in (defaultMimeLookup path, fileNameExtensions path)

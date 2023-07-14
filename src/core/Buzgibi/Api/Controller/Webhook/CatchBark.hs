@@ -6,6 +6,7 @@
 
 module Buzgibi.Api.Controller.Webhook.CatchBark (controller) where
 
+import Buzgibi.Api.Controller.Utils (extractMIMEandExts)
 import Buzgibi.Transport.Response (toEither)
 import Buzgibi.Transport.Id (Id (..))
 import qualified Buzgibi.Api.Controller.File.Upload as File.Upload
@@ -40,9 +41,7 @@ import Data.Bifunctor (first)
 data Error = 
      OutputIsMissing | 
      AudioOutIsMissing | 
-     NetworkFailure B.ByteString | 
-     MIMETypeHeaderMissing |
-     UnsupportedMIMEType |
+     NetworkFailure B.ByteString |
      MinioError String
   deriving Show
 
@@ -66,21 +65,19 @@ controller payload = do
            $(logTM) DebugS (logStr @String  ("catch bark webhook --> url: " <> show url))
            file_resp <- liftIO $ Request.make url manager [] HTTP.methodGet (Nothing @())
            file <- E.withExceptT NetworkFailure $ E.except file_resp
-           file' <- E.except $ maybeToRight MIMETypeHeaderMissing $ extractMIMETypeHeader file
-           file_id <- commitToMinio file' $ Bark.responseIdent resp
+           let (mime, exts) = extractMIMEandExts url
+           file_id <- commitToMinio file mime exts $ Bark.responseIdent resp
            minio_res <- for file_id $ \[ident] -> do 
              lift $ transactionM hasql $ statement Enquiry.insertVoice (Bark.responseIdent resp, Enquiry.BarkProcessed, coerce ident)
            E.except minio_res
         when (isLeft res) $ $(logTM) ErrorS (logStr @String ("catch bark webhook --> file hasn't been saved, error: " <> show res))     
       _ -> $(logTM) InfoS (logStr @String ("catch bark webhook --> " <> show resp))
 
-extractMIMETypeHeader (file, hs) = fmap (file,) $ lookup HTTP.hContentType hs
 
-commitToMinio (file, mime) name
+commitToMinio (file, _) mime extXs name
   | mime == "audio/wav" || 
-    mime == "audio/x-wav" = do 
+    mime == "audio/x-wav" = do
       tmp <- liftIO getTemporaryDirectory
       let filePath = tmp </> T.unpack (mkHash file)
       liftIO $ B.writeFile filePath file
-      lift $ fmap (first (MinioError . show) . join . Right . toEither) $ File.Upload.controller "bark" $ Files [File name (mime^.from textbs) filePath]
-commitToMinio _ _ = pure $ Left UnsupportedMIMEType
+      lift $ fmap (first (MinioError . show) . join . Right . toEither) $ File.Upload.controller "bark" $ Files [File name (mime^.from textbs) filePath extXs]

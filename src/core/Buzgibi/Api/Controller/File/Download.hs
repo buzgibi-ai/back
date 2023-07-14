@@ -80,7 +80,7 @@ controller option id width_m height_m = do
               pure $ show h ++ "x" ++ show w
         for_ size $ \s -> liftIO $ readProcess "convert" [path, "-resize", s, path] mempty
       payload <- liftIO $ B.readFile path
-      return (payload, size, x ^. _2 . coerced @Name @_ @T.Text @_, x ^. _3 . coerced @Mime @_ @T.Text @_)
+      return (payload, size, x ^. _2 . coerced @Name @_ @T.Text @_, x ^. _3 . coerced @Mime @_ @T.Text @_, x ^. _5)
     return $ first (asError . (\e -> show e ^. stext)) r
   runTelegram $location (second (^. _3) minioResp)
   $(logTM) DebugS (logStr (show (second (^. _3) minioResp)))
@@ -89,7 +89,7 @@ controller option id width_m height_m = do
 embedded ::
   Request ->
   (Response -> IO ResponseReceived) ->
-  Either Error (B.ByteString, Int64, T.Text, T.Text) ->
+  Either Error (B.ByteString, Int64, T.Text, T.Text, [T.Text]) ->
   IO ResponseReceived
 embedded req resp _
   | requestMethod req /= methodGet =
@@ -100,24 +100,29 @@ embedded req resp _
 embedded _ resp minioResp = resp $
   case minioResp of
     Right minio ->
-      responseLBS status200 [(hContentType, minio ^. _4 . textbs)] $
+      responseLBS status200 [(hContentType, minio ^. _4 . textbs), (hContentDisposition, "inline")] $
         encode (Response.Ok $ decodeUtf8 $ B64.encode (minio ^. _1))
     Left e -> responseLBS status200 [] $ encode $ (Response.Error e :: Response.Response ())
 
 raw ::
   Request ->
   (Response -> IO ResponseReceived) ->
-  Either Error (B.ByteString, Int64, T.Text, T.Text) ->
+  Either Error (B.ByteString, Int64, T.Text, T.Text, [T.Text]) ->
   IO ResponseReceived
 raw req resp _ | requestMethod req /= methodGet = resp $ responseLBS status405 [] mempty
 raw _ resp (Right minio) =
+  let ext = 
+       case minio ^._5 of 
+         (ext:_) -> "." <> ext^.textbs
+         [] -> ".a"
+  in       
   resp
     $ responseLBS
       status200
       [ (hContentType, minio ^. _4 . textbs),
         ( hContentDisposition,
           "attachment;filename="
-            <> (mkHash (minio ^. _3) ^. textbs)
+            <> (mkHash (minio ^. _3) ^. textbs) <> ext
         )
       ]
     $ (minio ^. _1 . from bytesLazy)

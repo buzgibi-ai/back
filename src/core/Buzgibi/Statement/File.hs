@@ -2,6 +2,10 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 module Buzgibi.Statement.File
   ( save,
@@ -9,6 +13,7 @@ module Buzgibi.Statement.File
     Buzgibi.Statement.File.delete,
     getHashWithBucket,
     patch,
+    NewFile (..)
   )
 where
 
@@ -21,19 +26,37 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Hasql.Statement as HS
 import Hasql.TH
+import TH.Mk
+import GHC.Generics
+import Database.Transaction (ParamsShow (..))
+import Data.Maybe (fromMaybe)
+import Data.Aeson (toJSON)
 
-save :: HS.Statement [(Hash, Name, Mime, T.Text)] [Id "file"]
+data NewFile = 
+     NewFile 
+     { newFileHash :: T.Text, 
+       newFileName :: T.Text, 
+       newFileMime :: T.Text, 
+       newFileBucket :: T.Text, 
+       newFileExts :: [T.Text]
+     }
+     deriving Generic
+
+mkEncoder ''NewFile
+mkArbitrary ''NewFile
+
+encodeNewFile = fromMaybe (error "cannot encode NewFile") . mkEncoderNewFile
+
+instance ParamsShow NewFile where
+  render = render . encodeNewFile
+
+save :: HS.Statement [NewFile] [Id "file"]
 save =
   lmap
-    ( V.unzip4
+    ( V.unzip5
         . V.fromList
         . Prelude.map
-          ( \x ->
-              x
-                & _1 %~ coerce @_ @T.Text
-                & _2 %~ coerce @_ @T.Text
-                & _3 %~ coerce @_ @T.Text
-          )
+          (\x -> encodeNewFile x & _5 %~ toJSON)
     )
     $ statement
     $ premap (^. coerced) list
@@ -41,26 +64,33 @@ save =
     statement =
       [foldStatement|
         insert into storage.file
-        (hash, title, mime, bucket)
-        select x.hash, x.title, x.mime, x.bucket
+        (hash, title, mime, bucket, exts)
+        select x.hash, x.title, x.mime, x.bucket, x.exts
         from unnest(
           $1 :: text[],
           $2 :: text[],
           $3 :: text[],
-          $4 :: text[]) as
-          x(hash, title, mime, bucket)
-        returning id :: int8|]
+          $4 :: text[],
+          $5 :: json[]) as
+          x(hash, title, mime, bucket, exts)
+          returning id :: int8|]
 
-getMeta :: HS.Statement (Id "file") (Maybe (Hash, Name, Mime, Bucket))
+getMeta :: HS.Statement (Id "file") (Maybe (Hash, Name, Mime, Bucket, [T.Text]))
 getMeta =
   dimap (^. coerced) (fmap mkTpl) $
     [maybeStatement|
-    select hash :: text, title :: text, mime :: text, bucket :: text
+    select 
+      hash :: text, 
+      title :: text,
+      mime :: text, 
+      bucket :: text, 
+      array(select trim(both '"' from cast(el as text)) 
+            from json_array_elements(exts) as el) :: text[]
     from storage.file
     where id = $1 :: int8
           and not is_deleted|]
   where
-    mkTpl x = x & _1 %~ coerce & _2 %~ coerce & _3 %~ coerce & _4 %~ coerce
+    mkTpl x = x & _1 %~ coerce & _2 %~ coerce & _3 %~ coerce & _4 %~ coerce & _5 %~ V.toList @T.Text
 
 delete :: HS.Statement (Id "file") Bool
 delete =

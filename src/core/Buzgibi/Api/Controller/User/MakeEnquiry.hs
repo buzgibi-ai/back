@@ -155,4 +155,4 @@ data BarkRequestBody =
 --   "webhook": "https://api.buzgibi.app/foreign/webhook/bark",
 --   "webhook_events_filter": ["start", "completed"]
 -- }
-mkReq version enquiry = BarkRequestBody version (Input enquiry) "https://api.buzgibi.app/foreign/webhook/bark" ["start", "completed"]
+mkReq version enquiry = BarkRequestBody version (Input enquiry) "https://9bf2-37-154-96-196.ngrok-free.app/foreign/webhook/bark" ["start", "completed"]

@@ -8,7 +8,6 @@ module Buzgibi.Api.Controller.File.Upload (controller) where
 import BuildInfo
 import Buzgibi.Statement.File as File
 import Buzgibi.Transport.Id
-import Buzgibi.Transport.Model.File
 import Buzgibi.Transport.Response
 import Control.Lens
 import Control.Lens.Iso.Extended
@@ -51,13 +50,15 @@ controller bucket x = do
           Nothing
       fPutObject newBucket hash filePath defaultPutObjectOptions
     $(logTM) DebugS (logStr (show minioResult))
-    let tpl =
-          ( Hash (UnicodeText hash),
-            Name (UnicodeText fileName),
-            Mime (UnicodeText fileMime),
-            bucket
-          )
-    return $ maybe (Left (MErrIO (userError "minio server didn't respond"))) (fmap (const tpl)) minioResult
+    let file =
+             NewFile 
+              { newFileHash = hash, 
+                newFileName = fileName, 
+                newFileMime = fileMime,
+                newFileBucket = bucket,
+                newFileExts = fileExts
+              }
+    return $ maybe (Left (MErrIO (userError "minio server didn't respond"))) (fmap (const file)) minioResult
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   let (error_xs, success_xs) = partitionEithers es
   ids <- transactionM hasql $ statement File.save success_xs
