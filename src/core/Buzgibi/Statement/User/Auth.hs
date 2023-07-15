@@ -15,11 +15,15 @@ import Hasql.TH
 insertUser :: HS.Statement (T.Text, T.Text) (Maybe Int64)
 insertUser =
   [maybeStatement|
-      insert into auth.user
-      (email, pass)
-      values ($1 :: text, crypt($2 :: text, gen_salt('md5')))
-      on conflict on constraint email__uk do nothing
-      returning id :: int8|]
+    with 
+      auth as 
+      (insert into auth.user
+       (email, pass)
+       values ($1 :: text, crypt($2 :: text, gen_salt('md5')))
+       on conflict on constraint email__uk do nothing
+       returning id :: int8),
+      profile as (insert into customer.profile (user_id) (select * from auth))
+    select id :: int8 from auth|]
 
 insertJwt :: HS.Statement (Int64, T.Text) Bool
 insertJwt =

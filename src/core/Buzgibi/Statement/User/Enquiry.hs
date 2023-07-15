@@ -78,9 +78,16 @@ insert :: HS.Statement Enquiry (Maybe Int64)
 insert =
   lmap (\x -> encodeEnquiry x & _3 %~ (T.pack . show)) $
   [maybeStatement|
-    insert into customer.enquiry 
+    insert into customer.enquiry
     (user_id, enquiry, enquiry_status, latitude, longitude)
-    values ($1 :: int8, $2 :: text, $3 :: text, $4 :: float8, $5 :: float8)
+    select
+      id :: int8,
+      $2 :: text, 
+      $3 :: text, 
+      $4 :: float8, 
+      $5 :: float8
+    from customer.profile
+    where user_id = $1 :: int8
     returning id :: int8|]
 
 data BarkStatus = BarkSent | BarkStart | BarkProcessed | BarkFail
