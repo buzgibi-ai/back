@@ -77,6 +77,7 @@ explainTests =
   , "Buzgibi.Statement.User.Enquiry" ==>
      [ "insertBark" =>> Buzgibi.Statement.User.Enquiry.insertBark,
        "updateBark" =>> Buzgibi.Statement.User.Enquiry.updateBark,
-       "insertVoice" =>> Buzgibi.Statement.User.Enquiry.insertVoice 
+       "insertVoice" =>> Buzgibi.Statement.User.Enquiry.insertVoice, 
+       "getHistory"  =>> Buzgibi.Statement.User.Enquiry.getHistory
      ] 
   ]
