@@ -186,7 +186,7 @@ mkEncoder name = do
         TySynD
           (mkName (nameBase name <> "Encoder"))
           []
-          (mkTpl types (TupleT (length xs)))        
+          (mkTpl types (TupleT (length xs)))
   let mkEncoderSig =
         SigD
           (mkName ("mkEncoder" <> nameBase name))
@@ -200,7 +200,7 @@ mkEncoder name = do
   let mkEncoderFun =
         FunD
           (mkName ("mkEncoder" <> nameBase name))
-          [Clause [] (NormalB (LamE [VarP (mkName "x")] (AppE (ConE (mkName "Just")) (TupE (mkTplExp [] fields))))) []]       
+          [Clause [] (NormalB (LamE [VarP (mkName "x")] (AppE (ConE (mkName "Just")) (TupE (mkTplExp [] fields))))) []]
   return [mkTypeSyn, mkEncoderSig, mkEncoderFun]
   where
     mkType t =

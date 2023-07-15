@@ -172,6 +172,6 @@ getHistory =
        on eb.voice_id = f.id
        where e.user_id = $1 :: int8 and eb.voice_id is not null
        group by f.id, f.title, f.created
-       order by f.id 
+       order by f.id desc
        offset (($2 :: int4 - 1) * 5) limit 5)
     select array_agg(jsonb_build_object('ident', ident, 'name', title, 'timestamp', created)) :: jsonb[], (count(cnt) = 5 :: int4) :: bool from tbl group by cnt|]
