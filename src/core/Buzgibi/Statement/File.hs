@@ -86,17 +86,17 @@ getMeta =
        f.bucket :: text,
        array(select trim(both '"' from cast(el as text)) 
             from json_array_elements(exts) as el) :: text[]
-      from 
-      customer.enquiry as ce
+      from customer.profile as p
+      inner join customer.enquiry as ce
+      on p.id = ce.user_id
       inner join customer.enquiry_bark as eb
       on ce.id = eb.enquiry_id
       inner join storage.file as f
       on eb.voice_id = f.id
-      where ce.user_id = $1 :: int8 
-            and f.id = $2 :: int8 
+      where p.user_id = $1 :: int8 
+            and f.id = $2 :: int8
             and not is_deleted|]
-  where
-    mkTpl x = x & _1 %~ coerce & _2 %~ coerce & _3 %~ coerce & _4 %~ coerce & _5 %~ V.toList @T.Text
+  where mkTpl x = x & _1 %~ coerce & _2 %~ coerce & _3 %~ coerce & _4 %~ coerce & _5 %~ V.toList @T.Text
 
 delete :: HS.Statement (Id "file") Bool
 delete =
