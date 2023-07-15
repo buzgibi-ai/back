@@ -172,12 +172,14 @@ getHistory =
          f.title :: text,
          f.created :: timestamptz,
          1 :: int4 as cnt
-       from customer.enquiry as e
+       from customer.profile as p
+       inner join customer.enquiry as e
+       on p.id = e.user_id 
        left join customer.enquiry_bark as eb
        on e.id = eb.enquiry_id
        inner join storage.file as f
        on eb.voice_id = f.id
-       where e.user_id = $1 :: int8 and eb.voice_id is not null
+       where p.user_id = $1 :: int8 and eb.voice_id is not null
        group by f.id, f.title, f.created
        order by f.id desc
        offset (($2 :: int4 - 1) * 5) limit 5)
