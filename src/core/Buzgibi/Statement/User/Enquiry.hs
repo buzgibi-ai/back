@@ -17,7 +17,7 @@ module Buzgibi.Statement.User.Enquiry
     insertVoice
   ) where
 
-import Data.Int (Int64)
+import Data.Int (Int64, Int32)
 import qualified Data.Text as T
 import Hasql.TH
 import Data.Default.Class
@@ -32,8 +32,8 @@ import qualified Hasql.Statement as HS
 import Test.QuickCheck.Extended ()
 import Data.Aeson.Types (Value)
 import Data.Bifunctor (second)
-import Data.Time.Clock (UTCTime)
 import qualified Data.Vector as V
+import Data.Bifunctor (first)
 
 data Status = Received | SentToBark | SentToTelnyx | EnquiryProcessed | Fail
   deriving Generic
@@ -153,17 +153,25 @@ insertVoice =
     set voice_id = $3 :: int8
     where bark_id = (select ident from bark)|]
 
-getHistory :: HS.Statement Int64 [(Int64, T.Text, UTCTime)]
-getHistory = 
-  rmap V.toList $
-  [vectorStatement|
-     select 
-      f.id :: int8 as ident,
-      f.title :: text,
-      f.created :: timestamptz 
-     from customer.enquiry as e
-     left join customer.enquiry_bark as eb
-     on e.id = eb.enquiry_id
-     inner join storage.file as f
-     on eb.voice_id = f.id
-     where e.user_id = $1 :: int8 and eb.voice_id is not null|]
+getHistory :: HS.Statement (Int64, Int32) (Maybe ([Value], Bool))
+getHistory =
+  rmap (fmap (first V.toList)) $
+  [maybeStatement|
+    with 
+      tbl as 
+      (select
+         distinct on (f.id, f.title, f.created)
+         f.id :: int8 as ident,
+         f.title :: text,
+         f.created :: timestamptz,
+         1 :: int4 as cnt
+       from customer.enquiry as e
+       left join customer.enquiry_bark as eb
+       on e.id = eb.enquiry_id
+       inner join storage.file as f
+       on eb.voice_id = f.id
+       where e.user_id = $1 :: int8 and eb.voice_id is not null
+       group by f.id, f.title, f.created
+       order by f.id 
+       offset (($2 :: int4 - 1) * 5) limit 5)
+    select array_agg(jsonb_build_object('ident', ident, 'name', title, 'timestamp', created)) :: jsonb[], (count(cnt) = 5 :: int4) :: bool from tbl group by cnt|]

@@ -20,8 +20,9 @@ module Buzgibi.Api.Controller.User.GetHistory (controller, History) where
 import Buzgibi.Auth (AuthenticatedUser (..))
 import Buzgibi.Transport.Response
 import qualified Buzgibi.Statement.User.Enquiry as Enquiry
+import Buzgibi.Api.Controller.Utils (withError)
 import Katip.Controller
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (FromJSON, ToJSON, encode, eitherDecode)
 import Data.Aeson.Generic.DerivingVia
 import GHC.Generics
 import Control.Lens
@@ -33,13 +34,23 @@ import Data.Proxy (Proxy (..))
 import Database.Transaction
 import Data.Coerce (coerce)
 
-data History = 
-     History
+data HistoryItem = 
+     HistoryItem
      { 
-        historyIdent :: !Int64,
-        historyName :: !T.Text,
-        historyTimestamp :: !UTCTime
+        historyItemIdent :: !Int64,
+        historyItemName :: !T.Text,
+        historyItemTimestamp :: !UTCTime
      }
+     deriving stock (Generic)
+     deriving
+       (ToJSON, FromJSON)
+       via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor HistoryItem)]]
+          HistoryItem
+
+deriveToSchemaFieldLabelModifier ''HistoryItem [|modify (Proxy @HistoryItem)|]
+
+data History = History { historyItems :: ![HistoryItem], historyIsNextPage :: !Bool }
      deriving stock (Generic)
      deriving
        (ToJSON, FromJSON)
@@ -49,9 +60,13 @@ data History =
 
 deriveToSchemaFieldLabelModifier ''History [|modify (Proxy @History)|]
 
-controller :: AuthenticatedUser -> KatipControllerM (Response [History])
-controller user = do 
-  hasql <- fmap (^. katipEnv . hasqlDbPool) ask
-  fmap (Ok . map mkHistory) $ transactionM hasql $ statement Enquiry.getHistory $ coerce user
 
-mkHistory (ident, name, time) = History ident name time
+controller :: AuthenticatedUser -> Maybe Int -> KatipControllerM (Response History)
+controller user page = do 
+  hasql <- fmap (^. katipEnv . hasqlDbPool) ask
+  let offset = maybe 1 fromIntegral page
+  res <- fmap mkHistory $ transactionM hasql $ statement Enquiry.getHistory (coerce user, offset)
+  return $ withError res id
+
+mkHistory (Just (xs, isNextPage)) = let xs' = sequence (map (eitherDecode . encode) xs) in fmap (`History` isNextPage) xs'
+mkHistory _ = Right $ History [] False

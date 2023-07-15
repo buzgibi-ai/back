@@ -154,12 +154,12 @@ user =
             $ katipAddNamespace
               (Namespace ["user", "enquiry", "make"])
             $ User.MakeEnquiry.controller ident enquiry,
-      _userApiGetEnquiryHistory = \auth ->
+      _userApiGetEnquiryHistory = \auth page ->
         auth `Auth.withAuth` \ident ->
           flip logExceptionM ErrorS
             $ katipAddNamespace
               (Namespace ["user", "enquiry", "history"])
-            $ User.GetHistory.controller ident
+            $ User.GetHistory.controller ident page
     }
 
 _foreign :: ForeignApi (AsServerT KatipControllerM)

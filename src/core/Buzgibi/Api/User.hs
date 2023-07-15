@@ -13,8 +13,8 @@ import Buzgibi.Api.Controller.User.GetHistory (History)
 import Buzgibi.Auth (AuthenticatedUser, JWT)
 import Buzgibi.Transport.Model.User
 import Buzgibi.Transport.Response (Response)
-import Servant.API.Extended (Capture, Get, JSON, Post, ReqBody, type (:>))
-import Servant.API.Generic (Generic, GenericMode (type (:-)))
+import Servant.API.Extended
+import Servant.API.Generic (Generic)
 import qualified Servant.Auth.Server as SA
 
 data AuthApi route = AuthApi
@@ -54,6 +54,7 @@ data UserApi route = UserApi
         :- "enquiry"
           :> "history"
           :> SA.Auth '[JWT] AuthenticatedUser
-          :> Get '[JSON] (Response [History])
+          :> QueryParam' '[Optional, Strict] "page" Int
+          :> Get '[JSON] (Response History)
   }
   deriving stock (Generic)
