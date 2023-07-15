@@ -6,7 +6,16 @@
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 
 module Buzgibi.Statement.User.Enquiry 
-  (insert, Enquiry (..), Status (..), NewBark (..), insertBark, BarkStatus (..), updateBark, insertVoice) where
+  ( insert, 
+    getHistory, 
+    Enquiry (..), 
+    Status (..), 
+    NewBark (..), 
+    insertBark, 
+    BarkStatus (..), 
+    updateBark, 
+    insertVoice
+  ) where
 
 import Data.Int (Int64)
 import qualified Data.Text as T
@@ -23,6 +32,8 @@ import qualified Hasql.Statement as HS
 import Test.QuickCheck.Extended ()
 import Data.Aeson.Types (Value)
 import Data.Bifunctor (second)
+import Data.Time.Clock (UTCTime)
+import qualified Data.Vector as V
 
 data Status = Received | SentToBark | SentToTelnyx | EnquiryProcessed | Fail
   deriving Generic
@@ -141,3 +152,18 @@ insertVoice =
     update customer.enquiry_bark
     set voice_id = $3 :: int8
     where bark_id = (select ident from bark)|]
+
+getHistory :: HS.Statement Int64 [(Int64, T.Text, UTCTime)]
+getHistory = 
+  rmap V.toList $
+  [vectorStatement|
+     select 
+      f.id :: int8 as ident,
+      f.title :: text,
+      f.created :: timestamptz 
+     from customer.enquiry as e
+     left join customer.enquiry_bark as eb
+     on e.id = eb.enquiry_id
+     inner join storage.file as f
+     on eb.voice_id = f.id
+     where e.user_id = $1 :: int8 and eb.voice_id is not null|]

@@ -9,6 +9,7 @@
 module Buzgibi.Api.User (AuthApi (..), UserApi (..)) where
 
 import Buzgibi.Api.Controller.User.MakeEnquiry (Enquiry)
+import Buzgibi.Api.Controller.User.GetHistory (History)
 import Buzgibi.Auth (AuthenticatedUser, JWT)
 import Buzgibi.Transport.Model.User
 import Buzgibi.Transport.Response (Response)
@@ -53,6 +54,6 @@ data UserApi route = UserApi
         :- "enquiry"
           :> "history"
           :> SA.Auth '[JWT] AuthenticatedUser
-          :> Get '[JSON] (Response ())
+          :> Get '[JSON] (Response [History])
   }
   deriving stock (Generic)
