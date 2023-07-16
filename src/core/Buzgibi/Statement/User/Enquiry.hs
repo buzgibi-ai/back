@@ -181,10 +181,13 @@ getHistory =
          where p.user_id = $1 :: int8 and eb.voice_id is not null
          group by f.id, e.enquiry, f.created
          order by f.id desc),
-      total as (select count(*) from tbl)
+      total as (select count(*) from tbl),
+      history as (select * from tbl offset (($2 :: int4 - 1) * 10) limit 10)
     select 
-      array_agg(jsonb_build_object('ident', ident, 'name', title, 'timestamp', created)) :: jsonb[], 
+      array_agg(
+        jsonb_build_object(
+          'ident', ident, 
+          'name', title, 
+          'timestamp', created)) :: jsonb[], 
       (select * from total) :: int4 as cnt 
-    from tbl 
-    group by cnt
-    offset (($2 :: int4 - 1) * 5) limit 5|]
+    from history group by cnt|]
