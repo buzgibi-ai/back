@@ -68,7 +68,7 @@ controller payload = do
            let (mime, exts) = extractMIMEandExts url
            file_id <- commitToMinio file mime exts $ Bark.responseIdent resp
            minio_res <- for file_id $ \[ident] -> do 
-             lift $ transactionM hasql $ statement Enquiry.insertVoice (Bark.responseIdent resp, Enquiry.BarkProcessed, coerce ident)
+             lift $ transactionM hasql $ statement Enquiry.insertVoice (Bark.responseIdent resp, Enquiry.BarkProcessed, coerce ident, Enquiry.ProcessedByBark)
            E.except minio_res
         when (isLeft res) $ $(logTM) ErrorS (logStr @String ("catch bark webhook --> file hasn't been saved, error: " <> show res))     
       _ -> $(logTM) InfoS (logStr @String ("catch bark webhook --> " <> show resp))

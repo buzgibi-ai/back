@@ -35,13 +35,13 @@ import Data.Bifunctor (second)
 import qualified Data.Vector as V
 import Data.Bifunctor (first)
 
-data Status = Received | SentToBark | SentToTelnyx | EnquiryProcessed | Fail
+data Status = Received | ProcessedByBark | ProcessedByTelnyx | EnquiryProcessed | Fail
   deriving Generic
 
 instance Show Status where
     show Received = "received"
-    show SentToBark = "bark" 
-    show SentToTelnyx = "telnyx"
+    show ProcessedByBark = "processed by bark" 
+    show ProcessedByTelnyx = "processed by telnyx"
     show EnquiryProcessed = "processed"
     show Fail = "fail"
 
@@ -146,19 +146,28 @@ updateBark =
   [resultlessStatement|
     update foreign_api.bark set bark_status = $2 :: text, modified = now() where bark_ident = $1 :: text|]
 
-insertVoice :: HS.Statement (T.Text, BarkStatus, Int64) ()
-insertVoice = 
-  lmap (\x -> x & _2 %~ (T.pack . show)) $ 
+insertVoice :: HS.Statement (T.Text, BarkStatus, Int64, Status) ()
+insertVoice =
+  lmap (\x -> x & _2 %~ (T.pack . show) & _4 %~ (T.pack . show)) $ 
   [resultlessStatement|
-    with bark as 
-    (update foreign_api.bark 
-     set bark_status = $2 :: text, 
-         modified = now() 
-     where bark_ident = $1 :: text
-     returning id :: int8 as ident)
-    update customer.enquiry_bark
-    set voice_id = $3 :: int8
-    where bark_id = (select ident from bark)|]
+    with 
+      bark as 
+      (update foreign_api.bark 
+       set bark_status = $2 :: text, 
+           modified = now() 
+       where bark_ident = $1 :: text
+       returning id :: int8 as ident, enquiry_id :: int8),
+      enquiry_bark as 
+      (update customer.enquiry_bark
+       set voice_id = $3 :: int8
+       where bark_id = (select ident from bark)
+       returning 1 :: int8 as ident),
+      enquiry as
+      (update customer.enquiry
+       set enquiry_status = $4 :: text
+       where id = (select enquiry_id from bark)
+       returning 1 :: int8 as ident)
+      select ident :: int8 from enquiry_bark union select ident :: int8 from enquiry|]
 
 getHistory :: HS.Statement (Int64, Int32) (Maybe ([Value], Int32))
 getHistory =
