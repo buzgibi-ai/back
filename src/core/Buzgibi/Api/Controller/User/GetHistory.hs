@@ -33,6 +33,7 @@ import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier, modify)
 import Data.Proxy (Proxy (..))
 import Database.Transaction
 import Data.Coerce (coerce)
+import Data.Int (Int32)
 
 data HistoryItem = 
      HistoryItem
@@ -50,7 +51,13 @@ data HistoryItem =
 
 deriveToSchemaFieldLabelModifier ''HistoryItem [|modify (Proxy @HistoryItem)|]
 
-data History = History { historyItems :: ![HistoryItem], historyIsNextPage :: !Bool }
+data History = 
+     History 
+     { 
+        historyTotal :: !Int32,
+        historyPerPage :: !Int32,
+        historyItems :: ![HistoryItem]
+     }
      deriving stock (Generic)
      deriving
        (ToJSON, FromJSON)
@@ -60,7 +67,6 @@ data History = History { historyItems :: ![HistoryItem], historyIsNextPage :: !B
 
 deriveToSchemaFieldLabelModifier ''History [|modify (Proxy @History)|]
 
-
 controller :: AuthenticatedUser -> Maybe Int -> KatipControllerM (Response History)
 controller user page = do 
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
@@ -68,5 +74,5 @@ controller user page = do
   res <- fmap mkHistory $ transactionM hasql $ statement Enquiry.getHistory (coerce user, offset)
   return $ withError res id
 
-mkHistory (Just (xs, isNextPage)) = let xs' = sequence (map (eitherDecode . encode) xs) in fmap (`History` isNextPage) xs'
-mkHistory _ = Right $ History [] False
+mkHistory (Just (xs, total)) = let xs' = sequence (map (eitherDecode . encode) xs) in fmap (History total 10) xs'
+mkHistory _ = Right $ History 0 0 []

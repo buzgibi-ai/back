@@ -160,27 +160,31 @@ insertVoice =
     set voice_id = $3 :: int8
     where bark_id = (select ident from bark)|]
 
-getHistory :: HS.Statement (Int64, Int32) (Maybe ([Value], Bool))
+getHistory :: HS.Statement (Int64, Int32) (Maybe ([Value], Int32))
 getHistory =
   rmap (fmap (first V.toList)) $
   [maybeStatement|
     with 
       tbl as 
-      (select
-         distinct on (f.id, f.title, f.created)
-         f.id :: int8 as ident,
-         f.title :: text,
-         f.created :: timestamptz,
-         1 :: int4 as cnt
-       from customer.profile as p
-       inner join customer.enquiry as e
-       on p.id = e.user_id 
-       left join customer.enquiry_bark as eb
-       on e.id = eb.enquiry_id
-       inner join storage.file as f
-       on eb.voice_id = f.id
-       where p.user_id = $1 :: int8 and eb.voice_id is not null
-       group by f.id, f.title, f.created
-       order by f.id desc
-       offset (($2 :: int4 - 1) * 5) limit 5)
-    select array_agg(jsonb_build_object('ident', ident, 'name', title, 'timestamp', created)) :: jsonb[], (count(cnt) = 5 :: int4) :: bool from tbl group by cnt|]
+        (select
+           distinct on (f.id, e.enquiry, f.created)
+           f.id :: int8 as ident,
+           e.enquiry :: text as title,
+           f.created :: timestamptz
+         from customer.profile as p
+         inner join customer.enquiry as e
+         on p.id = e.user_id 
+         left join customer.enquiry_bark as eb
+         on e.id = eb.enquiry_id
+         inner join storage.file as f
+         on eb.voice_id = f.id
+         where p.user_id = $1 :: int8 and eb.voice_id is not null
+         group by f.id, e.enquiry, f.created
+         order by f.id desc),
+      total as (select count(*) from tbl)
+    select 
+      array_agg(jsonb_build_object('ident', ident, 'name', title, 'timestamp', created)) :: jsonb[], 
+      (select * from total) :: int4 as cnt 
+    from tbl 
+    group by cnt
+    offset (($2 :: int4 - 1) * 5) limit 5|]
