@@ -13,7 +13,7 @@ module Buzgibi.Explain (spec_explain) where
 
 import qualified Buzgibi.Statement.File
 import qualified Buzgibi.Statement.User.Auth 
-import qualified Buzgibi.Statement.User.Enquiry
+import qualified Buzgibi.Statement.User.Survey
 
 import Control.Lens
 import Control.Monad.IO.Class
@@ -74,10 +74,11 @@ explainTests =
         "logout" =>> Buzgibi.Statement.User.Auth.logout,
         "insertToken" =>> Buzgibi.Statement.User.Auth.insertToken
      ]
-  , "Buzgibi.Statement.User.Enquiry" ==>
-     [ "insertBark" =>> Buzgibi.Statement.User.Enquiry.insertBark,
-       "updateBark" =>> Buzgibi.Statement.User.Enquiry.updateBark,
-       "insertVoice" =>> Buzgibi.Statement.User.Enquiry.insertVoice, 
-       "getHistory"  =>> Buzgibi.Statement.User.Enquiry.getHistory
+  , "Buzgibi.Statement.User.Survey" ==>
+     [ "insert" =>> Buzgibi.Statement.User.Survey.insert,
+       "insertBark" =>> Buzgibi.Statement.User.Survey.insertBark,
+       "updateBark" =>> Buzgibi.Statement.User.Survey.updateBark,
+       "insertVoice" =>> Buzgibi.Statement.User.Survey.insertVoice, 
+       "getHistory"  =>> Buzgibi.Statement.User.Survey.getHistory
      ] 
   ]

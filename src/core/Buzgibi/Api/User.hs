@@ -8,7 +8,7 @@
 
 module Buzgibi.Api.User (AuthApi (..), UserApi (..)) where
 
-import Buzgibi.Api.Controller.User.MakeEnquiry (Enquiry)
+import Buzgibi.Api.Controller.User.MakeSurvey (Survey)
 import Buzgibi.Api.Controller.User.GetHistory (History)
 import Buzgibi.Auth (AuthenticatedUser, JWT)
 import Buzgibi.Transport.Model.User
@@ -45,13 +45,13 @@ data UserApi route = UserApi
           :> Get '[JSON] (Response ()),
     _userApiMakeEnquiry ::
       route
-        :- "enquiry"
+        :- "survey"
           :> SA.Auth '[JWT] AuthenticatedUser
-          :> ReqBody '[JSON] Enquiry
+          :> ReqBody '[JSON] Survey
           :> Post '[JSON] (Response ()),
     _userApiGetEnquiryHistory ::
       route
-        :- "enquiry"
+        :- "survey"
           :> "history"
           :> SA.Auth '[JWT] AuthenticatedUser
           :> QueryParam' '[Optional, Strict] "page" Int

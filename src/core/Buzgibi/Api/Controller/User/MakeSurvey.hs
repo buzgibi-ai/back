@@ -16,10 +16,10 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Buzgibi.Api.Controller.User.MakeEnquiry (controller, Enquiry) where
+module Buzgibi.Api.Controller.User.MakeSurvey (controller, Survey) where
 
 import qualified Buzgibi.Transport.Model.Bark as Bark
-import qualified Buzgibi.Statement.User.Enquiry as Enquiry
+import qualified Buzgibi.Statement.User.Survey as Survey
 import Buzgibi.Auth (AuthenticatedUser (..))
 import Buzgibi.Transport.Response
 import Data.Aeson (FromJSON, ToJSON (toJSON), eitherDecodeStrict)
@@ -64,25 +64,27 @@ data Location = Location
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Location)]]
           Location
 
-data Enquiry = Enquiry
-  { enquiryEnquiry :: !T.Text,
-    enquiryLocation :: Location
+data Survey = Survey
+  { surveySurvey :: !T.Text,
+    surveyLocation :: Location,
+    surveyCategory :: Survey.Category,
+    surveyAssessmentScore :: Survey.AssessmentScore
   }
   deriving stock (Generic)
   deriving stock (Show)
   deriving
     (ToJSON, FromJSON)
     via WithOptions
-          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Enquiry)]]
-          Enquiry
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Survey)]]
+          Survey
 
 deriveToSchemaFieldLabelModifier ''Location [|modify (Proxy @Location)|]
-deriveToSchemaFieldLabelModifier ''Enquiry [|modify (Proxy @Enquiry)|]
+deriveToSchemaFieldLabelModifier ''Survey [|modify (Proxy @Survey)|]
 
-controller :: AuthenticatedUser -> Enquiry -> KatipControllerM (Response ())
-controller _ Enquiry {enquiryEnquiry} | T.length enquiryEnquiry == 0 = return $ Error $ asError @T.Text "empty enquiry"
-controller user enquiry@Enquiry {enquiryEnquiry, enquiryLocation = Location {..}} = do
-  $(logTM) DebugS (logStr ("enquiry ---> " <> show enquiry))
+controller :: AuthenticatedUser -> Survey -> KatipControllerM (Response ())
+controller _ Survey {surveySurvey} | T.length surveySurvey == 0 = return $ Error $ asError @T.Text "empty survey"
+controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentScore,  surveyLocation = Location {..}} = do
+  $(logTM) DebugS (logStr ("survey ---> " <> show survey))
   barkm <- fmap (^. katipEnv . bark) ask
   manager <- fmap (^. katipEnv . httpReqManager) ask
   resp <- fmap (join .  maybeToRight BarkCredentials404) $ 
@@ -90,13 +92,15 @@ controller user enquiry@Enquiry {enquiryEnquiry, enquiryLocation = Location {..}
       hasql <- fmap (^. katipEnv . hasqlDbPool) ask
       let enq = 
             def { 
-              Enquiry.enquiryUserId = coerce user,
-              Enquiry.enquiryEnquiry = enquiryEnquiry,
-              Enquiry.enquiryStatus = Enquiry.Received,
-              Enquiry.enquiryLatitude = locationLatitude,
-              Enquiry.enquiryLongitude = locationLongitude
+              Survey.surveyUserId = coerce user,
+              Survey.surveySurvey = surveySurvey,
+              Survey.surveyStatus = Survey.Received,
+              Survey.surveyLatitude = locationLatitude,
+              Survey.surveyLongitude = locationLongitude,
+              Survey.surveyCategory = surveyCategory,
+              Survey.surveyAssessmentScore = surveyAssessmentScore
             }
-      identm <- transactionM hasql $ statement Enquiry.insert enq
+      identm <- transactionM hasql $ statement Survey.insert enq
       for_ identm $ \enq_ident -> 
         Concurrent.fork $ do 
           resp <- liftIO $ 
@@ -104,13 +108,13 @@ controller user enquiry@Enquiry {enquiryEnquiry, enquiryLocation = Location {..}
               (bark^.url) manager 
               [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
               HTTP.methodPost $ 
-              Just (mkReq (bark^.version) enquiryEnquiry)
+              Just (mkReq (bark^.version) surveySurvey)
           let mkBark ident st = 
-                Enquiry.Bark {
-                  Enquiry.barkReq = toJSON $ mkReq (bark^.version) enquiryEnquiry,
-                  Enquiry.barkStatus = st,
-                  Enquiry.barkIdent = ident,
-                  Enquiry.barkEnquiryId = enq_ident
+                Survey.Bark {
+                  Survey.barkReq = toJSON $ mkReq (bark^.version) surveySurvey,
+                  Survey.barkStatus = st,
+                  Survey.barkIdent = ident,
+                  Survey.barkSurveyId = enq_ident
                 }
           case resp of
             Right (resp, _) -> do 
@@ -118,8 +122,8 @@ controller user enquiry@Enquiry {enquiryEnquiry, enquiryLocation = Location {..}
                case bark_resp of 
                  Right resp -> 
                    transactionM hasql $ 
-                     statement Enquiry.insertBark $
-                       mkBark (Bark.responseIdent resp) Enquiry.BarkSent
+                     statement Survey.insertBark $
+                       mkBark (Bark.responseIdent resp) Survey.BarkSent
                  Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
             Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
       return $ maybeToRight InsertionFail identm
@@ -156,4 +160,4 @@ data BarkRequestBody =
 --   "webhook": "https://api.buzgibi.app/foreign/webhook/bark",
 --   "webhook_events_filter": ["start", "completed"]
 -- }
-mkReq version enquiry = BarkRequestBody version (Input enquiry) "https://buzgibi.app/foreign/webhook/bark" ["start", "completed"]
+mkReq version survey = BarkRequestBody version (Input survey) "https://buzgibi.app/foreign/webhook/bark" ["start", "completed"]

@@ -19,7 +19,7 @@ module Buzgibi.Api.Controller.User.GetHistory (controller, History) where
 
 import Buzgibi.Auth (AuthenticatedUser (..))
 import Buzgibi.Transport.Response
-import qualified Buzgibi.Statement.User.Enquiry as Enquiry
+import qualified Buzgibi.Statement.User.Survey as Survey
 import Buzgibi.Api.Controller.Utils (withError)
 import Katip.Controller
 import Data.Aeson (FromJSON, ToJSON, encode, eitherDecode)
@@ -71,7 +71,7 @@ controller :: AuthenticatedUser -> Maybe Int -> KatipControllerM (Response Histo
 controller user page = do 
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   let offset = maybe 1 fromIntegral page
-  res <- fmap mkHistory $ transactionM hasql $ statement Enquiry.getHistory (coerce user, offset)
+  res <- fmap mkHistory $ transactionM hasql $ statement Survey.getHistory (coerce user, offset)
   return $ withError res id
 
 mkHistory (Just (xs, total)) = let xs' = sequence (map (eitherDecode . encode) xs) in fmap (History total 10) xs'

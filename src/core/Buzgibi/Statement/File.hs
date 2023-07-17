@@ -87,10 +87,10 @@ getMeta =
        array(select trim(both '"' from cast(el as text)) 
             from json_array_elements(exts) as el) :: text[]
       from customer.profile as p
-      inner join customer.enquiry as ce
+      inner join customer.survey as ce
       on p.id = ce.user_id
-      inner join customer.enquiry_bark as eb
-      on ce.id = eb.enquiry_id
+      inner join customer.survey_bark as eb
+      on ce.id = eb.survey_id
       inner join storage.file as f
       on eb.voice_id = f.id
       where p.user_id = $1 :: int8 

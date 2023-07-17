@@ -30,7 +30,7 @@ import qualified Buzgibi.Api.Controller.ReCaptcha.Verify as ReCaptcha.Verify
 import qualified Buzgibi.Api.Controller.SendGrid.SendMail as SendGrid.Send
 import qualified Buzgibi.Api.Controller.User.GetHistory as User.GetHistory
 import qualified Buzgibi.Api.Controller.User.GetProfile as User.GetProfile
-import qualified Buzgibi.Api.Controller.User.MakeEnquiry as User.MakeEnquiry
+import qualified Buzgibi.Api.Controller.User.MakeSurvey  as User.MakeSurvey
 import qualified Buzgibi.Api.Controller.Webhook.CatchBark as Webhook.CatchBark
 import qualified Buzgibi.Auth as Auth
 import Katip
@@ -152,13 +152,13 @@ user =
         auth `Auth.withAuth` \ident ->
           flip logExceptionM ErrorS
             $ katipAddNamespace
-              (Namespace ["user", "enquiry", "make"])
-            $ User.MakeEnquiry.controller ident enquiry,
+              (Namespace ["user", "survey ", "make"])
+            $ User.MakeSurvey.controller ident enquiry,
       _userApiGetEnquiryHistory = \auth page ->
         auth `Auth.withAuth` \ident ->
           flip logExceptionM ErrorS
             $ katipAddNamespace
-              (Namespace ["user", "enquiry", "history"])
+              (Namespace ["user", "survey", "history"])
             $ User.GetHistory.controller ident page
     }
 

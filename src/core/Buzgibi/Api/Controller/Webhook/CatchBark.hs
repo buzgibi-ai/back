@@ -12,7 +12,7 @@ import Buzgibi.Transport.Id (Id (..))
 import qualified Buzgibi.Api.Controller.File.Upload as File.Upload
 import qualified Buzgibi.Transport.Model.Bark as Bark
 import Buzgibi.Transport.Payload (Payload (..))
-import qualified Buzgibi.Statement.User.Enquiry as Enquiry 
+import qualified Buzgibi.Statement.User.Survey as Survey
 import Katip.Controller
 import Katip
 import Data.Aeson (eitherDecode, encode, Object)
@@ -55,7 +55,7 @@ controller payload = do
     case Bark.responseStatus resp of
       Bark.Starting -> do 
         $(logTM) DebugS (logStr @String ("catch bark webhook --> processing"))
-        transactionM hasql $ statement Enquiry.updateBark (Bark.responseIdent resp, Enquiry.BarkStart)
+        transactionM hasql $ statement Survey.updateBark (Bark.responseIdent resp, Survey.BarkStart)
       Bark.Succeeded -> do
         $(logTM) DebugS (logStr @String  ("catch bark webhook --> succeeded"))
         res <- E.runExceptT $ do
@@ -68,7 +68,7 @@ controller payload = do
            let (mime, exts) = extractMIMEandExts url
            file_id <- commitToMinio file mime exts $ Bark.responseIdent resp
            minio_res <- for file_id $ \[ident] -> do 
-             lift $ transactionM hasql $ statement Enquiry.insertVoice (Bark.responseIdent resp, Enquiry.BarkProcessed, coerce ident, Enquiry.ProcessedByBark)
+             lift $ transactionM hasql $ statement Survey.insertVoice (Bark.responseIdent resp, Survey.BarkProcessed, coerce ident, Survey.ProcessedByBark)
            E.except minio_res
         when (isLeft res) $ $(logTM) ErrorS (logStr @String ("catch bark webhook --> file hasn't been saved, error: " <> show res))     
       _ -> $(logTM) InfoS (logStr @String ("catch bark webhook --> " <> show resp))

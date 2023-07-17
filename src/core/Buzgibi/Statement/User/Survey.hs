@@ -5,12 +5,14 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 
-module Buzgibi.Statement.User.Enquiry 
+module Buzgibi.Statement.User.Survey
   ( insert, 
     getHistory, 
-    Enquiry (..), 
+    Survey (..), 
     Status (..), 
-    NewBark (..), 
+    NewBark (..),
+    Category (..),
+    AssessmentScore (..), 
     insertBark, 
     BarkStatus (..), 
     updateBark, 
@@ -35,14 +37,14 @@ import Data.Bifunctor (second)
 import qualified Data.Vector as V
 import Data.Bifunctor (first)
 
-data Status = Received | ProcessedByBark | ProcessedByTelnyx | EnquiryProcessed | Fail
+data Status = Received | ProcessedByBark | ProcessedByTelnyx | SurveyProcessed | Fail
   deriving Generic
 
 instance Show Status where
     show Received = "received"
     show ProcessedByBark = "processed by bark" 
     show ProcessedByTelnyx = "processed by telnyx"
-    show EnquiryProcessed = "processed"
+    show SurveyProcessed = "processed"
     show Fail = "fail"
 
 instance ParamsShow Status where
@@ -53,39 +55,80 @@ instance Default Status where
 
 mkArbitrary ''Status
 
-data Enquiry = 
-     Enquiry
-     { enquiryUserId :: Int64,
-       enquiryEnquiry :: T.Text,
-       enquiryStatus :: Status,
-       enquiryLatitude :: Double,
-       enquiryLongitude :: Double
+data Category = 
+       CustomerSatisfaction 
+     | MarketResearch 
+     | ProductCampaign 
+     | SocialResearch
+     | PoliticalPoll
+     deriving Generic
+     deriving Show
+
+mkToSchemaAndJSON ''Category
+
+instance Default Category where
+    def = CustomerSatisfaction
+
+mkArbitrary ''Category
+
+instance ParamsShow Category where
+    render = show
+
+data AssessmentScore = YN | From1To10
+  deriving Generic
+  deriving Show
+
+mkToSchemaAndJSON ''AssessmentScore
+
+instance Default AssessmentScore where
+    def = YN
+
+instance ParamsShow AssessmentScore where
+    render = show
+
+mkArbitrary ''AssessmentScore
+
+data Survey = 
+     Survey
+     { surveyUserId :: Int64,
+       surveySurvey :: T.Text,
+       surveyStatus :: Status,
+       surveyLatitude :: Double,
+       surveyLongitude :: Double,
+       surveyCategory :: Category,
+       surveyAssessmentScore :: AssessmentScore
      }
      deriving Generic
      deriving Show
 
-instance Default Enquiry
+instance Default Survey
 
-mkEncoder ''Enquiry
-mkArbitrary ''Enquiry
+mkEncoder ''Survey
+mkArbitrary ''Survey
 
-encodeEnquiry = fromMaybe (error "cannot encode Enquiry") . mkEncoderEnquiry
+encodeSurvey = fromMaybe (error "cannot encode Survey") . mkEncoderSurvey
 
-instance ParamsShow Enquiry where
-  render = render . encodeEnquiry
+instance ParamsShow Survey where
+  render = render . encodeSurvey
  
-insert :: HS.Statement Enquiry (Maybe Int64)
+insert :: HS.Statement Survey (Maybe Int64)
 insert =
-  lmap (\x -> encodeEnquiry x & _3 %~ (T.pack . show)) $
+  lmap (\x -> 
+    encodeSurvey x 
+    & _3 %~ (T.pack . show) 
+    & _6 %~ (T.pack . show) 
+    & _7 %~ (T.pack . show)) $
   [maybeStatement|
-    insert into customer.enquiry
-    (user_id, enquiry, enquiry_status, latitude, longitude)
+    insert into customer.survey
+    (user_id, survey, survey_status, latitude, longitude, category, survey_type)
     select
       id :: int8,
       $2 :: text, 
       $3 :: text, 
       $4 :: float8, 
-      $5 :: float8
+      $5 :: float8,
+      $6 :: text,
+      $7 :: text
     from customer.profile
     where user_id = $1 :: int8
     returning id :: int8|]
@@ -109,7 +152,7 @@ data NewBark =
      { barkReq :: Value
      , barkStatus :: BarkStatus
      , barkIdent :: T.Text
-     , barkEnquiryId :: Int64
+     , barkSurveyId :: Int64
      }
     deriving Generic
     deriving Show
@@ -128,17 +171,17 @@ insertBark =
     [resultlessStatement|
       with bark as 
         (insert into foreign_api.bark
-         (req, bark_status, bark_ident, enquiry_id)
+         (req, bark_status, bark_ident, survey_id)
          values ($1 :: jsonb, $2 :: text, $3 :: text, $4 :: int8)
          on conflict on constraint bark__bark_ident_unique do
          update set
            bark_status = excluded.bark_status,
            bark_ident = foreign_api.bark.bark_ident 
-           returning enquiry_id :: int8, id :: int8 as ident)
-      insert into customer.enquiry_bark
-      (enquiry_id, bark_id)
-      select enquiry_id, ident :: int8 from bark
-      on conflict on constraint enquiry_bark__enquiry_bark do nothing|]
+           returning survey_id :: int8, id :: int8 as ident)
+      insert into customer.survey_bark
+      (survey_id, bark_id)
+      select survey_id, ident :: int8 from bark
+      on conflict on constraint survey_bark__survey_bark do nothing|]
 
 updateBark :: HS.Statement (T.Text, BarkStatus) ()
 updateBark = 
@@ -156,18 +199,18 @@ insertVoice =
        set bark_status = $2 :: text, 
            modified = now() 
        where bark_ident = $1 :: text
-       returning id :: int8 as ident, enquiry_id :: int8),
-      enquiry_bark as 
-      (update customer.enquiry_bark
+       returning id :: int8 as ident, survey_id :: int8),
+      survey_bark as 
+      (update customer.survey_bark
        set voice_id = $3 :: int8
        where bark_id = (select ident from bark)
        returning 1 :: int8 as ident),
-      enquiry as
-      (update customer.enquiry
-       set enquiry_status = $4 :: text
-       where id = (select enquiry_id from bark)
+      survey as
+      (update customer.survey
+       set survey_status = $4 :: text
+       where id = (select survey_id from bark)
        returning 1 :: int8 as ident)
-      select ident :: int8 from enquiry_bark union select ident :: int8 from enquiry|]
+      select ident :: int8 from survey_bark union select ident :: int8 from survey|]
 
 getHistory :: HS.Statement (Int64, Int32) (Maybe ([Value], Int32))
 getHistory =
@@ -176,19 +219,19 @@ getHistory =
     with 
       tbl as 
         (select
-           distinct on (f.id, e.enquiry, f.created)
+           distinct on (f.id, e.survey, f.created)
            f.id :: int8 as ident,
-           e.enquiry :: text as title,
+           e.survey :: text as title,
            f.created :: timestamptz
          from customer.profile as p
-         inner join customer.enquiry as e
+         inner join customer.survey as e
          on p.id = e.user_id 
-         left join customer.enquiry_bark as eb
-         on e.id = eb.enquiry_id
+         left join customer.survey_bark as eb
+         on e.id = eb.survey_id
          inner join storage.file as f
          on eb.voice_id = f.id
          where p.user_id = $1 :: int8 and eb.voice_id is not null
-         group by f.id, e.enquiry, f.created
+         group by f.id, e.survey, f.created
          order by f.id desc),
       total as (select count(*) from tbl),
       history as (select * from tbl offset (($2 :: int4 - 1) * 10) limit 10)
