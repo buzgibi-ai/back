@@ -45,6 +45,7 @@ import Buzgibi.EnvKeys (url, version, key)
 import Control.Monad.IO.Class (liftIO)
 import Control.Lens.Iso.Extended (textbs)
 import Katip
+import Data.Int (Int64)
 
 data Error = BarkCredentials404 | InsertionFail
 
@@ -68,7 +69,8 @@ data Survey = Survey
   { surveySurvey :: !T.Text,
     surveyLocation :: Location,
     surveyCategory :: Survey.Category,
-    surveyAssessmentScore :: Survey.AssessmentScore
+    surveyAssessmentScore :: Survey.AssessmentScore,
+    surveyPhonesFileIdent :: Int64 
   }
   deriving stock (Generic)
   deriving stock (Show)
