@@ -80,6 +80,7 @@ deriveToSchemaFieldLabelModifier ''Location [|modify (Proxy @Location)|]
 deriveToSchemaFieldLabelModifier ''Enquiry [|modify (Proxy @Enquiry)|]
 
 controller :: AuthenticatedUser -> Enquiry -> KatipControllerM (Response ())
+controller _ Enquiry {enquiryEnquiry} | T.length enquiryEnquiry == 0 = return $ Error $ asError @T.Text "empty enquiry"
 controller user enquiry@Enquiry {enquiryEnquiry, enquiryLocation = Location {..}} = do
   $(logTM) DebugS (logStr ("enquiry ---> " <> show enquiry))
   barkm <- fmap (^. katipEnv . bark) ask
