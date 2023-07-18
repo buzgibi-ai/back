@@ -57,7 +57,7 @@ mkArbitrary ''Status
 
 data Category = 
        CustomerSatisfaction 
-     | MarketResearch 
+     | MarketResearch
      | ProductCampaign 
      | SocialResearch
      | PoliticalPoll
@@ -74,7 +74,7 @@ mkArbitrary ''Category
 instance ParamsShow Category where
     render = show
 
-data AssessmentScore = YN | From1To10
+data AssessmentScore = YN | ScaleOfTen
   deriving Generic
   deriving Show
 

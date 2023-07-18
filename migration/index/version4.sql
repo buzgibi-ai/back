@@ -53,8 +53,3 @@ create table customer.survey_phones (
     survey_id bigserial not null,
     phone text not null,
     constraint survey_phones__survey_id_fk foreign key (survey_id) references customer.survey(id));
-
--- fill user profile with existing users from auth.user
-insert into customer.profile
-(user_id)
-select id from auth.user;

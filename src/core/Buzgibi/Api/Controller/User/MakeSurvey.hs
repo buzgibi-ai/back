@@ -70,7 +70,7 @@ data Survey = Survey
     surveyLocation :: Location,
     surveyCategory :: Survey.Category,
     surveyAssessmentScore :: Survey.AssessmentScore,
-    surveyPhonesFileIdent :: Int64 
+    surveyPhonesFileIdent :: [Int64]
   }
   deriving stock (Generic)
   deriving stock (Show)
