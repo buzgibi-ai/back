@@ -18,7 +18,9 @@ module Buzgibi.Statement.User.Survey
     updateBark, 
     insertVoice,
     getPhoneMeta,
-    insertPhones
+    insertPhones,
+    getVoiceObject,
+    insertShareLink
   ) where
 
 import Data.Int (Int64, Int32)
@@ -273,3 +275,20 @@ insertPhones =
     insert into customer.survey_phones
     (survey_id, phone)
     select $1 :: int8, phone :: text from unnest($2 :: text[]) phone|]
+
+getVoiceObject :: HS.Statement T.Text (Maybe (T.Text, T.Text, Int64))
+getVoiceObject = 
+  [maybeStatement|
+    select 
+      f.hash :: text,
+      f.bucket :: text,
+      b.id :: int8
+    from foreign_api.bark as b
+    inner join customer.survey_bark as sb
+    on b.id = sb.bark_id
+    inner join storage.file as f
+    on sb.voice_id = f.id
+    where b.bark_ident = $1 :: text|]
+
+insertShareLink :: HS.Statement (Int64, T.Text) ()
+insertShareLink = [resultlessStatement|insert into customer.voice_share_link (bark_id, share_link_url, expires_at) values ($1 :: int8, $2 :: text, now())|]

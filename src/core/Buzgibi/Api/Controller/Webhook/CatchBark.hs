@@ -26,7 +26,7 @@ import Database.Transaction
 import qualified Request as Request (make)
 import qualified Data.Map as M
 import qualified Network.HTTP.Types as HTTP
-import Data.Either.Combinators (maybeToRight)
+import Data.Either.Combinators (maybeToRight, fromLeft')
 import Control.Monad.IO.Class
 import qualified Data.Text as T
 import qualified Data.ByteString as B
@@ -36,7 +36,12 @@ import System.FilePath ((</>))
 import Hash (mkHash)
 import Servant.Multipart.File
 import Control.Lens.Iso.Extended (textbs)
-import Data.Bifunctor (first)
+import Data.Bifunctor (first, second)
+import qualified Network.Minio as Minio
+import Control.Monad.Error.Class (throwError)
+import Hasql.Session (QueryError (..), CommandError (..))
+import Data.String (fromString)
+import qualified Data.Text.Encoding as E
 
 data Error = 
      OutputIsMissing | 
@@ -67,12 +72,16 @@ controller payload = do
            file <- E.withExceptT NetworkFailure $ E.except file_resp
            let (mime, exts) = extractMIMEandExts url
            file_id <- commitToMinio file mime exts $ Bark.responseIdent resp
-           minio_res <- for file_id $ \[ident] -> do 
-             lift $ transactionM hasql $ statement Survey.insertVoice (Bark.responseIdent resp, Survey.BarkProcessed, coerce ident, Survey.ProcessedByBark)
+           minio_res <- for file_id $ \[ident] -> do
+             Minio {..} <- lift $ fmap (^. katipEnv . minio) ask 
+             lift $ transactionM hasql $ do
+               res <- makeSharableLink minioConn $ Bark.responseIdent resp
+               when (isLeft res) $ 
+                 throwError $ QueryError mempty mempty $ ClientError (Just (fromLeft' res))
+               statement Survey.insertVoice (Bark.responseIdent resp, Survey.BarkProcessed, coerce ident, Survey.ProcessedByBark)
            E.except minio_res
         when (isLeft res) $ $(logTM) ErrorS (logStr @String ("catch bark webhook --> file hasn't been saved, error: " <> show res))     
       _ -> $(logTM) InfoS (logStr @String ("catch bark webhook --> " <> show resp))
-
 
 commitToMinio (file, _) mime extXs name
   | mime == "audio/wav" || 
@@ -81,3 +90,19 @@ commitToMinio (file, _) mime extXs name
       let filePath = tmp </> T.unpack (mkHash file)
       liftIO $ B.writeFile filePath file
       lift $ fmap (first (MinioError . show) . join . Right . toEither) $ File.Upload.controller "bark" $ Files [File name (mime^.from textbs) filePath extXs]
+
+makeSharableLink minio barkIdent = do
+  objectm <- statement Survey.getVoiceObject barkIdent
+  fmap (join . maybeToRight "getVoiceObject not found") $ 
+    for objectm $ \(object, bucket, ident) -> do
+      urlm <- liftIO $ fmap (second (^.from textbs)) $
+        Minio.runMinioWith minio $ do
+          -- Extract Etag of uploaded object
+         oi <- Minio.statObject ("buzgibi." <> bucket) object Minio.defaultGetObjectOptions
+         let etag = Minio.oiETag oi
+
+         -- Set header to add an if-match constraint - this makes sure
+         -- the fetching fails if the object is changed on the server
+         let headers = [("If-Match", E.encodeUtf8 etag)]
+         Minio.presignedGetObjectUrl ("buzgibi." <> bucket) object (7 * 24 * 3600) mempty headers
+      fmap (first (fromString . show)) $ for urlm $ \url -> statement Survey.insertShareLink (ident, url)

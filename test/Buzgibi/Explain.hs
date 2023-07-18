@@ -81,6 +81,8 @@ explainTests =
        "insertVoice" =>> Buzgibi.Statement.User.Survey.insertVoice, 
        "getHistory"  =>> Buzgibi.Statement.User.Survey.getHistory,
        "getPhoneMeta" =>> Buzgibi.Statement.User.Survey.getPhoneMeta,
-       "insertPhones" =>> Buzgibi.Statement.User.Survey.insertPhones
-     ] 
+       "insertPhones" =>> Buzgibi.Statement.User.Survey.insertPhones,
+       "getVoiceObject" =>> Buzgibi.Statement.User.Survey.getVoiceObject,
+       "insertShareLink" ==> Buzgibi.Statement.User.Survey.insertShareLink
+     ]
   ]
