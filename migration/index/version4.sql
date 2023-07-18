@@ -22,12 +22,13 @@ create table customer.survey (
     survey_type text not null,
     constraint survey__user_id_fk foreign key (user_id) references customer.profile(id));
 
-create table customer.survey_report (
+create table customer.survey_files (
     survey_id bigserial not null,
-    report_id bigserial,
-    constraint survey_report__survey_id_fk foreign key (survey_id) references customer.survey(id),
-    constraint survey_report__report_id_fk foreign key (report_id) references storage.file(id),
-    constraint survey_report__survey_report unique (survey_id, report_id));
+    report_id bigint null,
+    phones_id bigserial not null,
+    constraint survey_files__survey_id_fk foreign key (survey_id) references customer.survey(id),
+    constraint survey_files__phones_id_fk foreign key (phones_id) references storage.file(id),
+    constraint survey_files__survey_report_phones unique (survey_id, phones_id));
 
 create schema if not exists foreign_api;
 create table foreign_api.bark (
