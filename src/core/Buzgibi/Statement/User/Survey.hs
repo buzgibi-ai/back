@@ -16,7 +16,9 @@ module Buzgibi.Statement.User.Survey
     insertBark, 
     BarkStatus (..), 
     updateBark, 
-    insertVoice
+    insertVoice,
+    getPhoneMeta,
+    insertPhones
   ) where
 
 import Data.Int (Int64, Int32)
@@ -96,7 +98,8 @@ data Survey =
        surveyLatitude :: Double,
        surveyLongitude :: Double,
        surveyCategory :: Category,
-       surveyAssessmentScore :: AssessmentScore
+       surveyAssessmentScore :: AssessmentScore,
+       surveyPhones :: Int64
      }
      deriving Generic
      deriving Show
@@ -119,19 +122,25 @@ insert =
     & _6 %~ (T.pack . show) 
     & _7 %~ (T.pack . show)) $
   [maybeStatement|
-    insert into customer.survey
-    (user_id, survey, survey_status, latitude, longitude, category, survey_type)
-    select
-      id :: int8,
-      $2 :: text, 
-      $3 :: text, 
-      $4 :: float8, 
-      $5 :: float8,
-      $6 :: text,
-      $7 :: text
-    from customer.profile
-    where user_id = $1 :: int8
-    returning id :: int8|]
+    with 
+      survey as (
+        insert into customer.survey
+        (user_id, survey, survey_status, latitude, longitude, category, survey_type)
+        select
+          id :: int8,
+          $2 :: text, 
+          $3 :: text, 
+          $4 :: float8, 
+          $5 :: float8,
+          $6 :: text,
+          $7 :: text
+        from customer.profile
+        where user_id = $1 :: int8
+        returning id :: int8 as ident)
+    insert into customer.survey_files 
+    (survey_id, phones_id)
+    select ident, $8 :: int8 from survey
+    returning (select ident from survey) :: int8|]
 
 data BarkStatus = BarkSent | BarkStart | BarkProcessed | BarkFail
     deriving Generic
@@ -187,7 +196,9 @@ updateBark :: HS.Statement (T.Text, BarkStatus) ()
 updateBark = 
   lmap (second (T.pack . show)) $ 
   [resultlessStatement|
-    update foreign_api.bark set bark_status = $2 :: text, modified = now() where bark_ident = $1 :: text|]
+    update foreign_api.bark 
+    set bark_status = $2 :: text, modified = now() 
+    where bark_ident = $1 :: text|]
 
 insertVoice :: HS.Statement (T.Text, BarkStatus, Int64, Status) ()
 insertVoice =
@@ -243,3 +254,22 @@ getHistory =
           'timestamp', created)) :: jsonb[], 
       (select * from total) :: int4 as cnt 
     from history group by cnt|]
+
+getPhoneMeta :: HS.Statement Int64 (T.Text, T.Text)
+getPhoneMeta = 
+  [singletonStatement|
+    select 
+      f.bucket :: text,
+      f.hash :: text
+    from customer.survey_files as sf
+    inner join storage.file as f
+    on sf.phones_id = f.id
+    where sf.survey_id = $1 :: int8|]
+
+insertPhones :: HS.Statement (Int64, [T.Text]) ()
+insertPhones = 
+  lmap (second V.fromList) $ 
+  [resultlessStatement|
+    insert into customer.survey_phones
+    (survey_id, phone)
+    select $1 :: int8, phone :: text from unnest($2 :: text[]) phone|]

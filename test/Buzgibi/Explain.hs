@@ -79,6 +79,8 @@ explainTests =
        "insertBark" =>> Buzgibi.Statement.User.Survey.insertBark,
        "updateBark" =>> Buzgibi.Statement.User.Survey.updateBark,
        "insertVoice" =>> Buzgibi.Statement.User.Survey.insertVoice, 
-       "getHistory"  =>> Buzgibi.Statement.User.Survey.getHistory
+       "getHistory"  =>> Buzgibi.Statement.User.Survey.getHistory,
+       "getPhoneMeta" =>> Buzgibi.Statement.User.Survey.getPhoneMeta,
+       "insertPhones" =>> Buzgibi.Statement.User.Survey.insertPhones
      ] 
   ]

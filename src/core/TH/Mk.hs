@@ -76,7 +76,7 @@ mkToSchemaAndDefJSON name = do
 
 mkEnumConvertor :: Name -> Q [Dec]
 mkEnumConvertor name = 
-  do
+  do 
     TyConI (DataD _ _ _ _ xs _) <- reify name
     let stripUnderScore = filter (not . (`elem` ("_" :: String))) . nameBase
     let stripPrefix s = fromMaybe s $ s ^? stext . to (T.stripPrefix (nameBase name ^. stext)) . _Just . from stext

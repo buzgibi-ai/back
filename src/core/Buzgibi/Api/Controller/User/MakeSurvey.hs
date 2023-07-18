@@ -46,6 +46,11 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Lens.Iso.Extended (textbs)
 import Katip
 import Data.Int (Int64)
+import Control.Monad (void)
+import qualified Network.Minio as Minio
+import Data.Time.Clock (getCurrentTime)
+import qualified Conduit as Conduit
+import qualified Data.ByteString as B
 
 data Error = BarkCredentials404 | InsertionFail
 
@@ -85,14 +90,14 @@ deriveToSchemaFieldLabelModifier ''Survey [|modify (Proxy @Survey)|]
 
 controller :: AuthenticatedUser -> Survey -> KatipControllerM (Response ())
 controller _ Survey {surveySurvey} | T.length surveySurvey == 0 = return $ Error $ asError @T.Text "empty survey"
-controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentScore,  surveyLocation = Location {..}} = do
+controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentScore, surveyPhonesFileIdent,  surveyLocation = Location {..}} = do
   $(logTM) DebugS (logStr ("survey ---> " <> show survey))
   barkm <- fmap (^. katipEnv . bark) ask
   manager <- fmap (^. katipEnv . httpReqManager) ask
   resp <- fmap (join .  maybeToRight BarkCredentials404) $ 
     for barkm $ \bark -> do 
       hasql <- fmap (^. katipEnv . hasqlDbPool) ask
-      let enq = 
+      let survey = 
             def { 
               Survey.surveyUserId = coerce user,
               Survey.surveySurvey = surveySurvey,
@@ -100,11 +105,17 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
               Survey.surveyLatitude = locationLatitude,
               Survey.surveyLongitude = locationLongitude,
               Survey.surveyCategory = surveyCategory,
-              Survey.surveyAssessmentScore = surveyAssessmentScore
+              Survey.surveyAssessmentScore = surveyAssessmentScore,
+              Survey.surveyPhones = head surveyPhonesFileIdent
             }
-      identm <- transactionM hasql $ statement Survey.insert enq
-      for_ identm $ \enq_ident -> 
-        Concurrent.fork $ do 
+      identm <- transactionM hasql $ statement Survey.insert survey
+      for_ identm $ \survey_ident -> 
+        Concurrent.fork $ do
+
+          Minio {..} <- fmap (^. katipEnv . minio) ask
+          -- parse file and assign phones to survey
+          void $ assignPhonesToSurvey hasql minioConn survey_ident
+
           resp <- liftIO $ 
             Request.make
               (bark^.url) manager 
@@ -116,7 +127,7 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                   Survey.barkReq = toJSON $ mkReq (bark^.version) surveySurvey,
                   Survey.barkStatus = st,
                   Survey.barkIdent = ident,
-                  Survey.barkSurveyId = enq_ident
+                  Survey.barkSurveyId = survey_ident
                 }
           case resp of
             Right (resp, _) -> do 
@@ -163,3 +174,18 @@ data BarkRequestBody =
 --   "webhook_events_filter": ["start", "completed"]
 -- }
 mkReq version survey = BarkRequestBody version (Input survey) "https://buzgibi.app/foreign/webhook/bark" ["start", "completed"]
+
+assignPhonesToSurvey hasql minio surveyIdent = do 
+  (bucket, hash) <- transactionM hasql $ statement Survey.getPhoneMeta surveyIdent
+  tm <- show <$> liftIO getCurrentTime
+  minioRes <- liftIO $ Minio.runMinioWith minio $ do 
+    o <- Minio.getObject ("buzgibi." <> bucket) hash Minio.defaultGetObjectOptions
+    Conduit.runConduit $ do
+      path <- Minio.gorObjectStream o
+        Conduit..| Conduit.sinkSystemTempFile 
+          (T.unpack hash)
+      -- P.S. build a conduit pipeline    
+      liftIO $ fmap (^.from textbs.to (T.splitOn "\n")) $ B.readFile path    
+  case minioRes of 
+    Right phoneXs -> transactionM hasql $ statement Survey.insertPhones (surveyIdent, phoneXs)
+    Left err -> $(logTM) ErrorS (logStr (show err))
