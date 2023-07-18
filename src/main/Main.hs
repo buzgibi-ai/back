@@ -39,7 +39,7 @@ import Data.Traversable (for)
 import GHC.Read
 import qualified Hasql.Connection as HasqlConn
 import Katip
-import Katip.Scribes.Minio (mkMinioScribe)
+import Katip.Scribes.Minio as Scribes.Minio
 import Katip.Controller
 import Network.HTTP.Client
   ( ManagerSettings
@@ -243,7 +243,7 @@ main = do
   telegram <- Async.Telegram.mkService manager (cfg ^. Buzgibi.Config.telegram & bot %~ (flip (<|>) (join $ fmap envKeysTelegramBot envKeys)))
 
   minioScribe <-
-    mkMinioScribe
+    Scribes.Minio.mkScribe
       minioEnv
       (cfg ^. Buzgibi.Config.minio . logBucket . stext)
       (permitItem (cfg ^. katip . severity . from stringify))

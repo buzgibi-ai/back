@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Katip.Scribes.Minio (mkMinioScribe) where
+module Katip.Scribes.Minio (mkScribe) where
 
 import Control.Concurrent.MVar
 import Control.Exception (bracket_)
@@ -17,8 +17,8 @@ import Network.Minio
 import System.Directory
 import System.FilePath
 
-mkMinioScribe :: MinioConn -> Text -> PermitFunc -> Verbosity -> IO Scribe
-mkMinioScribe conn bucket permitF verb = do
+mkScribe :: MinioConn -> Text -> PermitFunc -> Verbosity -> IO Scribe
+mkScribe conn bucket permitF verb = do
   lock <- newMVar ()
   let logger item = do
         bracket_ (takeMVar lock) (putMVar lock ()) $
