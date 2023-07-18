@@ -60,6 +60,7 @@ extra-deps:
   - ./src/foreign/SendGrid
   - ./src/foreign/OpenAI
   - ./src/foreign/Bark
+  - ./src/foreign/Telnyx
 
 # - acme-missiles-0.3
 # - git: https://github.com/commercialhaskell/stack.git

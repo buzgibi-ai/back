@@ -199,6 +199,7 @@ library:
     - github
     - quickcheck-instances 
     - bark
+    - telnyx
 
   source-dirs:
     - src/core
