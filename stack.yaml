@@ -57,9 +57,9 @@ extra-deps:
   - validation-selective-0.2.0.0@sha256:e699838c3d0bb374e6a379dc9c3f00596dc4a41141effbedafa15f41b58aa255,3812
   - jose-0.10
   - servant-auth-server-0.4.8.0
-  - ./src/foreign/Telnyx
   - ./src/foreign/SendGrid
   - ./src/foreign/OpenAI
+  - ./src/foreign/Bark
 
 # - acme-missiles-0.3
 # - git: https://github.com/commercialhaskell/stack.git

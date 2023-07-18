@@ -194,11 +194,11 @@ library:
     - aeson-pretty
     - lifted-async
     - http-conduit
-    - telnyx
     - sendgrid
     - openai
     - github
     - quickcheck-instances 
+    - bark
 
   source-dirs:
     - src/core
