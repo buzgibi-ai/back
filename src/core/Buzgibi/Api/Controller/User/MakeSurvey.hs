@@ -173,13 +173,13 @@ data BarkRequestBody =
 --   "webhook": "https://buzgibi.app/foreign/webhook/bark",
 --   "webhook_events_filter": ["start", "completed"]
 -- }
-mkReq version survey = BarkRequestBody version (Input survey) "https://buzgibi.app/foreign/webhook/bark" ["start", "completed"]
+mkReq version survey = BarkRequestBody version (Input survey) "https://ae8f-78-180-39-246.ngrok-free.app/foreign/webhook/bark" ["start", "completed"]
 
 assignPhonesToSurvey hasql minio surveyIdent = do 
   (bucket, hash) <- transactionM hasql $ statement Survey.getPhoneMeta surveyIdent
   tm <- show <$> liftIO getCurrentTime
   minioRes <- liftIO $ Minio.runMinioWith minio $ do 
-    o <- Minio.getObject ("buzgibi." <> bucket) hash Minio.defaultGetObjectOptions
+    o <- Minio.getObject bucket hash Minio.defaultGetObjectOptions
     Conduit.runConduit $ do
       path <- Minio.gorObjectStream o
         Conduit..| Conduit.sinkSystemTempFile 

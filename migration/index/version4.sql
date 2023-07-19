@@ -33,13 +33,11 @@ create table customer.survey_files (
 create schema if not exists foreign_api;
 create table foreign_api.bark (
     id bigserial primary key,
-    survey_id bigserial not null,
     bark_ident text not null,
     bark_status text not null,
     req jsonb not null,
     created timestamptz not null default now(), 
     modified timestamptz,
-    constraint bark__survey_id_fk foreign key (survey_id) references customer.survey(id),
     constraint bark__bark_ident_unique unique (bark_ident));
 
 create table customer.survey_bark (

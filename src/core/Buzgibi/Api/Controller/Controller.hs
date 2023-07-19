@@ -57,11 +57,11 @@ file :: FileApi (AsServerT KatipControllerM)
 file =
   FileApi
     { _fileApiUpload = \auth bucket files ->
-        auth `Auth.withAuth` \_ ->
+        auth `Auth.withAuth` \user ->
           flip logExceptionM ErrorS $
             katipAddNamespace
               (Namespace ["file", "upload"])
-              (File.Upload.controller bucket files),
+              (File.Upload.controller user bucket files),
       _fileApiPatch = \auth fid file ->
         auth `Auth.withAuth` \_ ->
           flip logExceptionM ErrorS $

@@ -20,7 +20,8 @@ module Buzgibi.Statement.User.Survey
     getPhoneMeta,
     insertPhones,
     getVoiceObject,
-    insertShareLink
+    insertShareLink,
+    getUserByBarkIdent
   ) where
 
 import Data.Int (Int64, Int32)
@@ -182,16 +183,16 @@ insertBark =
     [resultlessStatement|
       with bark as 
         (insert into foreign_api.bark
-         (req, bark_status, bark_ident, survey_id)
-         values ($1 :: jsonb, $2 :: text, $3 :: text, $4 :: int8)
+         (req, bark_status, bark_ident)
+         values ($1 :: jsonb, $2 :: text, $3 :: text)
          on conflict on constraint bark__bark_ident_unique do
          update set
            bark_status = excluded.bark_status,
            bark_ident = foreign_api.bark.bark_ident 
-           returning survey_id :: int8, id :: int8 as ident)
+           returning id :: int8 as ident)
       insert into customer.survey_bark
       (survey_id, bark_id)
-      select survey_id, ident :: int8 from bark
+      select $4 :: int8, ident :: int8 from bark
       on conflict on constraint survey_bark__survey_bark do nothing|]
 
 updateBark :: HS.Statement (T.Text, BarkStatus) ()
@@ -206,13 +207,21 @@ insertVoice :: HS.Statement (T.Text, BarkStatus, Int64, Status) ()
 insertVoice =
   lmap (\x -> x & _2 %~ (T.pack . show) & _4 %~ (T.pack . show)) $ 
   [resultlessStatement|
-    with 
+    with
+      survey_id as (
+        select s.id :: int8
+        from customer.survey as s
+        inner join customer.survey_bark as sb
+        on s.id = sb.survey_id
+        inner join foreign_api.bark as b
+        on sb.bark_id = b.id 
+        where b.bark_ident = $1 :: text),
       bark as 
-      (update foreign_api.bark 
+      (update foreign_api.bark
        set bark_status = $2 :: text, 
            modified = now() 
        where bark_ident = $1 :: text
-       returning id :: int8 as ident, survey_id :: int8),
+       returning id :: int8 as ident),
       survey_bark as 
       (update customer.survey_bark
        set voice_id = $3 :: int8
@@ -221,7 +230,7 @@ insertVoice =
       survey as
       (update customer.survey
        set survey_status = $4 :: text
-       where id = (select survey_id from bark)
+       where id = (select id :: int8 from survey_id)
        returning 1 :: int8 as ident)
       select ident :: int8 from survey_bark union select ident :: int8 from survey|]
 
@@ -292,3 +301,18 @@ getVoiceObject =
 
 insertShareLink :: HS.Statement (Int64, T.Text) ()
 insertShareLink = [resultlessStatement|insert into customer.voice_share_link (bark_id, share_link_url, expires_at) values ($1 :: int8, $2 :: text, now())|]
+
+getUserByBarkIdent :: HS.Statement T.Text (Maybe Int64)
+getUserByBarkIdent =
+  [maybeStatement|
+    select au.id :: int8
+    from auth.user as au
+    inner join customer.profile as cp
+    on au.id = cp.user_id
+    left join customer.survey as cs
+    on cp.id = cs.user_id
+    left join customer.survey_bark as sb
+    on cs.id = sb.survey_id
+    inner join foreign_api.bark as b
+    on b.id = sb.bark_id
+    where b.bark_ident = $1 :: text|]

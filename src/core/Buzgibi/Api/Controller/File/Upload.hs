@@ -9,6 +9,7 @@ import BuildInfo
 import Buzgibi.Statement.File as File
 import Buzgibi.Transport.Id
 import Buzgibi.Transport.Response
+import Buzgibi.Auth (AuthenticatedUser (..))
 import Control.Lens
 import Control.Lens.Iso.Extended
 import Control.Monad
@@ -29,10 +30,9 @@ import System.Directory
 import System.FilePath
 import System.Timeout
 
-controller :: T.Text -> Files -> KatipControllerM (Response [Id "file"])
-controller bucket x = do
+controller :: AuthenticatedUser -> T.Text -> Files -> KatipControllerM (Response [Id "file"])
+controller AuthenticatedUser {..} bucket x = do
   runTelegram $location (bucket, x)
-  $(logTM) DebugS (logStr (show (bucket, x)))
   Minio {..} <- fmap (^. katipEnv . minio) ask
   es <- for (coerce x) $ \file@File {..} -> do
     tm <- liftIO getCurrentTime
@@ -41,21 +41,19 @@ controller bucket x = do
     let new_file_path = tmp </> T.unpack (mkHash file)
     liftIO $ copyFile filePath new_file_path
     runTelegram $location file {filePath = new_file_path}
+    let newBucket = minioBucketPrefix <> "." <>  "user" <> show ident^.stext <> "." <> bucket
+    $(logTM) DebugS (logStr (" ----> new bucket: " <> show newBucket <> ", user: " <> show ident))
     minioResult <- liftIO $ timeout (5 * 10 ^ 6) $ runMinioWith minioConn $ do
-      let newBucket = minioBucketPrefix <> "." <> bucket
       exist <- bucketExists newBucket
-      unless exist $
-        makeBucket
-          (minioBucketPrefix <> "." <> bucket)
-          Nothing
+      unless exist $ makeBucket newBucket Nothing
       fPutObject newBucket hash filePath defaultPutObjectOptions
     $(logTM) DebugS (logStr (show minioResult))
     let file =
-             NewFile 
+             NewFile
               { newFileHash = hash, 
                 newFileName = fileName, 
                 newFileMime = fileMime,
-                newFileBucket = bucket,
+                newFileBucket = newBucket,
                 newFileExts = fileExts
               }
     return $ maybe (Left (MErrIO (userError "minio server didn't respond"))) (fmap (const file)) minioResult
