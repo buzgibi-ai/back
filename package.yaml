@@ -200,6 +200,8 @@ library:
     - quickcheck-instances 
     - bark
     - telnyx
+    - unliftio-core
+    - katip-wai
 
   source-dirs:
     - src/core

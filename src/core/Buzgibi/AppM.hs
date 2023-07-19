@@ -25,6 +25,7 @@ import Control.Monad.IO.Class
 import Control.Monad.RWS.Strict as RWS
 import Control.Monad.Trans.Control
 import Katip.Controller
+import Control.Monad.IO.Unlift (MonadUnliftIO (withRunInIO))
 
 newtype AppM a = AppM {runAppMonad :: RWS.RWST KatipEnv KatipLogger KatipState IO a}
   deriving newtype (Functor)
@@ -39,3 +40,12 @@ newtype AppM a = AppM {runAppMonad :: RWS.RWST KatipEnv KatipLogger KatipState I
   deriving newtype (MonadBaseControl IO)
   deriving newtype (MonadCatch)
   deriving newtype (MonadThrow)
+  deriving newtype (MonadUnliftIO)
+
+instance MonadUnliftIO (RWS.RWST KatipEnv KatipLogger KatipState IO) where
+  withRunInIO inner = 
+    RWS.RWST $ \r s -> do
+      x <- withRunInIO $ \run -> 
+        inner $ \m ->
+          fmap fst $ RWS.evalRWST m r s
+      pure (x, s, mempty) 

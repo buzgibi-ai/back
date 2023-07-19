@@ -53,7 +53,7 @@ import Network.HTTP.Types.Status
 import Network.Wai
 import qualified Network.Wai.Handler.Warp as Warp
 import Network.Wai.Middleware.Cors
-import qualified Network.Wai.Middleware.Servant.Logger as Middleware
+-- import qualified Network.Wai.Middleware.Servant.Logger as Middleware
 import Network.Wai.Parse
 import Servant
 import Servant.API.Generic
@@ -62,6 +62,8 @@ import Servant.Error.Formatters (formatters)
 import Servant.Multipart
 import Servant.Swagger.UI
 import TextShow
+import qualified Katip.Wai as Katip.Wai
+import Control.Monad.IO.Unlift (MonadUnliftIO (withRunInIO))
 
 data Cfg = Cfg
   { cfgHost :: !String,
@@ -69,7 +71,9 @@ data Cfg = Cfg
     cfgServerPort :: !Int,
     cfgCors :: !Cfg.Cors,
     cfgServerError :: !Cfg.ServerError,
-    mute500 :: !(Maybe Bool)
+    mute500 :: !(Maybe Bool),
+    ns :: !Namespace,
+    logEnv :: !LogEnv
   }
 
 run :: Cfg -> KatipContextT AppM ()
@@ -119,9 +123,12 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
           }
   let mkCtx = formatters :. defaultJWTSettings (configKatipEnv ^. jwk) :. defaultCookieSettings :. EmptyContext
   let runServer = serveWithContext (withSwagger api) mkCtx server
-  mware_logger <- katipAddNamespace (Namespace ["middleware"]) askLoggerWithLocIO
-  serverAsync <- liftIO $ async $ Warp.runSettings settings (middleware cfgCors mware_logger runServer)
 
+  mware_logger <- katipAddNamespace (Namespace ["middleware"]) askLoggerWithLocIO
+  serverAsync <- liftIO $ async $ Warp.runSettings settings $ do 
+    let toIO = runKatipContextT logEnv () ns
+    middleware cfgCors mware_logger $ Katip.Wai.runApplication toIO $ mkApplication runServer    
+  
   telnyx_logger <- katipAddNamespace (Namespace ["telnyx"]) askLoggerIO
   let telnyxEnv = Job.Telnyx.TelnyxEnv { logger = telnyx_logger, pool = katipEnvHasqlDbPool configKatipEnv }
   telnyx <- liftIO $ async $ Job.Telnyx.makeCall telnyxEnv
@@ -129,7 +136,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   liftIO (void (waitAnyCancel [serverAsync, telnyx])) `logExceptionM` ErrorS
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application
-middleware cors log app = mkCors cors $ Middleware.logMw log app
+middleware cors log app = mkCors cors app
 
 logUncaughtException :: KatipLoggerIO -> Maybe Request -> SomeException -> IO ()
 logUncaughtException log req e =
@@ -200,3 +207,7 @@ askLoggerWithLocIO = do
   pure $ \loc sev msg ->
     runKatipT logEnv $
       logItem ctx ns loc sev msg
+
+mkApplication :: Application -> Katip.Wai.ApplicationT (KatipContextT IO)
+mkApplication hoistedApp = Katip.Wai.middleware DebugS $ \request send ->
+  withRunInIO $ \toIO -> hoistedApp request (toIO . send)

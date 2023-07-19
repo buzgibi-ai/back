@@ -214,15 +214,6 @@ main = do
   let mkNm = Namespace [("<" ++ $(gitCommit) ++ ">") ^. stext]
   init_env <- initLogEnv mkNm (cfg ^. katip . Buzgibi.Config.env . isoEnv . stext . coerced)
 
-  let appCfg =
-        App.Cfg
-          (cfg ^. swagger . host . coerced)
-          (cfg ^. swagger . port)
-          (cfg ^. serverConnection . port)
-          (cfg ^. cors)
-          (cfg ^. serverError)
-          mute500
-
   manager <-
     Http.newTlsManagerWith
       Http.tlsManagerSettings
@@ -259,6 +250,19 @@ main = do
           registerScribe "file" file defaultScribeSettings >>=
             registerScribe "minio" minioScribe defaultScribeSettings >>=
               registerScribe "telegram" telegramScribe defaultScribeSettings { _scribeBufferSize = 0 }
+
+  unEnv <- env
+  let appCfg =
+        App.Cfg
+        { cfgHost = cfg ^. swagger . host . coerced,
+          cfgSwaggerPort = cfg ^. swagger . port,
+          cfgServerPort = cfg ^. serverConnection . port,
+          cfgCors = cfg ^. cors,
+          cfgServerError = cfg ^. serverError,
+          mute500 = mute500,
+          ns = mkNm ,
+          logEnv = unEnv
+        }
 
   let s@Buzgibi.Config.SendGrid {..} = cfg ^. Buzgibi.Config.sendGrid
 
