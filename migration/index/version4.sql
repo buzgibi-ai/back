@@ -42,7 +42,7 @@ create table foreign_api.bark (
 
 create table customer.survey_bark (
     survey_id bigserial not null,
-    voice_id bigserial,
+    voice_id bigint,
     bark_id bigserial not null,
     constraint survey_bark__survey_id_fk foreign key (survey_id) references customer.survey(id),
     constraint survey_bark__bark_id_fk foreign key (bark_id) references foreign_api.bark(id),
