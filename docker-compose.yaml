@@ -93,7 +93,7 @@ services:
       - ${PWD}/deploy/nginx/ssl/global.pass:/etc/keys/global.pass
     ports:
       - 443:443
-      - 81:81
+      - 9000:9000
     networks:
       - buzgibi
 
