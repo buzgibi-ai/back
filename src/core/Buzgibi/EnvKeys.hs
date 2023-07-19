@@ -41,7 +41,8 @@ data EnvKeys = EnvKeys
     envKeysTelegramBot :: !(Maybe T.Text),
     envKeysCaptchaKey :: !(Maybe T.Text),
     envKeysGithub :: !(Maybe Github),
-    envKeysBark :: !(Maybe Bark)
+    envKeysBark :: !(Maybe Bark),
+    envKeysTelnyx :: !(Maybe T.Text)
   }
   deriving stock (Generic)
   deriving stock (Show)

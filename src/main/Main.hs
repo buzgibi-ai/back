@@ -240,11 +240,10 @@ main = do
         )
         (fromString (cfg ^. Buzgibi.Config.minio . host <> ":" <> cfg ^. Buzgibi.Config.minio . port))
 
-  telegramService <- Scribes.Telegram.mkService manager (cfg ^. Buzgibi.Config.telegram & bot %~ (flip (<|>) (join $ fmap envKeysTelegramBot envKeys)))
-
   telegramScribe <- 
-    Scribes.Telegram.mkScribe 
-      telegramService
+    Scribes.Telegram.mkScribe
+      manager
+      (cfg ^. Buzgibi.Config.telegram & bot %~ (flip (<|>) (join $ fmap envKeysTelegramBot envKeys)))
       (permitItem (cfg ^. katip . severity . from stringify))
       (cfg ^. katip . verbosity . from stringify)
 
@@ -256,10 +255,10 @@ main = do
       (cfg ^. katip . verbosity . from stringify)
 
   let env = do
-        std_env <- registerScribe "stdout" std defaultScribeSettings init_env
-        file_env <- registerScribe "file" file defaultScribeSettings std_env
-        tel_env <- registerScribe "telegram" telegramScribe defaultScribeSettings file_env
-        registerScribe "minio" minioScribe defaultScribeSettings tel_env
+        registerScribe "stdout" std defaultScribeSettings init_env >>=
+          registerScribe "file" file defaultScribeSettings >>=
+            registerScribe "minio" minioScribe defaultScribeSettings >>=
+              registerScribe "telegram" telegramScribe defaultScribeSettings { _scribeBufferSize = 0 }
 
   let s@Buzgibi.Config.SendGrid {..} = cfg ^. Buzgibi.Config.sendGrid
 
