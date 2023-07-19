@@ -21,7 +21,6 @@
 
 module Buzgibi.App (Cfg (..), AppM (..), run) where
 
-import qualified Async.Telegram as Telegram
 import BuildInfo
 import Buzgibi.Api
 import qualified Buzgibi.Api.Controller.Controller as Controller
@@ -30,15 +29,12 @@ import qualified Buzgibi.Config as Cfg
 import Buzgibi.Transport.Error
 import qualified Buzgibi.Transport.Response as Response
 import Control.Concurrent.Async
-import Control.Concurrent.Lifted
-import Control.Concurrent.STM.TChan
 import Control.Exception
 import Control.Lens
 import Control.Lens.Iso.Extended
 import Control.Monad.Catch
 import Control.Monad.IO.Class
 import Control.Monad.RWS.Strict as RWS
-import Control.Monad.STM
 import Data.Aeson
 import Data.Bool
 import Data.Coerce
@@ -58,7 +54,6 @@ import qualified Network.Wai.Handler.Warp as Warp
 import Network.Wai.Middleware.Cors
 import qualified Network.Wai.Middleware.Servant.Logger as Middleware
 import Network.Wai.Parse
-import Pretty
 import Servant
 import Servant.API.Generic
 import Servant.Auth.Server
@@ -78,16 +73,11 @@ data Cfg = Cfg
 
 run :: Cfg -> KatipContextT AppM ()
 run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
-  telegram_service <- fmap (^. telegram) ask
-  let runTelegram l msg = void $ fork $ liftIO $ Telegram.sendMsg telegram_service l (mkPretty ("At module " <> $location) msg ^. stext)
   logger <- katipAddNamespace (Namespace ["application"]) askLoggerIO
 
   version_e <- liftIO getVersion
   whenLeft version_e $ \e -> throwM $ ErrorCall e
   let Right ver = version_e
-  runTelegram logger $ "server version " <> show ver
-
-  runTelegram logger $ "server run on: " <> "http://127.0.0.1:" <> show cfgServerPort
 
   $(logTM) DebugS $ ls $ "server run on: " <> "http://127.0.0.1:" <> showt cfgServerPort
 
@@ -101,13 +91,11 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   let withSwagger :: Proxy a -> Proxy (a :<|> SwaggerSchemaUI "swagger" "swagger.json")
       withSwagger _ = Proxy
 
-  (write_ch, read_ch) <- liftIO $ atomically $ do write_ch <- newTChan; read_ch <- dupTChan write_ch; return (write_ch, read_ch)
-
   let server =
         hoistServerWithContext
           (withSwagger api)
           (Proxy @'[CookieSettings, JWTSettings])
-          (runKatipController cfg (KatipControllerState 0 write_ch))
+          (runKatipController cfg (KatipControllerState 0))
           ( toServant Controller.controller
               :<|> swaggerSchemaUIServerT
                 (swaggerHttpApi cfgHost cfgSwaggerPort ver)
@@ -120,10 +108,10 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   let settings =
         Warp.defaultSettings
           & Warp.setPort cfgServerPort
-          & Warp.setOnException (logUncaughtException excep runTelegram)
+          & Warp.setOnException (logUncaughtException excep)
           & Warp.setOnExceptionResponse (\e -> mk500Response e (coerce cfgServerError) mute500)
           & Warp.setServerName ("scaffold api server, revision " <> $gitCommit)
-          & Warp.setLogger (logRequest req_logger runTelegram)
+          & Warp.setLogger (logRequest req_logger)
   let multipartOpts =
         (defaultMultipartOptions (Proxy @Tmp))
           { generalOptions = clearMaxRequestNumFiles defaultParseRequestBodyOptions
@@ -134,25 +122,17 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
 
   serverAsync <- liftIO $ async $ Warp.runSettings settings (middleware cfgCors mware_logger runServer)
   mail_logger <- katipAddNamespace (Namespace ["mail"]) askLoggerIO
-  teleram_logger <- katipAddNamespace (Namespace ["telegram"]) askLoggerIO
-  telegramAsync <- liftIO $ async $ forever $ Telegram.async read_ch telegram_service teleram_logger
-  liftIO (void (waitAnyCancel [serverAsync, telegramAsync])) `logExceptionM` ErrorS
+  liftIO (void (waitAnyCancel [serverAsync])) `logExceptionM` ErrorS
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application
 middleware cors log app = mkCors cors $ Middleware.logMw log app
 
-logUncaughtException :: KatipLoggerIO -> (KatipLoggerIO -> String -> IO ()) -> Maybe Request -> SomeException -> IO ()
-logUncaughtException log runTelegram req e =
+logUncaughtException :: KatipLoggerIO -> Maybe Request -> SomeException -> IO ()
+logUncaughtException log req e =
   when (Warp.defaultShouldDisplayException e) $
     maybe
-      ( do
-          runTelegram log $ "before request being handled" <> show e
-          log ErrorS (logStr ("before request being handled" <> show e))
-      )
-      ( \r -> do
-          runTelegram log $ "\"" <> toS (requestMethod r) <> " " <> toS (rawPathInfo r) <> " " <> toS (show (httpVersion r)) <> "500 - " <> show e
-          log ErrorS (logStr ("\"" <> toS (requestMethod r) <> " " <> toS (rawPathInfo r) <> " " <> toS (show (httpVersion r)) <> "500 - " <> show e))
-      )
+      ( log ErrorS (logStr ("before request being handled" <> show e)))
+      ( \r -> log ErrorS (logStr ("\"" <> toS (requestMethod r) <> " " <> toS (rawPathInfo r) <> " " <> toS (show (httpVersion r)) <> "500 - " <> show e)))
       req
 
 mk500Response :: SomeException -> Bool -> Maybe Bool -> Response
@@ -188,8 +168,8 @@ mk500Response error cfgServerError mute500 =
                 Response.Error (asError @T.Text (showt error))
             )
 
-logRequest :: KatipLoggerIO -> (KatipLoggerIO -> String -> IO ()) -> Request -> Status -> Maybe Integer -> IO ()
-logRequest log runTelegram req _ _ = log InfoS (logStr (show req)) >> runTelegram log (mkPretty mempty req)
+logRequest :: KatipLoggerIO -> Request -> Status -> Maybe Integer -> IO ()
+logRequest log req _ _ = log InfoS (logStr (show req))
 
 deriving instance Generic CorsResourcePolicy
 

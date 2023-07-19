@@ -34,7 +34,6 @@ module Katip.Controller
     bucketPrefix,
     hasqlDbPool,
     conn,
-    telegram,
     captchaKey,
     jwk,
     github,
@@ -49,16 +48,12 @@ module Katip.Controller
     -- * katip
     askLoggerIO,
 
-    -- * aux
-    runTelegram,
     sendGrid,
   )
 where
 
-import Async.Telegram
 import Buzgibi.Config (SendGrid)
 import Buzgibi.EnvKeys
-import Control.Concurrent.STM
 import Control.DeepSeq
 import Control.Lens
 import Control.Monad.Base (MonadBase)
@@ -76,7 +71,6 @@ import Data.Monoid.Colorful (Term)
 import qualified Data.Pool as Pool
 import qualified Data.Text as T
 import "time" Data.Time
-import Data.Typeable
 import qualified Hasql.Connection as Hasql
 import Katip
 import Katip.Monadic
@@ -84,7 +78,6 @@ import Language.Haskell.TH.Syntax
 import Network.HTTP.Client
 import qualified Network.Minio as Minio
 import "sendgrid" OpenAPI.Common as SendGrid
-import Pretty
 import Servant.Server (Handler)
 import Servant.Server.Internal.ServerError
 
@@ -98,7 +91,6 @@ data KatipEnv = KatipEnv
     katipEnvHttpReqManager :: !Manager,
     katipEnvApiKeys :: ![(String, String)],
     katipEnvMinio :: !Minio,
-    katipEnvTelegram :: !Async.Telegram.Service,
     katipEnvSendGrid :: !(Maybe (SendGrid, SendGrid.Configuration)),
     katipEnvCaptchaKey :: !(Maybe T.Text),
     katipEnvJwk :: !Jose.JWK,
@@ -127,7 +119,7 @@ data Config = Config
 instance MonadTime Handler where
   currentTime = liftIO getCurrentTime
 
-data KatipControllerState = KatipControllerState Int (TChan TelegramMsg)
+data KatipControllerState = KatipControllerState Int
 
 newtype KatipControllerWriter = KatipControllerWriter [String]
   deriving newtype (Monoid)
@@ -176,8 +168,3 @@ instance KatipContext KatipControllerM where
 
 runKatipController :: Config -> KatipControllerState -> KatipControllerM a -> Handler a
 runKatipController cfg st app = fmap fst (RWS.evalRWST (unwrap app) cfg st)
-
-runTelegram :: Typeable a => String -> a -> KatipControllerM ()
-runTelegram location msg = do
-  KatipControllerState _ ch <- get
-  liftIO $ atomically $ ch `writeTChan` TelegramMsg (mkPretty "At module " location) msg

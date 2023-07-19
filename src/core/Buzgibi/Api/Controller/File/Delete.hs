@@ -5,7 +5,6 @@
 
 module Buzgibi.Api.Controller.File.Delete (controller) where
 
-import BuildInfo
 import Buzgibi.Statement.File as File
 import Buzgibi.Transport.Id
 import Buzgibi.Transport.Response
@@ -23,6 +22,5 @@ controller id = do
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   let notFound = "file {" <> show (coerce @(Id "file") @Int64 id) ^. stext <> "} not found"
   $(logTM) DebugS (logStr (show id))
-  runTelegram $location id
   isOk <- transactionM hasql $ statement File.delete id
   return $ bool (Error (asError notFound)) (Ok ()) isOk

@@ -7,7 +7,6 @@
 
 module Buzgibi.Api.Controller.File.Patch (controller) where
 
-import BuildInfo
 import Buzgibi.Statement.File as File
 import Buzgibi.Transport.Id
 import Buzgibi.Transport.Model.File
@@ -29,7 +28,6 @@ import Servant.Multipart.File
 
 controller :: Id "file" -> File -> KatipControllerM (Response ())
 controller id file = do
-  runTelegram $location (id, file)
   $(logTM) DebugS (logStr (show (id, file)))
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   let notFound = "file {" <> show (coerce @(Id "file") @Int64 id) ^. stext <> "} not found"

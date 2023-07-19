@@ -55,11 +55,11 @@ import Pretty
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath.Posix
 import System.IO
-import qualified Async.Telegram
 import Text.ParserCombinators.ReadPrec (pfail)
 import qualified Text.Read.Lex as L
 import Crypto.JOSE.JWK (genJWK, KeyMaterialGenParam( RSAGenParam ))
 import Control.Monad.IO.Class
+import qualified Katip.Scribes.Telegram as Scribes.Telegram
 
 data PrintCfg = Y | N deriving stock (Generic)
 
@@ -240,7 +240,13 @@ main = do
         )
         (fromString (cfg ^. Buzgibi.Config.minio . host <> ":" <> cfg ^. Buzgibi.Config.minio . port))
 
-  telegram <- Async.Telegram.mkService manager (cfg ^. Buzgibi.Config.telegram & bot %~ (flip (<|>) (join $ fmap envKeysTelegramBot envKeys)))
+  telegramService <- Scribes.Telegram.mkService manager (cfg ^. Buzgibi.Config.telegram & bot %~ (flip (<|>) (join $ fmap envKeysTelegramBot envKeys)))
+
+  telegramScribe <- 
+    Scribes.Telegram.mkScribe 
+      telegramService
+      (permitItem (cfg ^. katip . severity . from stringify))
+      (cfg ^. katip . verbosity . from stringify)
 
   minioScribe <-
     Scribes.Minio.mkScribe
@@ -250,9 +256,10 @@ main = do
       (cfg ^. katip . verbosity . from stringify)
 
   let env = do
-        env' <- registerScribe "stdout" std defaultScribeSettings init_env
-        env'' <- registerScribe "file" file defaultScribeSettings env'
-        registerScribe "minio" minioScribe defaultScribeSettings env''
+        std_env <- registerScribe "stdout" std defaultScribeSettings init_env
+        file_env <- registerScribe "file" file defaultScribeSettings std_env
+        tel_env <- registerScribe "telegram" telegramScribe defaultScribeSettings file_env
+        registerScribe "minio" minioScribe defaultScribeSettings tel_env
 
   let s@Buzgibi.Config.SendGrid {..} = cfg ^. Buzgibi.Config.sendGrid
 
@@ -266,7 +273,6 @@ main = do
             katipEnvHttpReqManager = manager,
             katipEnvApiKeys = (cfg ^. service . coerced),
             katipEnvMinio = katipMinio,
-            katipEnvTelegram = telegram,
             katipEnvSendGrid = fmap ((s,) . SendGrid.configure sendGridUrl) sendGridApiKey,
             katipEnvCaptchaKey = envKeys >>= envKeysCaptchaKey,
             katipEnvJwk = jwk,
