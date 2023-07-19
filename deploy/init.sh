@@ -16,5 +16,4 @@ echo 'launch server..'
         --path_to_jwk deploy \
         --print_cfg y \
         --env_path $env_file \
-        --minio_host 
         --mute500 $mute500"
