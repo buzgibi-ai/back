@@ -102,9 +102,8 @@ makeSharableLink minio barkIdent = do
   liftIO $ logger DebugS $ logStr @String  (" makeSharableLink ---> bark ident: " <> T.unpack barkIdent)
   objectm <- statement Survey.getVoiceObject barkIdent
   fmap (join . maybeToRight "getVoiceObject not found") $ 
-    for objectm $ \meta@(object, bucket, ident) -> do
+    for objectm $ \meta@(object, bucket, title, (ext:_)) -> do
       liftIO $ logger DebugS $ logStr @String  (" makeSharableLink ---> meta: " <> show meta)
       urlm <- liftIO $ fmap (second (^.from textbs)) $
-        Minio.runMinioWith minio $ do
-         Minio.presignedGetObjectUrl bucket object (7 * 24 * 3600) mempty mempty
-      fmap (first (fromString . show)) $ for urlm $ \url -> statement Survey.insertShareLink (ident, url)
+        Minio.runMinioWith minio $ Minio.presignedGetObjectUrl bucket object (7 * 24 * 3600) mempty mempty
+      fmap (first (fromString . show)) $ for urlm $ \url -> statement Survey.insertShareLink (barkIdent, url)

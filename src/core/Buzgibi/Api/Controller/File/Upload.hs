@@ -46,7 +46,7 @@ controller AuthenticatedUser {..} bucket x = do
     minioResult <- liftIO $ timeout (5 * 10 ^ 6) $ runMinioWith minioConn $ do
       exist <- bucketExists newBucket
       unless exist $ makeBucket newBucket Nothing
-      fPutObject newBucket hash filePath defaultPutObjectOptions
+      fPutObject newBucket hash filePath defaultPutObjectOptions { pooContentType = Just fileMime }
     $(logTM) DebugS (logStr (show minioResult))
     let file =
              NewFile

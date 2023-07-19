@@ -285,22 +285,33 @@ insertPhones =
     (survey_id, phone)
     select $1 :: int8, phone :: text from unnest($2 :: text[]) phone|]
 
-getVoiceObject :: HS.Statement T.Text (Maybe (T.Text, T.Text, Int64))
+getVoiceObject :: HS.Statement T.Text (Maybe (T.Text, T.Text, T.Text, [T.Text]))
 getVoiceObject = 
+  rmap (fmap (\x -> x & _4 %~ V.toList)) $
   [maybeStatement|
     select 
       f.hash :: text,
       f.bucket :: text,
-      b.id :: int8
+      s.survey :: text,
+      array(select trim(both '"' from cast(el as text)) 
+            from json_array_elements(f.exts) as el) :: text[]
     from foreign_api.bark as b
     inner join customer.survey_bark as sb
     on b.id = sb.bark_id
+    inner join customer.survey as s
+    on s.id = sb.survey_id
     inner join storage.file as f
     on sb.voice_id = f.id
     where b.bark_ident = $1 :: text|]
 
-insertShareLink :: HS.Statement (Int64, T.Text) ()
-insertShareLink = [resultlessStatement|insert into customer.voice_share_link (bark_id, share_link_url, expires_at) values ($1 :: int8, $2 :: text, now())|]
+insertShareLink :: HS.Statement (T.Text, T.Text) ()
+insertShareLink = 
+  [resultlessStatement|
+    insert into customer.voice_share_link 
+    (bark_id, share_link_url, expires_at)
+    select id :: int8, $2 :: text, now()
+    from foreign_api.bark 
+    where bark_ident = $1 :: text|]
 
 getUserByBarkIdent :: HS.Statement T.Text (Maybe Int64)
 getUserByBarkIdent =
