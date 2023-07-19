@@ -60,7 +60,7 @@ controller userId option id width_m height_m = do
       transactionM hasql $ statement File.getMeta (userId, id)
   minioResp <- fmap join $ for meta $ \x -> do
     Minio {..} <- fmap (^. katipEnv . minio) ask
-    let bucket = minioBucketPrefix <> "." <> x ^. _4 . coerced
+    let bucket = x ^. _4 . coerced
     r <- liftIO $ runMinioWith minioConn $ do
       o <- getObject bucket (x ^. _1 . coerced) defaultGetObjectOptions
       let size = oiSize (gorObjectInfo o)
