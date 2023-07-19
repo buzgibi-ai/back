@@ -83,7 +83,7 @@ controller payload = do
                statement Survey.insertVoice (Bark.responseIdent resp, Survey.BarkProcessed, coerce ident, Survey.ProcessedByBark)
                res <- makeSharableLink minioConn $ Bark.responseIdent resp
                when (isLeft res) $ throwError $ QueryError mempty mempty $ ClientError (Just (fromLeft' res))
-           E.except minio_res
+           E.except minio_res   
         when (isLeft res) $ $(logTM) ErrorS (logStr @String ("catch bark webhook --> file hasn't been saved, error: " <> show res))     
       _ -> $(logTM) InfoS (logStr @String ("catch bark webhook --> " <> show resp))
 

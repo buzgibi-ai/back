@@ -21,7 +21,8 @@ module Buzgibi.Statement.User.Survey
     insertPhones,
     getVoiceObject,
     insertShareLink,
-    getUserByBarkIdent
+    getUserByBarkIdent,
+    getPhonesToTelnyx
   ) where
 
 import Data.Int (Int64, Int32)
@@ -327,3 +328,6 @@ getUserByBarkIdent =
     inner join foreign_api.bark as b
     on b.id = sb.bark_id
     where b.bark_ident = $1 :: text|]
+
+getPhonesToTelnyx :: HS.Statement () Int64  -- [(Int64, [T.Text])]
+getPhonesToTelnyx = [singletonStatement| select 1 :: int8 |]

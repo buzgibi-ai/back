@@ -22,6 +22,7 @@
 module Buzgibi.App (Cfg (..), AppM (..), run) where
 
 import BuildInfo
+import Buzgibi.Job.Telnyx as Job.Telnyx
 import Buzgibi.Api
 import qualified Buzgibi.Api.Controller.Controller as Controller
 import Buzgibi.AppM
@@ -119,10 +120,13 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   let mkCtx = formatters :. defaultJWTSettings (configKatipEnv ^. jwk) :. defaultCookieSettings :. EmptyContext
   let runServer = serveWithContext (withSwagger api) mkCtx server
   mware_logger <- katipAddNamespace (Namespace ["middleware"]) askLoggerWithLocIO
-
   serverAsync <- liftIO $ async $ Warp.runSettings settings (middleware cfgCors mware_logger runServer)
-  mail_logger <- katipAddNamespace (Namespace ["mail"]) askLoggerIO
-  liftIO (void (waitAnyCancel [serverAsync])) `logExceptionM` ErrorS
+
+  telnyx_logger <- katipAddNamespace (Namespace ["telnyx"]) askLoggerIO
+  let telnyxEnv = Job.Telnyx.TelnyxEnv { logger = telnyx_logger, pool = katipEnvHasqlDbPool configKatipEnv }
+  telnyx <- liftIO $ async $ Job.Telnyx.makeCall telnyxEnv
+
+  liftIO (void (waitAnyCancel [serverAsync, telnyx])) `logExceptionM` ErrorS
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application
 middleware cors log app = mkCors cors $ Middleware.logMw log app
