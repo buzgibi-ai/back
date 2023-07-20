@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Buzgibi.Api.Controller.Webhook.Telnyx.App (controller) where
+module Buzgibi.Api.Controller.Webhook.CatchTelnyx (controller) where
 
 import Katip.Controller
 import Katip

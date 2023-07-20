@@ -32,7 +32,7 @@ import qualified Buzgibi.Api.Controller.User.GetHistory as User.GetHistory
 import qualified Buzgibi.Api.Controller.User.GetProfile as User.GetProfile
 import qualified Buzgibi.Api.Controller.User.MakeSurvey  as User.MakeSurvey
 import qualified Buzgibi.Api.Controller.Webhook.CatchBark as Webhook.CatchBark
-import qualified Buzgibi.Api.Controller.Webhook.Telnyx.App as Webhook.Telnyx.App
+import qualified Buzgibi.Api.Controller.Webhook.CatchTelnyx as Webhook.CatchTelnyx
 import qualified Buzgibi.Auth as Auth
 import Katip
 import Katip.Controller
@@ -189,14 +189,10 @@ webhook =
             (Namespace ["webhook", "bark"])
           . Webhook.CatchBark.controller
     , _webhookApiTelnyx = 
-      toServant $ 
-        (TelnyxApi 
-        { _telnyxApiCatchApp =
-           flip logExceptionM ErrorS
+        flip logExceptionM ErrorS
           . katipAddNamespace
-            (Namespace ["webhook", "telnyx", "app"])
-          . Webhook.Telnyx.App.controller
-        } :: TelnyxApi (AsServerT KatipControllerM))
+            (Namespace ["webhook", "telnyx"])
+          . Webhook.CatchTelnyx.controller
     }
 
 captcha :: ReCaptchaApi (AsServerT KatipControllerM)

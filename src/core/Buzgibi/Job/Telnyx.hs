@@ -47,7 +47,7 @@ makeApp TelnyxEnv {..} = forever $ do
 
   resp <- Async.forConcurrently xs $ \(ident, title) -> do 
     logger DebugS $ logStr $ "Buzgibi.Job.Telnyx: trying creating app for " <> show ident
-    let webhook = "https://buzgibi.app/foreign/webhook/telnyx/app/foreign/webhook/telnyx/app"
+    let webhook = "https://buzgibi.app/foreign/webhook/telnyx"
     let request =
           AppRequest 
           { appRequestApplicationName = title,
@@ -67,3 +67,6 @@ makeApp TelnyxEnv {..} = forever $ do
 
   end <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: end at " <> show end
+
+
+
