@@ -20,6 +20,7 @@ module Buzgibi.Api
     ForeignApi (..),
     ReCaptchaApi (..),
     WebhookApi (..),
+    TelnyxApi (..),
     api,
     swaggerHttpApi,
   )

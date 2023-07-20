@@ -36,13 +36,22 @@ data Bark = Bark { barkKey :: !T.Text, barkVersion :: !T.Text, barkUrl :: !T.Tex
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Bark)]]
           Bark
 
+data Telnyx = Telnyx { telnyxUrl :: !T.Text, telnyxKey :: !T.Text } 
+  deriving stock (Generic)
+  deriving stock (Show)
+  deriving
+    (FromJSON)
+    via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Telnyx)]]
+          Telnyx
+
 data EnvKeys = EnvKeys
   { envKeysSendgrid :: !(Maybe T.Text),
     envKeysTelegramBot :: !(Maybe T.Text),
     envKeysCaptchaKey :: !(Maybe T.Text),
     envKeysGithub :: !(Maybe Github),
     envKeysBark :: !(Maybe Bark),
-    envKeysTelnyx :: !(Maybe T.Text)
+    envKeysTelnyx :: !(Maybe Telnyx)
   }
   deriving stock (Generic)
   deriving stock (Show)

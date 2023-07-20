@@ -261,7 +261,9 @@ main = do
           cfgServerError = cfg ^. serverError,
           mute500 = mute500,
           ns = mkNm ,
-          logEnv = unEnv
+          logEnv = unEnv,
+          telnyxCfg = envKeys >>= envKeysTelnyx,
+          manager = manager
         }
 
   let s@Buzgibi.Config.SendGrid {..} = cfg ^. Buzgibi.Config.sendGrid

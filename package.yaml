@@ -199,7 +199,6 @@ library:
     - github
     - quickcheck-instances 
     - bark
-    - telnyx
     - unliftio-core
     - katip-wai
 

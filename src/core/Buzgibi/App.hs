@@ -24,6 +24,7 @@ module Buzgibi.App (Cfg (..), AppM (..), run) where
 import BuildInfo
 import Buzgibi.Job.Telnyx as Job.Telnyx
 import Buzgibi.Api
+import Buzgibi.EnvKeys (Telnyx (..))
 import qualified Buzgibi.Api.Controller.Controller as Controller
 import Buzgibi.AppM
 import qualified Buzgibi.Config as Cfg
@@ -47,13 +48,13 @@ import Katip
 import Katip.Controller
 import Language.Haskell.TH.Syntax (Loc)
 import qualified Network.HTTP.Types as H
+import qualified Network.HTTP.Client as HTTP
 import Network.HTTP.Types.Header.Extended
 import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
 import Network.Wai
 import qualified Network.Wai.Handler.Warp as Warp
 import Network.Wai.Middleware.Cors
--- import qualified Network.Wai.Middleware.Servant.Logger as Middleware
 import Network.Wai.Parse
 import Servant
 import Servant.API.Generic
@@ -64,6 +65,7 @@ import Servant.Swagger.UI
 import TextShow
 import qualified Katip.Wai as Katip.Wai
 import Control.Monad.IO.Unlift (MonadUnliftIO (withRunInIO))
+import Data.Maybe (fromMaybe)
 
 data Cfg = Cfg
   { cfgHost :: !String,
@@ -73,7 +75,9 @@ data Cfg = Cfg
     cfgServerError :: !Cfg.ServerError,
     mute500 :: !(Maybe Bool),
     ns :: !Namespace,
-    logEnv :: !LogEnv
+    logEnv :: !LogEnv,
+    telnyxCfg :: !(Maybe Telnyx),
+    manager :: !HTTP.Manager
   }
 
 run :: Cfg -> KatipContextT AppM ()
@@ -130,8 +134,14 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
     middleware cfgCors mware_logger $ Katip.Wai.runApplication toIO $ mkApplication runServer    
   
   telnyx_logger <- katipAddNamespace (Namespace ["telnyx"]) askLoggerIO
-  let telnyxEnv = Job.Telnyx.TelnyxEnv { logger = telnyx_logger, pool = katipEnvHasqlDbPool configKatipEnv }
-  telnyx <- liftIO $ async $ Job.Telnyx.makeCall telnyxEnv
+  let telnyxEnv =
+        Job.Telnyx.TelnyxEnv
+        { logger = telnyx_logger,
+          pool = katipEnvHasqlDbPool configKatipEnv, 
+          telnyxCfg = fromMaybe (error "telnyx not set") telnyxCfg,
+          manager = manager
+        }
+  telnyx <- liftIO $ async $ Job.Telnyx.makeApp telnyxEnv
 
   liftIO (void (waitAnyCancel [serverAsync, telnyx])) `logExceptionM` ErrorS
 

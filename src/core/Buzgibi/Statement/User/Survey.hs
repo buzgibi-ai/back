@@ -22,7 +22,8 @@ module Buzgibi.Statement.User.Survey
     getVoiceObject,
     insertShareLink,
     getUserByBarkIdent,
-    getPhonesToTelnyx
+    getSurveyForTelnyxApp,
+    insertTelnyxApp
   ) where
 
 import Data.Int (Int64, Int32)
@@ -42,16 +43,19 @@ import Data.Aeson.Types (Value)
 import Data.Bifunctor (second)
 import qualified Data.Vector as V
 import Data.Bifunctor (first)
+import Data.String.Conv (toS)
+import Data.Tuple.Extended (snocT)
 
-data Status = Received | ProcessedByBark | ProcessedByTelnyx | SurveyProcessed | Fail
+data Status = Received | ProcessedByBark | PickedByTelnyx | ProcessedByTelnyx | SurveyProcessed | Fail T.Text
   deriving Generic
 
 instance Show Status where
     show Received = "received"
     show ProcessedByBark = "processed by bark" 
+    show PickedByTelnyx = "telnyx app is created"
     show ProcessedByTelnyx = "processed by telnyx"
     show SurveyProcessed = "processed"
-    show Fail = "fail"
+    show (Fail reason) = "fail: " <> toS reason
 
 instance ParamsShow Status where
     render = show
@@ -329,5 +333,40 @@ getUserByBarkIdent =
     on b.id = sb.bark_id
     where b.bark_ident = $1 :: text|]
 
-getPhonesToTelnyx :: HS.Statement () Int64  -- [(Int64, [T.Text])]
-getPhonesToTelnyx = [singletonStatement| select 1 :: int8 |]
+getSurveyForTelnyxApp :: HS.Statement () [(Int64, T.Text)]
+getSurveyForTelnyxApp = 
+  dimap (const (toS (show ProcessedByBark))) V.toList $ 
+  [vectorStatement|
+    select 
+      s.id :: int8,
+      ('user' || cast(u.id as text) || '_' || 'survey' || cast(s.id as text)) :: text
+    from customer.survey as s
+    inner join customer.profile as p
+    on s.user_id = p.id
+    inner join auth.user as u
+    on p.user_id = u.id
+    where survey_status = $1 :: text|]
+
+insertTelnyxApp :: HS.Statement (Int64, T.Text, T.Text) ()
+insertTelnyxApp =
+  lmap (toS (show PickedByTelnyx) `snocT`)
+  [resultlessStatement|
+    with 
+      survey as (
+        update customer.survey
+        set survey_status = $4 :: text
+        where id = $1 :: int8),
+      app as (
+        insert into foreign_api.telnyx 
+        (telnyx_ident, application_name) 
+        values ($3 :: text, $2 :: text)
+        returning id :: int8)
+      insert into customer.phone_telnyx
+      (telnyx_id, phone_id)
+      select 
+        (select * from app) :: int8,
+        sp.id :: int8
+      from customer.survey as s 
+      inner join customer.survey_phones as sp
+      on s.id = sp.survey_id
+      where s.id = $1 :: int8|]

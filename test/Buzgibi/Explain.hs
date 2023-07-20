@@ -84,6 +84,8 @@ explainTests =
        "insertPhones" =>> Buzgibi.Statement.User.Survey.insertPhones,
        "getVoiceObject" =>> Buzgibi.Statement.User.Survey.getVoiceObject,
        "insertShareLink" =>> Buzgibi.Statement.User.Survey.insertShareLink,
-       "getUserByBarkIdent" =>> Buzgibi.Statement.User.Survey.getUserByBarkIdent
+       "getUserByBarkIdent" =>> Buzgibi.Statement.User.Survey.getUserByBarkIdent,
+       "getSurveyForTelnyxApp" =>> Buzgibi.Statement.User.Survey.getSurveyForTelnyxApp,
+       "insertTelnyxApp" =>> Buzgibi.Statement.User.Survey.insertTelnyxApp
      ]
   ]

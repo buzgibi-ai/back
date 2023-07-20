@@ -173,7 +173,7 @@ data BarkRequestBody =
 --   "webhook": "https://buzgibi.app/foreign/webhook/bark",
 --   "webhook_events_filter": ["start", "completed"]
 -- }
-mkReq version survey = BarkRequestBody version (Input survey) "https://buzgibi.app/foreign/webhook/bark" ["start", "completed"]
+mkReq version survey = BarkRequestBody version (Input survey) "https://f4b1-78-190-42-131.ngrok-free.app/foreign/webhook/bark" ["start", "completed"]
 
 assignPhonesToSurvey hasql minio surveyIdent = do 
   (bucket, hash) <- transactionM hasql $ statement Survey.getPhoneMeta surveyIdent
