@@ -74,8 +74,8 @@ mkToSchemaAndDefJSON name = do
   y <- deriveToSchemaDef name
   return $ x ++ y
 
-mkEnumConvertor :: Name -> Q [Dec] 
-mkEnumConvertor name = 
+mkEnumConvertor :: Name -> Q [Dec]
+mkEnumConvertor name =
   do
     TyConI (DataD _ _ _ _ xs _) <- reify name
     let stripUnderScore = filter (not . (`elem` ("_" :: String))) . nameBase

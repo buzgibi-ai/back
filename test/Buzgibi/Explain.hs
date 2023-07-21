@@ -88,6 +88,8 @@ explainTests =
        "getSurveyForTelnyxApp" =>> Buzgibi.Statement.User.Survey.getSurveyForTelnyxApp,
        "insertTelnyxApp" =>> Buzgibi.Statement.User.Survey.insertTelnyxApp,
        "getPhonesToCall" =>> Buzgibi.Statement.User.Survey.getPhonesToCall,
-       "insertAppCall" =>> Buzgibi.Statement.User.Survey.insertAppCall
+       "insertAppCall" =>> Buzgibi.Statement.User.Survey.insertAppCall,
+       "insertAppPhone" =>> Buzgibi.Statement.User.Survey.insertAppPhone,
+       "insertVoiceUrlAppPhone" =>> Buzgibi.Statement.User.Survey.insertVoiceUrlAppPhone
      ]
   ]

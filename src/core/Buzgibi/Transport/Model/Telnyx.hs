@@ -9,6 +9,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 module Buzgibi.Transport.Model.Telnyx 
@@ -19,7 +22,14 @@ module Buzgibi.Transport.Model.Telnyx
         encodeCallResponse,
         CallResponseData (..),
         EventType (..),
-        Webhook (..)
+        Webhook (..),
+        Hangup (..),
+        encodeHangup,
+        CallPayload (..),
+        Answered (..),
+        encodeAnswered,
+        Record (..),
+        encodeRecord
        ) where
 
 import Database.Transaction (ParamsShow (..))
@@ -34,6 +44,7 @@ import Data.Time.Clock (UTCTime)
 import GHC.TypeLits (symbolVal, KnownSymbol, Symbol)
 import Data.Proxy (Proxy (..))
 import Control.Monad (when)
+import Data.Tuple (Solo)
 
 data AppRequest = 
      AppRequest 
@@ -131,6 +142,7 @@ data EventType = CallAnswered | CallHangup | RecordingSaved
           '[ConstructorTagModifier '[CamelTo2 "_"]]
           EventType
 
+
 -- webhook
 -- {
 --     "record_type": "event",
@@ -139,16 +151,15 @@ data EventType = CallAnswered | CallHangup | RecordingSaved
 --     "created_at": "2018-02-02T22:25:27.521992Z",
 --     "payload": a json particular to web hook
 -- }
-data Webhook (s :: Symbol) a = 
+data Webhook (s :: Symbol) =
      Webhook 
      { webhookId :: T.Text,
        webhookEventType :: EventType, 
        webhookCreatedAt :: UTCTime,
-       webhookPayload :: a
+       webhookPayload :: Object
      }
-     deriving Show
-
-instance (FromJSON a, KnownSymbol s) => FromJSON (Webhook s a) where
+ 
+instance KnownSymbol s => FromJSON (Webhook s) where
   parseJSON = withObject "Webhook" $ \o -> do
     webhookRecordType <- o .: "record_type"
     when (webhookRecordType /= symbolVal (Proxy @s)) $ 
@@ -156,5 +167,74 @@ instance (FromJSON a, KnownSymbol s) => FromJSON (Webhook s a) where
     webhookId <- o .: "id"
     webhookEventType <- o .: "event_type"
     webhookCreatedAt <- o .: "created_at"
-    webhookPayload <- parseJSON =<< (o .: "payload")
+    webhookPayload <- o .: "payload"
     pure $ Webhook {..}
+
+
+data CallPayload = HangupWrapper Hangup | AnsweredWrapper Answered | RecordWrapper Record 
+
+data Hangup =
+     Hangup
+     { hangupConnectionId :: T.Text,
+       hangupHangupCause :: T.Text,
+       hangupFrom :: T.Text,
+       hangupTo :: T.Text
+     } 
+     deriving stock (Generic, Show)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor Hangup)]]
+          Hangup
+
+data Answered = Answered { answeredConnectionId :: T.Text }
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor Answered)]]
+          Answered
+
+data Record = 
+     Record 
+     { recordConnectionId :: T.Text,
+      -- ID that is unique to the call and can be used to correlate webhook events
+       recordCallLegId :: T.Text,
+      --  A json object containing the recording URL (ex.: {FORMAT: URL}, where format can be 'mp3' or 'wav'). 
+      --  The URL is valid for 10 minutes. After 10 minutes, you may retrieve recordings via 
+      --  API using Reports -> Call Recordings documentation, or via Mission Control under Reporting -> Recordings
+       recordRecordingUrls :: Value
+     }
+     deriving stock (Generic, Show)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor Record)]]
+          Record
+
+mkEncoder ''Hangup
+mkArbitrary ''Hangup
+
+mkEncoder ''Answered
+mkArbitrary ''Answered
+
+mkEncoder ''Record
+mkArbitrary ''Record
+
+encodeHangup :: Hangup -> (T.Text, T.Text, T.Text, T.Text)
+encodeHangup = fromMaybe (error "cannot encode Hangup") . mkEncoderHangup
+
+encodeAnswered :: Answered -> Solo T.Text
+encodeAnswered = fromMaybe (error "cannot encode Answered") . mkEncoderAnswered
+
+encodeRecord :: Record -> (T.Text, T.Text, Value)
+encodeRecord = fromMaybe (error "cannot encode Record") . mkEncoderRecord
+
+instance ParamsShow Hangup where
+  render = render . encodeHangup
+
+instance ParamsShow Answered where
+  render = render . encodeAnswered
+
+instance ParamsShow Record where
+  render = render . encodeRecord

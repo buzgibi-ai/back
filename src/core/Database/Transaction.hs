@@ -50,6 +50,7 @@ import Hasql.TH
 import Katip
 import Katip.Controller
 import PostgreSQL.ErrorCodes
+import Data.Tuple (Solo (..))
 
 newtype QueryErrorWrapper = QueryErrorWrapper Hasql.QueryError
   deriving (Show)
@@ -155,6 +156,12 @@ instance ParamsShow T.Text where render = T.unpack
 instance ParamsShow Bool where
   render True = "true"
   render False = "false" 
+
+instance ParamsShow a => ParamsShow (Solo a) where
+  render (Solo x) = render x
+
+instance ParamsShow Object where
+  render = show
 
 instance ParamsShow a => ParamsShow (Maybe a) where render = maybe mempty render
 

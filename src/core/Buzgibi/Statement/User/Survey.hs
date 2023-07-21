@@ -25,7 +25,9 @@ module Buzgibi.Statement.User.Survey
     getSurveyForTelnyxApp,
     insertTelnyxApp,
     getPhonesToCall,
-    insertAppCall
+    insertAppCall,
+    insertAppPhone,
+    insertVoiceUrlAppPhone
   ) where
 
 
@@ -44,9 +46,8 @@ import Database.Transaction (ParamsShow (..))
 import qualified Hasql.Statement as HS
 import Test.QuickCheck.Extended ()
 import Data.Aeson.Types (Value)
-import Data.Bifunctor (second)
+import Data.Bifunctor (second, first)
 import qualified Data.Vector as V
-import Data.Bifunctor (first)
 import Data.String.Conv (toS)
 import Data.Tuple.Extended (snocT, consT)
 
@@ -401,11 +402,38 @@ getPhonesToCall =
     where s.survey_status = $1 :: text
     group by t.id, t.telnyx_ident, vsl.share_link_url|]
 
-
 insertAppCall :: HS.Statement (Int64, CallResponse) ()
 insertAppCall = 
   lmap (\(x, y) -> x `consT` encodeCallResponse y) $ 
   [resultlessStatement|
-    insert into customer.telnyx_app_call
+    insert into foreign_api.telnyx_app_call
     (telnyx_app_id, record_type, call_session_id, call_leg_id, call_control_id, is_alive)
     values ($1 :: int8, $2 :: text, $3 :: text, $4 :: text, $5 :: text, $6 :: boolean)|]
+
+insertAppPhone :: HS.Statement (T.Text, T.Text, T.Text, T.Text) ()
+insertAppPhone =
+  [resultlessStatement|
+    insert into foreign_api.telnyx_app_call_phone
+    (telnyx_app_call_id, call_from, call_to, call_status)
+    select 
+      app.id :: int8,
+      $2 :: text,
+      $3 :: text,
+      $4 :: text
+    from foreign_api.telnyx_app as app
+    inner join foreign_api.telnyx_app_call as call
+    on app.id = call.telnyx_app_id
+    where app.telnyx_ident = $1 :: text|]
+
+insertVoiceUrlAppPhone :: HS.Statement (T.Text, T.Text, Value) ()
+insertVoiceUrlAppPhone =
+  [resultlessStatement|
+     update foreign_api.telnyx_app_call_phone
+     set recording_urls = $3 :: jsonb
+     where 
+       telnyx_app_call_id = (
+        select app.id :: int8
+        from foreign_api.telnyx_app as app
+        inner join foreign_api.telnyx_app_call as call
+        on app.id = call.telnyx_app_id
+        where app.telnyx_ident = $1 :: text and call.call_leg_id = $2 :: text)|]
