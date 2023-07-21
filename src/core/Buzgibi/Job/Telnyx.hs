@@ -37,12 +37,12 @@ data TelnyxEnv =
        manager :: HTTP.Manager
      }
 
-type instance TelnyxApi "/call_control_application" AppRequest AppResponse = ()
-type instance TelnyxApi "/calls" CallRequest CallResponseData = ()
+type instance TelnyxApi "call_control_applications" AppRequest AppResponse = ()
+type instance TelnyxApi "calls" CallRequest CallResponseData = ()
 
 makeApp :: TelnyxEnv -> IO ()
 makeApp TelnyxEnv {..} = forever $ do 
-  threadDelay (5 * 10 ^ 6)
+  threadDelay (300 * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: start at " <> show start
   xs <- transaction pool logger $ statement getSurveyForTelnyxApp ()
@@ -56,7 +56,7 @@ makeApp TelnyxEnv {..} = forever $ do
           { appRequestApplicationName = title,
             appRequestWebhookEventUrl = webhook
           }
-    callApi @"/call_control_application" @AppRequest @AppResponse (TelnyxApiCfg telnyxCfg manager) request (Left . (ident, )) $ \(app, _) -> pure $ (ident, title,) $ coerce app
+    callApi @"call_control_applications" @AppRequest @AppResponse (TelnyxApiCfg telnyxCfg manager logger) request methodPost (Left . (ident, )) $ \(app, _) -> pure $ (ident, title,) $ coerce app
 
   let (errXs, appXs) = partitionEithers resp
   for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " app for " <> show ident <> " hasn't been created, error --> " <> toS e
@@ -69,7 +69,7 @@ makeApp TelnyxEnv {..} = forever $ do
 
 makeCall :: TelnyxEnv -> IO ()
 makeCall TelnyxEnv {..} = forever $ do
-  threadDelay (5 * 10 ^ 6)
+  threadDelay (100 * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: start at " <> show start
 
@@ -85,7 +85,7 @@ makeCall TelnyxEnv {..} = forever $ do
             callRequestConnectionId = ident,
             callRequestAudioUrl = link
           }
-    callApi @"/calls" @CallRequest @CallResponseData (TelnyxApiCfg telnyxCfg manager) request (Left . (ident, )) $ \(call, _) -> pure (ident, call)    
+    callApi @"calls" @CallRequest @CallResponseData (TelnyxApiCfg telnyxCfg manager logger) request methodPost (Left . (ident, )) $ \(call, _) -> pure (ident, call)    
  
   let (errXs, _) = partitionEithers resp
   for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS e  
