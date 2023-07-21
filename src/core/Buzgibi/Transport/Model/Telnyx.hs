@@ -33,6 +33,7 @@ module Buzgibi.Transport.Model.Telnyx
        ) where
 
 import Database.Transaction (ParamsShow (..))
+import Buzgibi.Transport.Payload (Payload)
 import GHC.Generics (Generic)
 import Data.Aeson
 import qualified Data.Text as T
@@ -203,7 +204,7 @@ data Record =
       --  A json object containing the recording URL (ex.: {FORMAT: URL}, where format can be 'mp3' or 'wav'). 
       --  The URL is valid for 10 minutes. After 10 minutes, you may retrieve recordings via 
       --  API using Reports -> Call Recordings documentation, or via Mission Control under Reporting -> Recordings
-       recordRecordingUrls :: Value
+       recordRecordingUrls :: Payload
      }
      deriving stock (Generic, Show)
      deriving
@@ -227,7 +228,7 @@ encodeHangup = fromMaybe (error "cannot encode Hangup") . mkEncoderHangup
 encodeAnswered :: Answered -> Solo T.Text
 encodeAnswered = fromMaybe (error "cannot encode Answered") . mkEncoderAnswered
 
-encodeRecord :: Record -> (T.Text, T.Text, Value)
+encodeRecord :: Record -> (T.Text, T.Text, Payload)
 encodeRecord = fromMaybe (error "cannot encode Record") . mkEncoderRecord
 
 instance ParamsShow Hangup where

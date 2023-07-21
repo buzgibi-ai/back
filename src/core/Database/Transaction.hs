@@ -23,6 +23,7 @@ module Database.Transaction
   )
 where
 
+import Buzgibi.Transport.Payload (Payload (..))
 import Buzgibi.Transport.Error
 import Control.Exception (throwIO)
 import Control.Lens
@@ -160,9 +161,6 @@ instance ParamsShow Bool where
 instance ParamsShow a => ParamsShow (Solo a) where
   render (Solo x) = render x
 
-instance ParamsShow Object where
-  render = show
-
 instance ParamsShow a => ParamsShow (Maybe a) where render = maybe mempty render
 
 instance {-# OVERLAPS #-} (ParamsShow a, ParamsShow b) => ParamsShow (a, b) where
@@ -199,6 +197,9 @@ instance ParamsShow Value where
   render = show
 
 instance ParamsShow UTCTime where render = show
+
+instance ParamsShow Payload where
+  render (Payload o) = show o
 
 statement :: ParamsShow a => Hasql.Statement a b -> a -> ReaderT KatipLoggerIO Session b
 statement s@(Hasql.Statement sql _ _ _) a = do

@@ -19,6 +19,8 @@ import Control.Monad (when)
 import Data.Either (isLeft)
 import Database.Transaction
 import Control.Lens
+import Data.Aeson.Types (Value (Object))
+import Data.Coerce (coerce)
 
 controller :: Payload -> KatipControllerM ()
 controller Payload {..} = do
@@ -35,8 +37,8 @@ controller Payload {..} = do
            transactionM hasql $ statement insertAppPhone $ encodeHangup hangup
            $(logTM) InfoS $ logStr $ "Buzgibi.Api.Controller.Webhook.CatchTelnyx: hangup received " <> show hangup
          AnsweredWrapper _ -> undefined
-         RecordWrapper record -> do 
+         RecordWrapper record -> do
            hasql <- fmap (^. katipEnv . hasqlDbPool) ask
-           transactionM hasql $ statement insertVoiceUrlAppPhone $ encodeRecord record
+           transactionM hasql $ statement insertVoiceUrlAppPhone (encodeRecord record & _3 %~ (Object . coerce))
            $(logTM) InfoS $ logStr $ "Buzgibi.Api.Controller.Webhook.CatchTelnyx: record received " <> show record
   when (isLeft res) $ $(logTM) ErrorS $ logStr $ "Buzgibi.Api.Controller.Webhook.CatchTelnyx: parse error: " <> show res
