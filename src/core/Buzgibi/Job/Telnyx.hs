@@ -4,31 +4,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Buzgibi.Job.Telnyx (makeApp, makeCall, TelnyxEnv (..)) where
 
 import Buzgibi.Statement.User.Survey (getSurveyForTelnyxApp, insertTelnyxApp, getPhonesToCall)
 import Buzgibi.EnvKeys (Telnyx (..))
 import Buzgibi.Transport.Model.Telnyx
+import Buzgibi.Api.Telnyx
 import Database.Transaction
 import Katip
 import Control.Concurrent (threadDelay)
-import Control.Monad (forever, join)
+import Control.Monad (forever)
 import qualified Hasql.Connection as Hasql
 import Data.Pool (Pool)
 import Data.Time.Clock (getCurrentTime)
 import qualified Control.Concurrent.Async as Async
-import Control.Exception (try)
-import Network.HTTP.Client (HttpException)
-import Data.Bifunctor (first)
 import qualified Network.HTTP.Client as HTTP
-import Network.HTTP.Types (methodPost, hAuthorization, hContentType)
 import Data.String.Conv
 import Data.Either (partitionEithers)
 import Data.Foldable (for_)
 import Data.Coerce (coerce)
-import qualified Request as Request
-
 
 data TelnyxEnv =
      TelnyxEnv 
@@ -38,9 +37,12 @@ data TelnyxEnv =
        manager :: HTTP.Manager
      }
 
+type instance TelnyxApi "call_control_application" AppRequest AppResponse = ()
+type instance TelnyxApi "calls" CallRequest CallResponseData = ()
+
 makeApp :: TelnyxEnv -> IO ()
 makeApp TelnyxEnv {..} = forever $ do 
-  threadDelay (300 * 10 ^ 6)
+  threadDelay (5 * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: start at " <> show start
   xs <- transaction pool logger $ statement getSurveyForTelnyxApp ()
@@ -54,11 +56,7 @@ makeApp TelnyxEnv {..} = forever $ do
           { appRequestApplicationName = title,
             appRequestWebhookEventUrl = webhook
           }
-    let url = telnyxUrl telnyxCfg <> "/call_control_applications"
-    let authH = (hAuthorization, toS ("Bearer " <> telnyxKey telnyxCfg))
-    let contTypeH = (hContentType, "application/json")
-    resp <- fmap (join . first (toS . show)) $ try @HttpException $ Request.make url manager [authH, contTypeH] methodPost $ Just $ request
-    return $ Request.withError @AppResponse resp (Left . (ident, )) $ \(app, _) -> pure $ (ident, title,) $ coerce app
+    callApi @"call_control_application" @AppRequest @AppResponse (TelnyxApiCfg telnyxCfg manager) request (Left . (ident, )) $ \(app, _) -> pure $ (ident, title,) $ coerce app
 
   let (errXs, appXs) = partitionEithers resp
   for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " app for " <> show ident <> " hasn't been created, error --> " <> toS e
@@ -71,7 +69,7 @@ makeApp TelnyxEnv {..} = forever $ do
 
 makeCall :: TelnyxEnv -> IO ()
 makeCall TelnyxEnv {..} = forever $ do
-  threadDelay (300 * 10 ^ 6)
+  threadDelay (5 * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: start at " <> show start
 
@@ -87,12 +85,8 @@ makeCall TelnyxEnv {..} = forever $ do
             callRequestConnectionId = ident,
             callRequestAudioUrl = link
           }
-    let url = telnyxUrl telnyxCfg <> "/calls"
-    let authH = (hAuthorization, toS ("Bearer " <> telnyxKey telnyxCfg))
-    let contTypeH = (hContentType, "application/json")
-    resp <- fmap (join . first (toS . show)) $ try @HttpException $ Request.make url manager [authH, contTypeH] methodPost $ Just $ request
-    return $ Request.withError @CallResponseData resp (Left . (ident, )) $ \(call, _) -> pure (ident, call)
-
+    callApi @"calls" @CallRequest @CallResponseData (TelnyxApiCfg telnyxCfg manager) request (Left . (ident, )) $ \(call, _) -> pure (ident, call)    
+ 
   let (errXs, _) = partitionEithers resp
   for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS e  
 
