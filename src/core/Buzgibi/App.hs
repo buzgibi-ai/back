@@ -141,9 +141,10 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
           telnyxCfg = fromMaybe (error "telnyx not set") telnyxCfg,
           manager = manager
         }
-  telnyx <- liftIO $ async $ Job.Telnyx.makeApp telnyxEnv
+  telnyxApp <- liftIO $ async $ Job.Telnyx.makeApp telnyxEnv
+  telnyxCall <- liftIO $ async $ Job.Telnyx.makeCall telnyxEnv
 
-  liftIO (void (waitAnyCancel [serverAsync, telnyx])) `logExceptionM` ErrorS
+  flip logExceptionM ErrorS $ liftIO $ void $ waitAnyCancel [serverAsync, telnyxApp, telnyxCall]
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application
 middleware cors log app = mkCors cors app

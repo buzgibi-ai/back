@@ -5,9 +5,9 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 
-module Buzgibi.Job.Telnyx (makeApp, TelnyxEnv (..)) where
+module Buzgibi.Job.Telnyx (makeApp, makeCall, TelnyxEnv (..)) where
 
-import Buzgibi.Statement.User.Survey (getSurveyForTelnyxApp, insertTelnyxApp)
+import Buzgibi.Statement.User.Survey (getSurveyForTelnyxApp, insertTelnyxApp, getPhonesToCall)
 import Buzgibi.EnvKeys (Telnyx (..))
 import Buzgibi.Transport.Model.Telnyx
 import Database.Transaction
@@ -29,6 +29,7 @@ import Data.Foldable (for_)
 import Data.Coerce (coerce)
 import qualified Request as Request
 
+
 data TelnyxEnv =
      TelnyxEnv 
      { logger :: Severity -> LogStr -> IO (), 
@@ -39,7 +40,7 @@ data TelnyxEnv =
 
 makeApp :: TelnyxEnv -> IO ()
 makeApp TelnyxEnv {..} = forever $ do 
-  threadDelay (5 * 10 ^ 6)
+  threadDelay (300 * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: start at " <> show start
   xs <- transaction pool logger $ statement getSurveyForTelnyxApp ()
@@ -68,5 +69,32 @@ makeApp TelnyxEnv {..} = forever $ do
   end <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: end at " <> show end
 
+makeCall :: TelnyxEnv -> IO ()
+makeCall TelnyxEnv {..} = forever $ do
+  threadDelay (300 * 10 ^ 6)
+  start <- getCurrentTime
+  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: start at " <> show start
 
+  xs <- transaction pool logger $ statement getPhonesToCall ()
+  
+  resp <- Async.forConcurrently xs $ \(ident, link, phones) -> do 
+    let request =
+          CallRequest
+          {
+            callRequestTo = phones,
+            callRequestFrom = telnyxPhone telnyxCfg,
+            callRequestFromDisplayName = mempty,
+            callRequestConnectionId = ident,
+            callRequestAudioUrl = link
+          }
+    let url = telnyxUrl telnyxCfg <> "/calls"
+    let authH = (hAuthorization, toS ("Bearer " <> telnyxKey telnyxCfg))
+    let contTypeH = (hContentType, "application/json")
+    resp <- fmap (join . first (toS . show)) $ try @HttpException $ Request.make url manager [authH, contTypeH] methodPost $ Just $ request
+    return $ Request.withError @CallResponseData resp (Left . (ident, )) $ \(call, _) -> pure (ident, call)
 
+  let (errXs, _) = partitionEithers resp
+  for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS e  
+
+  end <- getCurrentTime
+  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: end at " <> show end

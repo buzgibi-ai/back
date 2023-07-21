@@ -23,7 +23,8 @@ module Buzgibi.Statement.User.Survey
     insertShareLink,
     getUserByBarkIdent,
     getSurveyForTelnyxApp,
-    insertTelnyxApp
+    insertTelnyxApp,
+    getPhonesToCall
   ) where
 
 import Data.Int (Int64, Int32)
@@ -370,3 +371,28 @@ insertTelnyxApp =
       inner join customer.survey_phones as sp
       on s.id = sp.survey_id
       where s.id = $1 :: int8|]
+
+getPhonesToCall :: HS.Statement () [(T.Text, T.Text, [T.Text])]
+getPhonesToCall =
+  dimap 
+    (const (toS (show PickedByTelnyx))) 
+    (V.toList . fmap (\x -> x & _3 %~ V.toList)) $
+  [vectorStatement|
+    select
+      distinct on (t.telnyx_ident, vsl.share_link_url)
+      t.telnyx_ident :: text,
+      vsl.share_link_url :: text,
+      array_agg(sp.phone) :: text[]
+    from customer.survey as s
+    inner join customer.survey_bark as b
+    on s.id = b.survey_id
+    inner join customer.voice_share_link as vsl
+    on b.bark_id = vsl.bark_id
+    inner join customer.survey_phones as sp
+    on s.id = sp.survey_id
+    inner join customer.phone_telnyx as pt
+    on sp.id = pt.phone_id
+    inner join foreign_api.telnyx as t
+    on pt.telnyx_id = t.id
+    where s.survey_status = $1 :: text
+    group by t.telnyx_ident, vsl.share_link_url|]
