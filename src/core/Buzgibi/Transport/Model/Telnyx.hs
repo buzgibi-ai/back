@@ -7,6 +7,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE KindSignatures #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 module Buzgibi.Transport.Model.Telnyx 
@@ -16,6 +18,8 @@ module Buzgibi.Transport.Model.Telnyx
         CallResponse (..),
         encodeCallResponse,
         CallResponseData (..),
+        EventType (..),
+        Webhook (..)
        ) where
 
 import Database.Transaction (ParamsShow (..))
@@ -26,6 +30,10 @@ import Data.Aeson.Generic.DerivingVia
 import TH.Mk
 import Data.Maybe (fromMaybe)
 import Data.Text.Extended ()
+import Data.Time.Clock (UTCTime)
+import GHC.TypeLits (symbolVal, KnownSymbol, Symbol)
+import Data.Proxy (Proxy (..))
+import Control.Monad (when)
 
 data AppRequest = 
      AppRequest 
@@ -113,3 +121,40 @@ encodeCallResponse = fromMaybe (error "cannot encode CallResponse") . mkEncoderC
 
 instance ParamsShow CallResponse where
   render = render . encodeCallResponse
+
+
+data EventType = CallAnswered | CallHangup | RecordingSaved
+     deriving stock (Generic, Show)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[ConstructorTagModifier '[CamelTo2 "_"]]
+          EventType
+
+-- webhook
+-- {
+--     "record_type": "event",
+--     "id": "0ccc7b54-4df3-4bca-a65a-3da1ecc777f0",
+--     "event_type": "call_bridged",
+--     "created_at": "2018-02-02T22:25:27.521992Z",
+--     "payload": a json particular to web hook
+-- }
+data Webhook (s :: Symbol) a = 
+     Webhook 
+     { webhookId :: T.Text,
+       webhookEventType :: EventType, 
+       webhookCreatedAt :: UTCTime,
+       webhookPayload :: a
+     }
+     deriving Show
+
+instance (FromJSON a, KnownSymbol s) => FromJSON (Webhook s a) where
+  parseJSON = withObject "Webhook" $ \o -> do
+    webhookRecordType <- o .: "record_type"
+    when (webhookRecordType /= symbolVal (Proxy @s)) $ 
+      fail $ "record_type isn't one of `" <> symbolVal (Proxy @s) <> "`"
+    webhookId <- o .: "id"
+    webhookEventType <- o .: "event_type"
+    webhookCreatedAt <- o .: "created_at"
+    webhookPayload <- parseJSON =<< (o .: "payload")
+    pure $ Webhook {..}
