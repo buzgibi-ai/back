@@ -12,11 +12,11 @@
 module Buzgibi.Api.Telnyx (TelnyxApi, TelnyxApiCfg (..), callApi) where
 
 import Data.Kind (Type, Constraint)
-import GHC.TypeLits (Symbol)
+import GHC.TypeLits (Symbol, symbolVal, KnownSymbol)
 import Data.Proxy (Proxy (..))
 import qualified Network.HTTP.Client as HTTP
 import Buzgibi.EnvKeys (Telnyx (..))
-import Data.Typeable (Typeable, typeRep)
+import Data.Typeable (Typeable)
 import qualified Data.Text as T
 import Network.HTTP.Types.Header (ResponseHeaders)
 import Data.Aeson (FromJSON, ToJSON)
@@ -38,14 +38,14 @@ data TelnyxApiCfg =
 
 callApi ::
   forall a b c e r . 
-  (Typeable a, FromJSON c, ToJSON b, TelnyxApi a b c) => 
+  (KnownSymbol a, Typeable a, FromJSON c, ToJSON b, TelnyxApi a b c) => 
   TelnyxApiCfg ->
   b ->
   (T.Text -> (Either e r)) -> 
   ((c, ResponseHeaders) -> Either e r) -> 
   IO (Either e r)
 callApi TelnyxApiCfg {..} request onError onOk = do
-  let url = telnyxUrl telnyxCfg <> "/" <> toS (show (typeRep (Proxy @a)))
+  let url = telnyxUrl telnyxCfg <> toS (symbolVal (Proxy @a))
   let authH = (hAuthorization, toS ("Bearer " <> telnyxKey telnyxCfg))
   let contTypeH = (hContentType, "application/json")
   resp <- fmap (join . first (toS . show)) $ try @HttpException $ 
