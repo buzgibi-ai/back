@@ -152,6 +152,10 @@ instance ParamsShow B.ByteString where render = B.unpack
 
 instance ParamsShow T.Text where render = T.unpack
 
+instance ParamsShow Bool where
+  render True = "true"
+  render False = "false" 
+
 instance ParamsShow a => ParamsShow (Maybe a) where render = maybe mempty render
 
 instance {-# OVERLAPS #-} (ParamsShow a, ParamsShow b) => ParamsShow (a, b) where

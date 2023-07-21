@@ -6,6 +6,7 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
 module Buzgibi.Transport.Model.Telnyx 
@@ -13,13 +14,18 @@ module Buzgibi.Transport.Model.Telnyx
         AppResponse (..),
         CallRequest (..),
         CallResponse (..),
-        CallResponseData,
+        encodeCallResponse,
+        CallResponseData (..),
        ) where
 
+import Database.Transaction (ParamsShow (..))
 import GHC.Generics (Generic)
 import Data.Aeson
 import qualified Data.Text as T
 import Data.Aeson.Generic.DerivingVia
+import TH.Mk
+import Data.Maybe (fromMaybe)
+import Data.Text.Extended ()
 
 data AppRequest = 
      AppRequest 
@@ -98,3 +104,12 @@ data CallResponse =
      via WithOptions
           '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor CallResponse)]]
           CallResponse
+
+mkEncoder ''CallResponse
+mkArbitrary ''CallResponse
+
+encodeCallResponse :: CallResponse -> (T.Text, T.Text, T.Text, T.Text, Bool)
+encodeCallResponse = fromMaybe (error "cannot encode CallResponse") . mkEncoderCallResponse
+
+instance ParamsShow CallResponse where
+  render = render . encodeCallResponse

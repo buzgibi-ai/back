@@ -11,7 +11,11 @@
 
 module Buzgibi.Job.Telnyx (makeApp, makeCall, TelnyxEnv (..)) where
 
-import Buzgibi.Statement.User.Survey (getSurveyForTelnyxApp, insertTelnyxApp, getPhonesToCall)
+import Buzgibi.Statement.User.Survey 
+       (getSurveyForTelnyxApp, 
+        insertTelnyxApp, 
+        getPhonesToCall, 
+        insertAppCall)
 import Buzgibi.EnvKeys (Telnyx (..))
 import Buzgibi.Transport.Model.Telnyx
 import Buzgibi.Api.Telnyx
@@ -69,26 +73,28 @@ makeApp TelnyxEnv {..} = forever $ do
 
 makeCall :: TelnyxEnv -> IO ()
 makeCall TelnyxEnv {..} = forever $ do
-  threadDelay (100 * 10 ^ 6)
+  threadDelay (300 * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: start at " <> show start
 
   xs <- transaction pool logger $ statement getPhonesToCall ()
   
-  resp <- Async.forConcurrently xs $ \(ident, link, phones) -> do 
+  resp <- Async.forConcurrently xs $ \(ident, telnyxIdent, link, phones) -> do 
     let request =
           CallRequest
           {
             callRequestTo = phones,
             callRequestFrom = telnyxPhone telnyxCfg,
             callRequestFromDisplayName = mempty,
-            callRequestConnectionId = ident,
+            callRequestConnectionId = telnyxIdent,
             callRequestAudioUrl = link
           }
-    callApi @"calls" @CallRequest @CallResponseData (TelnyxApiCfg telnyxCfg manager logger) request methodPost (Left . (ident, )) $ \(call, _) -> pure (ident, call)    
+    callApi @"calls" @CallRequest @CallResponseData (TelnyxApiCfg telnyxCfg manager logger) request methodPost (Left . (ident, )) $ \(call, _) -> pure (ident, coerce call)    
  
-  let (errXs, _) = partitionEithers resp
+  let (errXs, callXs) = partitionEithers resp
   for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS e  
+
+  for_ callXs $ transaction pool logger . statement insertAppCall
 
   end <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: end at " <> show end

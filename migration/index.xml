@@ -5,4 +5,5 @@
     <include file="./changelog/index/version4.sql" />
     <include file="./changelog/index/version5.sql" />
     <include file="./changelog/index/version6.sql" />
+    <include file="./changelog/index/version7.sql" />
 </databaseChangeLog>

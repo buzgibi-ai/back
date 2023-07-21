@@ -24,9 +24,12 @@ module Buzgibi.Statement.User.Survey
     getUserByBarkIdent,
     getSurveyForTelnyxApp,
     insertTelnyxApp,
-    getPhonesToCall
+    getPhonesToCall,
+    insertAppCall
   ) where
 
+
+import Buzgibi.Transport.Model.Telnyx (CallResponse, encodeCallResponse)
 import Data.Int (Int64, Int32)
 import qualified Data.Text as T
 import Hasql.TH
@@ -45,7 +48,7 @@ import Data.Bifunctor (second)
 import qualified Data.Vector as V
 import Data.Bifunctor (first)
 import Data.String.Conv (toS)
-import Data.Tuple.Extended (snocT)
+import Data.Tuple.Extended (snocT, consT)
 
 data Status = Received | ProcessedByBark | PickedByTelnyx | ProcessedByTelnyx | SurveyProcessed | Fail T.Text
   deriving Generic
@@ -358,11 +361,11 @@ insertTelnyxApp =
         set survey_status = $4 :: text
         where id = $1 :: int8),
       app as (
-        insert into foreign_api.telnyx 
+        insert into foreign_api.telnyx_app 
         (telnyx_ident, application_name) 
         values ($3 :: text, $2 :: text)
         returning id :: int8)
-      insert into customer.phone_telnyx
+      insert into customer.phone_telnyx_app
       (telnyx_id, phone_id)
       select 
         (select * from app) :: int8,
@@ -372,14 +375,15 @@ insertTelnyxApp =
       on s.id = sp.survey_id
       where s.id = $1 :: int8|]
 
-getPhonesToCall :: HS.Statement () [(T.Text, T.Text, [T.Text])]
+getPhonesToCall :: HS.Statement () [(Int64, T.Text, T.Text, [T.Text])]
 getPhonesToCall =
   dimap 
     (const (toS (show PickedByTelnyx))) 
-    (V.toList . fmap (\x -> x & _3 %~ V.toList)) $
+    (V.toList . fmap (\x -> x & _4 %~ V.toList)) $
   [vectorStatement|
     select
-      distinct on (t.telnyx_ident, vsl.share_link_url)
+      distinct on (t.id, t.telnyx_ident, vsl.share_link_url)
+      t.id :: int8,
       t.telnyx_ident :: text,
       vsl.share_link_url :: text,
       array_agg(sp.phone) :: text[]
@@ -390,9 +394,18 @@ getPhonesToCall =
     on b.bark_id = vsl.bark_id
     inner join customer.survey_phones as sp
     on s.id = sp.survey_id
-    inner join customer.phone_telnyx as pt
+    inner join customer.phone_telnyx_app as pt
     on sp.id = pt.phone_id
-    inner join foreign_api.telnyx as t
+    inner join foreign_api.telnyx_app as t
     on pt.telnyx_id = t.id
     where s.survey_status = $1 :: text
-    group by t.telnyx_ident, vsl.share_link_url|]
+    group by t.id, t.telnyx_ident, vsl.share_link_url|]
+
+
+insertAppCall :: HS.Statement (Int64, CallResponse) ()
+insertAppCall = 
+  lmap (\(x, y) -> x `consT` encodeCallResponse y) $ 
+  [resultlessStatement|
+    insert into customer.telnyx_app_call
+    (telnyx_app_id, record_type, call_session_id, call_leg_id, call_control_id, is_alive)
+    values ($1 :: int8, $2 :: text, $3 :: text, $4 :: text, $5 :: text, $6 :: boolean)|]
