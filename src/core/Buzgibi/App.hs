@@ -23,8 +23,9 @@ module Buzgibi.App (Cfg (..), AppM (..), run) where
 
 import BuildInfo
 import Buzgibi.Job.Telnyx as Job.Telnyx
+import Buzgibi.Job.OpenAI as Job.OpenAI 
 import Buzgibi.Api
-import Buzgibi.EnvKeys (Telnyx (..))
+import Buzgibi.EnvKeys (Telnyx (..), OpenAI (..))
 import qualified Buzgibi.Api.Controller.Controller as Controller
 import Buzgibi.AppM
 import qualified Buzgibi.Config as Cfg
@@ -77,6 +78,7 @@ data Cfg = Cfg
     ns :: !Namespace,
     logEnv :: !LogEnv,
     telnyxCfg :: !(Maybe Telnyx),
+    openaiCfg :: !(Maybe OpenAI),
     manager :: !HTTP.Manager
   }
 
@@ -144,7 +146,18 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   telnyxApp <- liftIO $ async $ Job.Telnyx.makeApp telnyxEnv
   telnyxCall <- liftIO $ async $ Job.Telnyx.makeCall telnyxEnv
 
-  flip logExceptionM ErrorS $ liftIO $ void $ waitAnyCancel [serverAsync, telnyxApp, telnyxCall]
+  
+  let openAICfg =
+        Job.OpenAI.OpenAIEnv
+        { logger = telnyx_logger,
+          pool = katipEnvHasqlDbPool configKatipEnv, 
+          openaiCfg = fromMaybe (error "openai not set") openaiCfg,
+          manager = manager
+        }
+  openai <- liftIO $ async $ Job.OpenAI.getTranscription openAICfg
+
+  flip logExceptionM ErrorS $ liftIO $ void $ waitAnyCancel 
+    [serverAsync, telnyxApp, telnyxCall, openai]
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application
 middleware cors log app = mkCors cors app

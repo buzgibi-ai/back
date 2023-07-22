@@ -263,6 +263,7 @@ main = do
           ns = mkNm ,
           logEnv = unEnv,
           telnyxCfg = envKeys >>= envKeysTelnyx,
+          openaiCfg = envKeys >>= envKeysOpenAI,
           manager = manager
         }
 

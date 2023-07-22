@@ -45,13 +45,23 @@ data Telnyx = Telnyx { telnyxUrl :: !T.Text, telnyxKey :: !T.Text, telnyxPhone :
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Telnyx)]]
           Telnyx
 
+data OpenAI = OpenAI { openAIUrl :: !T.Text, openAIKey :: !T.Text }
+  deriving stock (Generic)
+  deriving stock (Show)
+  deriving
+    (FromJSON)
+    via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor OpenAI)]]
+          OpenAI
+
 data EnvKeys = EnvKeys
   { envKeysSendgrid :: !(Maybe T.Text),
     envKeysTelegramBot :: !(Maybe T.Text),
     envKeysCaptchaKey :: !(Maybe T.Text),
     envKeysGithub :: !(Maybe Github),
     envKeysBark :: !(Maybe Bark),
-    envKeysTelnyx :: !(Maybe Telnyx)
+    envKeysTelnyx :: !(Maybe Telnyx),
+    envKeysOpenAI :: !(Maybe OpenAI)
   }
   deriving stock (Generic)
   deriving stock (Show)
