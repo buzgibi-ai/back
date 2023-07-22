@@ -30,7 +30,7 @@ data OpenAIEnv =
 
 getTranscription :: OpenAIEnv -> IO ()
 getTranscription OpenAIEnv {..} = forever $ do 
-  threadDelay (5 * 10 ^ 6)
+  threadDelay (300 * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.OpenAI: start at " <> show start
   xs <- transaction pool logger $ statement getSurveysForTranscription ()
