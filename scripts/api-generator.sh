@@ -33,7 +33,8 @@ openapi3-code-generator-exe \
   --convert-to-camel-case=true \
   --response-type-suffix $package \
   --generate-optional-empty-request-body=false $file && \
-  python $dir/scripts/duplicate.py $dir/src/foreign/$nm/$package.cabal
+  python $dir/scripts/duplicate.py $dir/src/foreign/$nm/$package.cabal && \
+  python $dir/scripts/duplicate.py $dir/src/foreign/$nm/src/OpenAPI.hs
 
 trap : 0
 
