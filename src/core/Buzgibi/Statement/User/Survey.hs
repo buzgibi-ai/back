@@ -26,8 +26,9 @@ module Buzgibi.Statement.User.Survey
     insertTelnyxApp,
     getPhonesToCall,
     insertAppCall,
-    insertAppPhone,
-    insertVoiceUrlAppPhone
+    insertAppPhoneCall,
+    updateAppPhoneCall,
+    CallStatus (..)
   ) where
 
 
@@ -410,8 +411,22 @@ insertAppCall =
     (telnyx_app_id, record_type, call_session_id, call_leg_id, call_control_id, is_alive)
     values ($1 :: int8, $2 :: text, $3 :: text, $4 :: text, $5 :: text, $6 :: boolean)|]
 
-insertAppPhone :: HS.Statement (T.Text, T.Text, T.Text, T.Text) ()
-insertAppPhone =
+
+data CallStatus = Hangup | Answered | Recorded
+     deriving Generic
+     deriving Show
+
+instance Default CallStatus where
+    def = Hangup
+
+mkArbitrary ''CallStatus
+
+instance ParamsShow CallStatus where
+    render = show
+
+insertAppPhoneCall :: HS.Statement (T.Text, T.Text, T.Text, CallStatus) ()
+insertAppPhoneCall =
+  lmap(\x -> x & _4 %~ (T.pack . show)) $
   [resultlessStatement|
     insert into foreign_api.telnyx_app_call_phone
     (telnyx_app_call_id, call_from, call_to, call_status)
@@ -425,11 +440,12 @@ insertAppPhone =
     on app.id = call.telnyx_app_id
     where app.telnyx_ident = $1 :: text|]
 
-insertVoiceUrlAppPhone :: HS.Statement (T.Text, T.Text, Value) ()
-insertVoiceUrlAppPhone =
+updateAppPhoneCall :: HS.Statement (T.Text, T.Text, CallStatus) ()
+updateAppPhoneCall =
+  lmap(\x -> x & _3 %~ (T.pack . show)) $
   [resultlessStatement|
      update foreign_api.telnyx_app_call_phone
-     set recording_urls = $3 :: jsonb
+     set call_status = $3 :: text
      where 
        telnyx_app_call_id = (
         select app.id :: int8

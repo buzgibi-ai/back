@@ -9,7 +9,7 @@
 module Buzgibi.Api.Controller.Webhook.CatchTelnyx (controller) where
 
 import Buzgibi.Transport.Model.Telnyx
-import  Buzgibi.Statement.User.Survey (insertAppPhone, insertVoiceUrlAppPhone)
+import qualified Buzgibi.Statement.User.Survey as User.Survey (insertAppPhoneCall, updateAppPhoneCall, CallStatus (..))
 import Katip.Controller
 import Katip
 import Buzgibi.Transport.Payload (Payload (..))
@@ -19,8 +19,7 @@ import Control.Monad (when)
 import Data.Either (isLeft)
 import Database.Transaction
 import Control.Lens
-import Data.Aeson.Types (Value (Object))
-import Data.Coerce (coerce)
+import Data.Tuple.Extended (app3, app4)
 
 controller :: Payload -> KatipControllerM ()
 controller Payload {..} = do
@@ -34,11 +33,11 @@ controller Payload {..} = do
     <- for parseRes $ \case
          HangupWrapper hangup -> do
            hasql <- fmap (^. katipEnv . hasqlDbPool) ask
-           transactionM hasql $ statement insertAppPhone $ encodeHangup hangup
+           transactionM hasql $ statement User.Survey.insertAppPhoneCall $ app4 (const User.Survey.Hangup) (encodeHangup hangup)
            $(logTM) InfoS $ logStr $ "Buzgibi.Api.Controller.Webhook.CatchTelnyx: hangup received " <> show hangup
          AnsweredWrapper _ -> undefined
          RecordWrapper record -> do
            hasql <- fmap (^. katipEnv . hasqlDbPool) ask
-           transactionM hasql $ statement insertVoiceUrlAppPhone (encodeRecord record & _3 %~ (Object . coerce))
+           transactionM hasql $ statement User.Survey.updateAppPhoneCall $ app3 (const User.Survey.Recorded) (encodeRecord record)
            $(logTM) InfoS $ logStr $ "Buzgibi.Api.Controller.Webhook.CatchTelnyx: record received " <> show record
   when (isLeft res) $ $(logTM) ErrorS $ logStr $ "Buzgibi.Api.Controller.Webhook.CatchTelnyx: parse error: " <> show res

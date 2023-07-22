@@ -16,7 +16,6 @@ create table foreign_api.telnyx_app_call_phone (
     call_from text not null,
     call_to text not null,
     call_hangup_cause text,
-    recording_urls jsonb,
-    call_status text,
+    call_status text not null,
     constraint telnyx_app_call_phone__telnyx_app_call_id_fk foreign key (telnyx_app_call_id) references foreign_api.telnyx_app_call(id),
     constraint telnyx_app_call_phone__telnyx_app_call_id__call_to__call_from unique (telnyx_app_call_id, call_from, call_to));
