@@ -102,8 +102,6 @@ library:
     - hasql
     - hasql-th
     - exceptions
-    - regex
-    - regex-with-pcre
     - validation-selective
     - pretty-tree
     - rosezipper
@@ -125,19 +123,16 @@ library:
     - lifted-base
     - data-default-class
     - postgresql-error-codes
-    - string-interpolate
+    - string-interpolate 
     - http-client
     - http-client-tls
     - memory
     - http-types
     - unordered-containers
-    - pcg-random
     - utf8-string
     - wai-cors
-    - either-unwrap
     - monad-time
     - tagged
-    - th-printf
     - resourcet
     - monad-loops
     - sort
@@ -147,7 +142,6 @@ library:
     - strict
     - optparse-generic
     - hspec-expectations-lifted
-    - split
     - minio-hs
     - network-ip
     - data-textual
@@ -175,7 +169,6 @@ library:
     - generics-sop
     - string-conv
     - warp-tls
-    - tls
     - crypto-random
     - network
     - mime-types
