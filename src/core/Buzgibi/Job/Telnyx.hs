@@ -60,7 +60,7 @@ makeApp TelnyxEnv {..} = forever $ do
           { appRequestApplicationName = title,
             appRequestWebhookEventUrl = webhook
           }
-    callApi @"call_control_applications" @AppRequest @AppResponse (TelnyxApiCfg telnyxCfg manager logger) request methodPost (Left . (ident, )) $ \(app, _) -> pure $ (ident, title,) $ coerce app
+    callApi @"call_control_applications" @AppRequest @AppResponse (TelnyxApiCfg telnyxCfg manager logger) request methodPost mempty (Left . (ident, )) $ \(app, _) -> pure $ (ident, title,) $ coerce app
 
   let (errXs, appXs) = partitionEithers resp
   for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " app for " <> show ident <> " hasn't been created, error --> " <> toS e
@@ -89,7 +89,7 @@ makeCall TelnyxEnv {..} = forever $ do
             callRequestConnectionId = telnyxIdent,
             callRequestAudioUrl = link
           }
-    callApi @"calls" @CallRequest @CallResponseData (TelnyxApiCfg telnyxCfg manager logger) request methodPost (Left . (ident, )) $ \(call, _) -> pure (ident, coerce call)    
+    callApi @"calls" @CallRequest @CallResponseData (TelnyxApiCfg telnyxCfg manager logger) request methodPost mempty (Left . (ident, )) $ \(call, _) -> pure (ident, coerce call)    
  
   let (errXs, callXs) = partitionEithers resp
   for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS e  

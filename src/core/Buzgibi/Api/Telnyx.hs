@@ -28,6 +28,7 @@ import Data.String.Conv (toS)
 import Data.Bifunctor (first)
 import Control.Monad (join)
 import Katip
+import Data.Foldable (foldl')
 
 type family TelnyxApi (api :: Symbol) (req :: Type) (resp :: Type) :: Constraint
 
@@ -44,11 +45,15 @@ callApi ::
   TelnyxApiCfg ->
   b ->
   Method ->
+  [(T.Text, T.Text)] ->
   (T.Text -> (Either e r)) -> 
   ((c, ResponseHeaders) -> Either e r) -> 
   IO (Either e r)
-callApi TelnyxApiCfg {..} request method onError onOk = do
-  let url = telnyxUrl telnyxCfg <> "/" <> toS (symbolVal (Proxy @a))
+callApi TelnyxApiCfg {..} request method queryXs onError onOk = do
+  let url_tmp = telnyxUrl telnyxCfg <> "/" <> toS (symbolVal (Proxy @a))
+  let reduce tmp (needle, v) = T.replace needle v tmp
+  let url | length queryXs > 0 = foldl' reduce url_tmp queryXs
+          | otherwise = url_tmp
   let authH = (hAuthorization, toS ("Bearer " <> telnyxKey telnyxCfg))
   let contTypeH = (hContentType, "application/json")
 

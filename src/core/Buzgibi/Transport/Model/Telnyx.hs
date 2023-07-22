@@ -29,7 +29,11 @@ module Buzgibi.Transport.Model.Telnyx
         Answered (..),
         encodeAnswered,
         Record (..),
-        encodeRecord
+        encodeRecord,
+        RecordingStartRequest (..),
+        RecordingStartResponse,
+        Channels (..),
+        Format (..)
        ) where
 
 import Database.Transaction (ParamsShow (..))
@@ -45,7 +49,6 @@ import Data.Time.Clock (UTCTime)
 import GHC.TypeLits (symbolVal, KnownSymbol, Symbol)
 import Data.Proxy (Proxy (..))
 import Control.Monad (when)
-import Data.Tuple (Solo)
 
 data AppRequest = 
      AppRequest 
@@ -177,9 +180,9 @@ data CallPayload = HangupWrapper Hangup | AnsweredWrapper Answered | RecordWrapp
 data Hangup =
      Hangup
      { hangupConnectionId :: T.Text,
-       hangupHangupCause :: T.Text,
        hangupFrom :: T.Text,
-       hangupTo :: T.Text
+       hangupTo :: T.Text,
+       hangupHangupCause :: T.Text
      } 
      deriving stock (Generic, Show)
      deriving
@@ -188,7 +191,13 @@ data Hangup =
           '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor Hangup)]]
           Hangup
 
-data Answered = Answered { answeredConnectionId :: T.Text }
+data Answered = 
+     Answered 
+     { answeredConnectionId :: T.Text,
+       answeredCallControlId :: T.Text,
+       answeredFrom :: T.Text,
+       answeredTo :: T.Text
+     }
      deriving stock (Generic)
      deriving
      (ToJSON, FromJSON)
@@ -225,7 +234,7 @@ mkArbitrary ''Record
 encodeHangup :: Hangup -> (T.Text, T.Text, T.Text, T.Text)
 encodeHangup = fromMaybe (error "cannot encode Hangup") . mkEncoderHangup
 
-encodeAnswered :: Answered -> Solo T.Text
+encodeAnswered :: Answered -> (T.Text, T.Text, T.Text, T.Text)
 encodeAnswered = fromMaybe (error "cannot encode Answered") . mkEncoderAnswered
 
 encodeRecord :: Record -> (T.Text, T.Text, Payload)
@@ -239,3 +248,39 @@ instance ParamsShow Answered where
 
 instance ParamsShow Record where
   render = render . encodeRecord
+
+data Format = MP3 | WAV
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[ConstructorTagModifier '[UserDefined ToLower]]
+          Format
+
+data Channels = Single | Dual
+      deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[ConstructorTagModifier '[UserDefined ToLower]]
+          Channels
+
+data RecordingStartRequest =
+     RecordingStartRequest
+     { recordingStartRequestFormat :: Format,
+       recordingStartRequestChannels :: Channels
+     }
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[UserDefined FirstLetterToLower, UserDefined (StripConstructor RecordingStartRequest)]]
+          RecordingStartRequest
+
+data RecordingStartResponse = RecordingStartResponse T.Text
+
+instance FromJSON RecordingStartResponse where
+  parseJSON = 
+    withObject "RecordingStartResponse" $ \o -> do
+      d <- o .: "data"
+      fmap RecordingStartResponse $ d .: "result"

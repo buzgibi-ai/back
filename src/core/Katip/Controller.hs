@@ -38,6 +38,7 @@ module Katip.Controller
     jwk,
     github,
     bark,
+    telnyx,
 
     -- * run
     runKatipController,
@@ -95,7 +96,8 @@ data KatipEnv = KatipEnv
     katipEnvCaptchaKey :: !(Maybe T.Text),
     katipEnvJwk :: !Jose.JWK,
     katipEnvGithub :: !(Maybe Github),
-    katipEnvBark :: !(Maybe Bark)
+    katipEnvBark :: !(Maybe Bark),
+    katipEnvTelnyx :: !(Maybe Telnyx)
   }
 
 data Minio = Minio {minioConn :: !Minio.MinioConn, minioBucketPrefix :: !T.Text}

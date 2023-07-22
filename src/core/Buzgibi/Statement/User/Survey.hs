@@ -426,17 +426,18 @@ mkArbitrary ''CallStatus
 instance ParamsShow CallStatus where
     render = show
 
-insertAppPhoneCall :: HS.Statement (T.Text, T.Text, T.Text, CallStatus) ()
+insertAppPhoneCall :: HS.Statement (T.Text, T.Text, T.Text, Maybe T.Text, CallStatus) ()
 insertAppPhoneCall =
-  lmap(\x -> x & _4 %~ (T.pack . show)) $
+  lmap(\x -> x & _5 %~ (T.pack . show)) $
   [resultlessStatement|
     insert into foreign_api.telnyx_app_call_phone
-    (telnyx_app_call_id, call_from, call_to, call_status)
+    (telnyx_app_call_id, call_from, call_to, call_hangup_cause, call_status)
     select 
       app.id :: int8,
       $2 :: text,
       $3 :: text,
-      $4 :: text
+      $4 :: text?,
+      $5 :: text
     from foreign_api.telnyx_app as app
     inner join foreign_api.telnyx_app_call as call
     on app.id = call.telnyx_app_id

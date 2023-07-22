@@ -282,7 +282,8 @@ main = do
             katipEnvCaptchaKey = envKeys >>= envKeysCaptchaKey,
             katipEnvJwk = jwk,
             katipEnvGithub = envKeys >>= envKeysGithub,
-            katipEnvBark = envKeys >>= envKeysBark
+            katipEnvBark = envKeys >>= envKeysBark,
+            katipEnvTelnyx = envKeys >>= envKeysTelnyx
          }
 
   let runApp le = runKatipContextT le (mempty @LogContexts) mempty $ App.run appCfg
