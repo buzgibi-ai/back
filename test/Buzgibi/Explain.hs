@@ -78,7 +78,7 @@ explainTests =
      [ "insert" =>> Buzgibi.Statement.User.Survey.insert,
        "insertBark" =>> Buzgibi.Statement.User.Survey.insertBark,
        "updateBark" =>> Buzgibi.Statement.User.Survey.updateBark,
-       "insertVoice" =>> Buzgibi.Statement.User.Survey.insertVoice, 
+       "insertVoiceBark" =>> Buzgibi.Statement.User.Survey.insertVoiceBark, 
        "getHistory" =>> Buzgibi.Statement.User.Survey.getHistory,
        "getPhoneMeta" =>> Buzgibi.Statement.User.Survey.getPhoneMeta,
        "insertPhones" =>> Buzgibi.Statement.User.Survey.insertPhones,
@@ -90,6 +90,8 @@ explainTests =
        "getPhonesToCall" =>> Buzgibi.Statement.User.Survey.getPhonesToCall,
        "insertAppCall" =>> Buzgibi.Statement.User.Survey.insertAppCall,
        "insertAppPhoneCall" =>> Buzgibi.Statement.User.Survey.insertAppPhoneCall,
-       "updateAppPhoneCall" =>> Buzgibi.Statement.User.Survey.updateAppPhoneCall
+       "updateAppPhoneCall" =>> Buzgibi.Statement.User.Survey.updateAppPhoneCall,
+       "getUserByAppIdent" =>> Buzgibi.Statement.User.Survey.getUserByAppIdent,
+       "insertVoiceTelnyx" =>> Buzgibi.Statement.User.Survey.insertVoiceTelnyx
      ]
   ]

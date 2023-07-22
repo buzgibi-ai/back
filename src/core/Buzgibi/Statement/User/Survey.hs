@@ -16,7 +16,7 @@ module Buzgibi.Statement.User.Survey
     insertBark, 
     BarkStatus (..), 
     updateBark, 
-    insertVoice,
+    insertVoiceBark,
     getPhoneMeta,
     insertPhones,
     getVoiceObject,
@@ -28,7 +28,9 @@ module Buzgibi.Statement.User.Survey
     insertAppCall,
     insertAppPhoneCall,
     updateAppPhoneCall,
-    CallStatus (..)
+    CallStatus (..),
+    getUserByAppIdent,
+    insertVoiceTelnyx
   ) where
 
 
@@ -214,8 +216,8 @@ updateBark =
     set bark_status = $2 :: text, modified = now() 
     where bark_ident = $1 :: text|]
 
-insertVoice :: HS.Statement (T.Text, BarkStatus, Int64, Status) ()
-insertVoice =
+insertVoiceBark :: HS.Statement (T.Text, BarkStatus, Int64, Status) ()
+insertVoiceBark =
   lmap (\x -> x & _2 %~ (T.pack . show) & _4 %~ (T.pack . show)) $ 
   [resultlessStatement|
     with
@@ -412,7 +414,7 @@ insertAppCall =
     values ($1 :: int8, $2 :: text, $3 :: text, $4 :: text, $5 :: text, $6 :: boolean)|]
 
 
-data CallStatus = Hangup | Answered | Recorded
+data CallStatus = Hangup | Answered | Recorded | UrlLinkBroken
      deriving Generic
      deriving Show
 
@@ -453,3 +455,44 @@ updateAppPhoneCall =
         inner join foreign_api.telnyx_app_call as call
         on app.id = call.telnyx_app_id
         where app.telnyx_ident = $1 :: text and call.call_leg_id = $2 :: text)|]
+
+getUserByAppIdent :: HS.Statement T.Text (Maybe (Int64, T.Text))
+getUserByAppIdent = 
+  [maybeStatement|
+     select
+       distinct on (u.id, s.id)
+       u.id :: int8,
+       ('user' || cast(u.id as text) || '_' || 'survey' || cast(s.id as text)) :: text
+     from auth.user as u
+     inner join customer.survey as s
+     on u.id = s.user_id
+     inner join customer.survey_phones as sp
+     on sp.survey_id = s.id
+     inner join customer.phone_telnyx_app as pt
+     on sp.id = pt.phone_id
+     inner join foreign_api.telnyx_app as ta
+     on pt.telnyx_id = ta.id
+     where ta.telnyx_ident = $1 :: text
+     group by u.id, s.id|]
+
+insertVoiceTelnyx :: HS.Statement (T.Text, T.Text, Int64) ()
+insertVoiceTelnyx = 
+  [resultlessStatement|
+    with 
+      telnyx_phone as (
+        select
+          sp.id :: int8 as phone_id,
+          ta.id :: int8 as app_id
+        from customer.survey_phones as sp
+        inner join foreign_api.telnyx_app_call_phone as tacp
+        on sp.phone = tacp.call_to
+        inner join foreign_api.telnyx_app_call as tac
+        on tacp.telnyx_app_call_id = tac.id
+        inner join foreign_api.telnyx_app as ta
+        on tac.telnyx_app_id = ta.id
+        where ta.telnyx_ident = $1 :: text and tac.call_leg_id = $2 :: text)
+    update customer.phone_telnyx_app
+    set voice_id = $3 :: int8
+    where 
+      telnyx_id = (select app_id from telnyx_phone) and 
+      phone_id = (select phone_id from telnyx_phone)|]

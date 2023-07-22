@@ -3,8 +3,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
+{-# OPTIONS_GHC -fno-warn-missing-exported-signatures #-}
 
-module Buzgibi.Api.Controller.Webhook.CatchBark (controller) where
+module Buzgibi.Api.Controller.Webhook.CatchBark (controller, commitToMinio) where
 
 import Buzgibi.Api.Controller.Utils (extractMIMEandExts)
 import Buzgibi.Transport.Response (toEither)
@@ -76,25 +77,26 @@ controller payload = do
            usere <- lift $ transactionM hasql $ statement Survey.getUserByBarkIdent $ Bark.responseIdent resp
            user <- fmap AuthenticatedUser $ E.except $ maybeToRight UserMissing $ usere
 
-           file_id <- commitToMinio user file mime exts $ Bark.responseIdent resp
+           file_id <- commitToMinio user file mime "bark" exts $ Bark.responseIdent resp
            minio_res <- for file_id $ \[ident] -> do
              Minio {..} <- lift $ fmap (^. katipEnv . minio) ask 
              lift $ transactionM hasql $ do
-               statement Survey.insertVoice (Bark.responseIdent resp, Survey.BarkProcessed, coerce ident, Survey.ProcessedByBark)
+               statement Survey.insertVoiceBark (Bark.responseIdent resp, Survey.BarkProcessed, coerce ident, Survey.ProcessedByBark)
                res <- makeSharableLink minioConn $ Bark.responseIdent resp
                when (isLeft res) $ throwError $ QueryError mempty mempty $ ClientError (Just (fromLeft' res))
-           E.except minio_res   
+           E.except minio_res
         when (isLeft res) $ $(logTM) ErrorS (logStr @String ("catch bark webhook --> file hasn't been saved, error: " <> show res))     
       _ -> $(logTM) InfoS (logStr @String ("catch bark webhook --> " <> show resp))
 
-commitToMinio user (file, _) mime extXs name
+commitToMinio user (file, _) mime bucket extXs name
   | mime == "audio/wav" || 
-    mime == "audio/x-wav" = do
+    mime == "audio/x-wav" || 
+    mime == "audio/mpeg" = do
       tmp <- liftIO getTemporaryDirectory
       let filePath = tmp </> T.unpack (mkHash file)
       liftIO $ B.writeFile filePath file
       lift $ fmap (first (MinioError . show) . join . Right . toEither) $ 
-        File.Upload.controller user "bark" $ 
+        File.Upload.controller user bucket $ 
           Files [File name (mime^.from textbs) filePath extXs]
 
 makeSharableLink minio barkIdent = do
