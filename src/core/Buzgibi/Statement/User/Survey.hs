@@ -2,6 +2,9 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE DataKinds #-}
+{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 
@@ -30,7 +33,10 @@ module Buzgibi.Statement.User.Survey
     updateAppPhoneCall,
     CallStatus (..),
     getUserByAppIdent,
-    insertVoiceTelnyx
+    insertVoiceTelnyx,
+    getSurveysForTranscription,
+    OpenAIPhone (..),
+    insertTranscription
   ) where
 
 
@@ -48,11 +54,12 @@ import Data.Maybe
 import Database.Transaction (ParamsShow (..))
 import qualified Hasql.Statement as HS
 import Test.QuickCheck.Extended ()
-import Data.Aeson.Types (Value)
+import Data.Aeson.Types (Value, FromJSON, ToJSON)
 import Data.Bifunctor (second, first)
 import qualified Data.Vector as V
 import Data.String.Conv (toS)
 import Data.Tuple.Extended (snocT, consT)
+import Data.Aeson.Generic.DerivingVia
 
 data Status = Received | ProcessedByBark | PickedByTelnyx | ProcessedByTelnyx | SurveyProcessed | Fail T.Text
   deriving Generic
@@ -549,3 +556,37 @@ insertVoiceTelnyx =
     where 
       telnyx_id = (select app_id from telnyx_phone) and 
       phone_id = (select phone_id from telnyx_phone)|]
+
+
+data OpenAIPhone = OpenAIPhone { openAIPhonePhoneIdent :: Int64, openAIPhoneVoiceIdent :: Int64 } 
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor OpenAIPhone)]]
+          OpenAIPhone
+
+getSurveysForTranscription :: HS.Statement () [(Int64, [Value])]
+getSurveysForTranscription = 
+  dimap (const (toS (show ProcessedByTelnyx))) (V.toList . fmap (second V.toList)) $
+  [vectorStatement|
+    select
+      s.id :: int8,
+      array_agg(jsonb_build_object(
+        'phone_ident', sp.id :: int8,
+        'voice_ident', apt.voice_id)) :: jsonb[]
+    from customer.survey as s
+    inner join customer.survey_phones as sp
+    on s.id = sp.survey_id
+    inner join customer.phone_telnyx_app as apt
+    on sp.id = apt.phone_id
+    where s.survey_status = $1 :: text group by s.id|]
+
+insertTranscription :: HS.Statement (Int64, [(Int64, T.Text)]) ()
+insertTranscription = 
+  lmap (\(x, y) -> consT x $ V.unzip $ V.fromList y) $
+  [resultlessStatement|
+    insert into customer.phone_transcription
+    (survey_id, phone_id, transcription)
+    select $1 :: int8, phone_id, res
+    from unnest( $2 :: int8[], $3 :: text[]) as x(phone_id, res)|]

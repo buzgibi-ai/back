@@ -1,5 +1,6 @@
 alter table customer.survey_phones add column id serial primary key;
 
+-- foreign_api.telnyx_app
 create table foreign_api.telnyx (
     id bigserial primary key,
     telnyx_ident text not null,
@@ -7,6 +8,7 @@ create table foreign_api.telnyx (
     created timestamptz not null default now(),
     constraint telnyx__telnyx_ident_unique unique (id, telnyx_ident));
 
+-- foreign_api.phone_telnyx_app
 create table customer.phone_telnyx (
     voice_id bigint,
     telnyx_id bigserial not null,

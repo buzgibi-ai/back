@@ -111,7 +111,7 @@ mkEnumConvertor name =
     let toSig = SigD isoNTo (AppT (AppT ArrowT (ConT str)) (ConT name))
     let toN = FunD isoNTo (map mkClauseTo xs ++ [mkErrorClauseTo])
     let isoN = mkName $ "iso" <> stripUnderScore name
-    let iso = mkName "Iso'"
+    let iso = mkName "Iso'" 
     let isoSig = SigD isoN (AppT (AppT (ConT iso) (ConT name)) (ConT str))
     iosDec <- [d|$(varP isoN) = $(appE (appE (varE (mkName "iso")) (varE isoNFrom)) (varE isoNTo))|]
     return $ [fromSig, fromN, toSig, toN, isoSig] ++ iosDec
