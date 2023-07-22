@@ -428,34 +428,86 @@ instance ParamsShow CallStatus where
 
 insertAppPhoneCall :: HS.Statement (T.Text, T.Text, T.Text, Maybe T.Text, CallStatus) ()
 insertAppPhoneCall =
-  lmap(\x -> x & _5 %~ (T.pack . show)) $
+  lmap(\x -> snocT (toS (show ProcessedByTelnyx)) (x & _5 %~ (T.pack . show))) $
   [resultlessStatement|
-    insert into foreign_api.telnyx_app_call_phone
-    (telnyx_app_call_id, call_from, call_to, call_hangup_cause, call_status)
-    select 
-      app.id :: int8,
-      $2 :: text,
-      $3 :: text,
-      $4 :: text?,
-      $5 :: text
-    from foreign_api.telnyx_app as app
-    inner join foreign_api.telnyx_app_call as call
-    on app.id = call.telnyx_app_id
-    where app.telnyx_ident = $1 :: text|]
-
-updateAppPhoneCall :: HS.Statement (T.Text, T.Text, CallStatus) ()
-updateAppPhoneCall =
-  lmap(\x -> x & _3 %~ (T.pack . show)) $
-  [resultlessStatement|
-     update foreign_api.telnyx_app_call_phone
-     set call_status = $3 :: text
-     where 
-       telnyx_app_call_id = (
-        select app.id :: int8
+    with 
+      phone as (
+        insert into foreign_api.telnyx_app_call_phone
+        (telnyx_app_call_id, call_from, call_to, call_hangup_cause, call_status)
+        select 
+          app.id :: int8,
+          $2 :: text,
+          $3 :: text,
+          $4 :: text?,
+          $5 :: text
         from foreign_api.telnyx_app as app
         inner join foreign_api.telnyx_app_call as call
         on app.id = call.telnyx_app_id
-        where app.telnyx_ident = $1 :: text and call.call_leg_id = $2 :: text)|]
+        where app.telnyx_ident = $1 :: text),
+      survey as (
+        select
+         distinct s.id
+        from customer.survey as s
+        inner join customer.survey_phones as sp
+        on sp.survey_id = s.id
+        inner join customer.phone_telnyx_app as pt
+        on sp.id = pt.phone_id
+        inner join foreign_api.telnyx_app as ta
+        on pt.telnyx_id = ta.id
+        where ta.telnyx_ident = $1 :: text)
+    update customer.survey 
+    set survey_status = $6 :: text
+    where 
+      id = (select * from survey) and 
+      (select 
+        count(
+         case when tacp.call_status = null then 0
+         else 1
+         end) > 0
+       from customer.survey_phones as sp
+       left join foreign_api.telnyx_app_call_phone as tacp
+       on sp.phone = tacp.call_to
+       where sp.survey_id = (select * from survey))|]
+
+updateAppPhoneCall :: HS.Statement (T.Text, T.Text, CallStatus) ()
+updateAppPhoneCall =
+  lmap(\x -> snocT (toS (show ProcessedByTelnyx)) (x & _3 %~ (T.pack . show))) $
+  [resultlessStatement|
+    with 
+      phone as (
+        update foreign_api.telnyx_app_call_phone
+        set call_status = $3 :: text
+        where 
+          telnyx_app_call_id = (
+          select app.id :: int8
+          from foreign_api.telnyx_app as app
+          inner join foreign_api.telnyx_app_call as call
+          on app.id = call.telnyx_app_id
+          where app.telnyx_ident = $1 :: text and call.call_leg_id = $2 :: text)),
+      survey as (
+        select
+         distinct s.id
+        from customer.survey as s
+        inner join customer.survey_phones as sp
+        on sp.survey_id = s.id
+        inner join customer.phone_telnyx_app as pt
+        on sp.id = pt.phone_id
+        inner join foreign_api.telnyx_app as ta
+        on pt.telnyx_id = ta.id
+        where ta.telnyx_ident = $1 :: text)
+    update customer.survey 
+    set survey_status = $4 :: text
+    where 
+      id = (select * from survey) and 
+      (select 
+        count(
+         case when tacp.call_status = null then 0
+         else 1
+         end) > 0
+       from customer.survey_phones as sp
+       left join foreign_api.telnyx_app_call_phone as tacp
+       on sp.phone = tacp.call_to
+       where sp.survey_id = (select * from survey))|]
 
 getUserByAppIdent :: HS.Statement T.Text (Maybe (Int64, T.Text))
 getUserByAppIdent = 
