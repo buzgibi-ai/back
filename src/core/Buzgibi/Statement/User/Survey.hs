@@ -61,7 +61,7 @@ import Data.String.Conv (toS)
 import Data.Tuple.Extended (snocT, consT)
 import Data.Aeson.Generic.DerivingVia
 
-data Status = Received | ProcessedByBark | PickedByTelnyx | ProcessedByTelnyx | SurveyProcessed | Fail T.Text
+data Status = Received | ProcessedByBark | PickedByTelnyx | ProcessedByTelnyx | ProcessedByOpenAI | SurveyProcessed | Fail T.Text
   deriving Generic
 
 instance Show Status where
@@ -69,6 +69,7 @@ instance Show Status where
     show ProcessedByBark = "processed by bark" 
     show PickedByTelnyx = "telnyx app is created"
     show ProcessedByTelnyx = "processed by telnyx"
+    show ProcessedByOpenAI = "transcriptions are finished"
     show SurveyProcessed = "processed"
     show (Fail reason) = "fail: " <> toS reason
 
@@ -600,9 +601,15 @@ getSurveysForTranscription =
 
 insertTranscription :: HS.Statement (Int64, [(Int64, T.Text)]) ()
 insertTranscription = 
-  lmap (\(x, y) -> consT x $ V.unzip $ V.fromList y) $
+  lmap (\(x, y) -> snocT (toS (show ProcessedByOpenAI)) $ consT x $ V.unzip $ V.fromList y) $
   [resultlessStatement|
-    insert into customer.phone_transcription
-    (survey_id, phone_id, transcription)
-    select $1 :: int8, phone_id, res
-    from unnest( $2 :: int8[], $3 :: text[]) as x(phone_id, res)|]
+    with 
+      phones as (  
+        insert into customer.phone_transcription
+        (survey_id, phone_id, transcription)
+        select $1 :: int8, phone_id, res
+        from unnest( $2 :: int8[], $3 :: text[]) 
+        as x(phone_id, res))
+    update customer.survey 
+    set survey_status = $4 :: text
+    where id = $1 :: int8|]
