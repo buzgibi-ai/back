@@ -41,7 +41,7 @@ import Data.Traversable (for)
 import Data.Coerce (coerce)
 import qualified Control.Concurrent.Lifted as Concurrent (fork)
 import Data.Foldable (for_)
-import Control.Monad (join)
+import Control.Monad (join, msum)
 import qualified Request as Request (make)
 import qualified Network.HTTP.Types as HTTP
 import Buzgibi.EnvKeys (url, version, key)
@@ -200,6 +200,11 @@ data PhoneRecord =
 instance FromRecord PhoneRecord
 instance ToRecord PhoneRecord
 
+
+delimiters = [',', ';', '\t', ' ', '|']
+
+mkCsvError = toS $  "system supports one of the following format: " <> T.intercalate " " (map (`T.cons` mempty) delimiters)
+
 assignPhonesToSurvey hasql minio fileIdent = do 
   metam <- transactionM hasql $ statement File.getMeta $ Id fileIdent
   let file404 = "file " <> show fileIdent <> " not found"
@@ -221,4 +226,7 @@ assignPhonesToSurvey hasql minio fileIdent = do
                     Conduit..| 
                     Conduit.sinkSystemTempFile
                     (toS name <> "_" <> tm <> "." <> toS ext)
-            liftIO $ fmap (decodeWith @PhoneRecord defaultDecodeOptions { decDelimiter = fromIntegral (ord ';')} NoHeader) $ BL.readFile path
+            let mkRecords bytes = 
+                  msum $ flip map delimiters $ \del -> 
+                    decodeWith @PhoneRecord defaultDecodeOptions { decDelimiter = fromIntegral (ord del)} NoHeader bytes     
+            liftIO $ fmap (first (const mkCsvError) . mkRecords) $ BL.readFile path
