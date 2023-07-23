@@ -298,9 +298,8 @@ getPhoneMeta =
     on sf.phones_id = f.id
     where sf.survey_id = $1 :: int8|]
 
-insertPhones :: HS.Statement (Int64, [T.Text]) ()
-insertPhones = 
-  lmap (second V.fromList) $ 
+insertPhones :: HS.Statement (Int64, V.Vector T.Text) ()
+insertPhones =
   [resultlessStatement|
     insert into customer.survey_phones
     (survey_id, phone)

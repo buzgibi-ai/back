@@ -10,6 +10,7 @@
 module Buzgibi.Statement.File
   ( save,
     getMeta,
+    getMetaForBark,
     Buzgibi.Statement.File.delete,
     getHashWithBucket,
     patch,
@@ -75,8 +76,8 @@ save =
           x(hash, title, mime, bucket, exts)
           returning id :: int8|]
 
-getMeta :: HS.Statement (Id "user", Id "file") (Maybe (Hash, Name, Mime, Bucket, [T.Text]))
-getMeta =
+getMetaForBark :: HS.Statement (Id "user", Id "file") (Maybe (Hash, Name, Mime, Bucket, [T.Text]))
+getMetaForBark =
   dimap (\x -> x & _1 %~ coerce & _2 %~ coerce) (fmap mkTpl) $
     [maybeStatement|
       select
@@ -95,6 +96,22 @@ getMeta =
       on eb.voice_id = f.id
       where p.user_id = $1 :: int8 
             and f.id = $2 :: int8
+            and not is_deleted|]
+  where mkTpl x = x & _1 %~ coerce & _2 %~ coerce & _3 %~ coerce & _4 %~ coerce & _5 %~ V.toList @T.Text
+
+getMeta :: HS.Statement (Id "file") (Maybe (Hash, Name, Mime, Bucket, [T.Text]))
+getMeta =
+  dimap coerce (fmap mkTpl) $
+    [maybeStatement|
+      select
+       f.hash :: text, 
+       f.title :: text,
+       f.mime :: text, 
+       f.bucket :: text,
+       array(select trim(both '"' from cast(el as text)) 
+            from json_array_elements(exts) as el) :: text[]
+      from storage.file as f
+      where f.id = $1 :: int8
             and not is_deleted|]
   where mkTpl x = x & _1 %~ coerce & _2 %~ coerce & _3 %~ coerce & _4 %~ coerce & _5 %~ V.toList @T.Text
 

@@ -25,10 +25,8 @@ import Data.Coerce
 import Data.Either.Combinators
 import Data.Foldable
 import Data.Int
-import Data.String.Conv
 import qualified Data.Text as T
 import Data.Text.Encoding
-import Data.Time.Clock
 import Data.Traversable
 import Database.Transaction
 import Hash
@@ -41,6 +39,8 @@ import Network.Minio
 import Network.Wai
 import System.Process (readProcess)
 import TH.Mk
+import Data.Time.Clock.System (getSystemTime, systemSeconds)
+import Data.String.Conv (toS)
 
 data Option = Embedded | Raw deriving (Show)
 
@@ -57,14 +57,14 @@ controller userId option id width_m height_m = do
   let notFound = "file {" <> show (coerce @(Id "file") @Int64 id) ^. stext <> "} not found"
   meta <-
     fmap (maybeToRight (asError notFound)) $
-      transactionM hasql $ statement File.getMeta (userId, id)
+      transactionM hasql $ statement File.getMetaForBark (userId, id)
   minioResp <- fmap join $ for meta $ \x -> do
     Minio {..} <- fmap (^. katipEnv . minio) ask
     let bucket = x ^. _4 . coerced
     r <- liftIO $ runMinioWith minioConn $ do
       o <- getObject bucket (x ^. _1 . coerced) defaultGetObjectOptions
       let size = oiSize (gorObjectInfo o)
-      tm <- show <$> liftIO getCurrentTime
+      tm <- (toS . show . systemSeconds) <$> liftIO getSystemTime
       path <-
         runConduit $
           gorObjectStream o

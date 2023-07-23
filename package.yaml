@@ -193,6 +193,7 @@ library:
     - bark
     - unliftio-core
     - katip-wai
+    - cassava
 
   source-dirs:
     - src/core

@@ -15,6 +15,7 @@ where
 import qualified Data.Text as T
 import Test.QuickCheck
 import Test.QuickCheck.Instances.Time ()
+import Test.QuickCheck.Instances.Vector ()
 
 -- import Data.Aeson.Unit
 -- import Generic.Random

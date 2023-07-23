@@ -16,12 +16,15 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Buzgibi.Api.Controller.User.MakeSurvey (controller, Survey) where
+module Buzgibi.Api.Controller.User.MakeSurvey (controller, Survey, PhoneRecord (..)) where
 
 import qualified Buzgibi.Transport.Model.Bark as Bark
 import qualified Buzgibi.Statement.User.Survey as Survey
+import Buzgibi.Statement.File as File
 import Buzgibi.Auth (AuthenticatedUser (..))
+import Buzgibi.Transport.Id (Id (..))
 import Buzgibi.Transport.Response
+import Buzgibi.Transport.Model.File
 import Data.Aeson (FromJSON, ToJSON (toJSON), eitherDecodeStrict)
 import Data.Aeson.Generic.DerivingVia
 import Data.Proxy (Proxy (..))
@@ -46,17 +49,21 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Lens.Iso.Extended (textbs)
 import Katip
 import Data.Int (Int64)
-import Control.Monad (void)
 import qualified Network.Minio as Minio
-import Data.Time.Clock (getCurrentTime)
 import qualified Conduit as Conduit
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
+import Data.Bifunctor (first)
+import Data.String.Conv (toS)
+import Data.Time.Clock.System (getSystemTime, systemSeconds)
+import Data.Csv (FromRecord, ToRecord, decodeWith, HasHeader (NoHeader), DecodeOptions (..), defaultDecodeOptions)
+import Data.Char (ord)
 
-data Error = BarkCredentials404 | InsertionFail
+data Error = BarkCredentials404 | InsertionFail | File String
 
 instance Show Error where
   show BarkCredentials404 = "we cannot perform the request"
   show InsertionFail = "new enquiry entry cannot be fulfilled"
+  show (File e) = e
 
 data Location = Location
   { locationLatitude :: Double,
@@ -97,49 +104,55 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
   resp <- fmap (join .  maybeToRight BarkCredentials404) $ 
     for barkm $ \bark -> do 
       hasql <- fmap (^. katipEnv . hasqlDbPool) ask
-      let survey = 
-            def { 
-              Survey.surveyUserId = coerce user,
-              Survey.surveySurvey = surveySurvey,
-              Survey.surveyStatus = Survey.Received,
-              Survey.surveyLatitude = locationLatitude,
-              Survey.surveyLongitude = locationLongitude,
-              Survey.surveyCategory = surveyCategory,
-              Survey.surveyAssessmentScore = surveyAssessmentScore,
-              Survey.surveyPhones = head surveyPhonesFileIdent
-            }
-      identm <- transactionM hasql $ statement Survey.insert survey
-      for_ identm $ \survey_ident -> 
-        Concurrent.fork $ do
+      Minio {..} <- fmap (^. katipEnv . minio) ask
 
-          Minio {..} <- fmap (^. katipEnv . minio) ask
-          -- parse file and assign phones to survey
-          void $ assignPhonesToSurvey hasql minioConn survey_ident
+      phoneXsE <- assignPhonesToSurvey hasql minioConn $ head surveyPhonesFileIdent
 
-          resp <- liftIO $ 
-            Request.make
-              (bark^.url) manager 
-              [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
-              HTTP.methodPost $ 
-              Left (Just (mkReq (bark^.version) surveySurvey))
-          let mkBark ident st = 
-                Survey.Bark {
-                  Survey.barkReq = toJSON $ mkReq (bark^.version) surveySurvey,
-                  Survey.barkStatus = st,
-                  Survey.barkIdent = ident,
-                  Survey.barkSurveyId = survey_ident
+      case phoneXsE of 
+        Left e -> pure $ Left $ File e
+        Right phoneRecordXs -> do
+          let survey = 
+                def { 
+                  Survey.surveyUserId = coerce user,
+                  Survey.surveySurvey = surveySurvey,
+                  Survey.surveyStatus = Survey.Received,
+                  Survey.surveyLatitude = locationLatitude,
+                  Survey.surveyLongitude = locationLongitude,
+                  Survey.surveyCategory = surveyCategory,
+                  Survey.surveyAssessmentScore = surveyAssessmentScore,
+                  Survey.surveyPhones = head surveyPhonesFileIdent
                 }
-          case resp of
-            Right (resp, _) -> do 
-               let bark_resp = eitherDecodeStrict @Bark.Response resp
-               case bark_resp of 
-                 Right resp -> 
-                   transactionM hasql $ 
-                     statement Survey.insertBark $
-                       mkBark (Bark.responseIdent resp) Survey.BarkSent
-                 Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
-            Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
-      return $ maybeToRight InsertionFail identm
+          identm <- transactionM hasql $ statement Survey.insert survey
+          for_ identm $ \survey_ident -> 
+            Concurrent.fork $ do
+              let phoneXs = flip fmap phoneRecordXs $ \PhoneRecord {..} -> phoneRecordPhone
+              -- parse file and assign phones to survey
+              transactionM hasql $ statement Survey.insertPhones (survey_ident, phoneXs)
+
+              resp <- liftIO $ 
+                Request.make
+                  (bark^.url) manager 
+                  [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
+                  HTTP.methodPost $ 
+                  Left (Just (mkReq (bark^.version) surveySurvey))
+              let mkBark ident st = 
+                    Survey.Bark {
+                      Survey.barkReq = toJSON $ mkReq (bark^.version) surveySurvey,
+                      Survey.barkStatus = st,
+                      Survey.barkIdent = ident,
+                      Survey.barkSurveyId = survey_ident
+                    }
+              case resp of
+                Right (resp, _) -> do 
+                  let bark_resp = eitherDecodeStrict @Bark.Response resp
+                  case bark_resp of 
+                    Right resp -> 
+                      transactionM hasql $ 
+                        statement Survey.insertBark $
+                          mkBark (Bark.responseIdent resp) Survey.BarkSent
+                    Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
+                Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
+          return $ maybeToRight InsertionFail identm
   return $ withError resp $ const ()
 
 data Input = Input { inputPrompt :: T.Text }
@@ -175,17 +188,37 @@ data BarkRequestBody =
 -- }
 mkReq version survey = BarkRequestBody version (Input survey) "https://buzgibi.app/foreign/webhook/bark" ["start", "completed"]
 
-assignPhonesToSurvey hasql minio surveyIdent = do 
-  (bucket, hash) <- transactionM hasql $ statement Survey.getPhoneMeta surveyIdent
-  tm <- show <$> liftIO getCurrentTime
-  minioRes <- liftIO $ Minio.runMinioWith minio $ do 
-    o <- Minio.getObject bucket hash Minio.defaultGetObjectOptions
-    Conduit.runConduit $ do
-      path <- Minio.gorObjectStream o
-        Conduit..| Conduit.sinkSystemTempFile 
-          (T.unpack hash)
-      -- P.S. build a conduit pipeline    
-      liftIO $ fmap (^.from textbs.to (T.splitOn "\n")) $ B.readFile path    
-  case minioRes of 
-    Right phoneXs -> transactionM hasql $ statement Survey.insertPhones (surveyIdent, phoneXs)
-    Left err -> $(logTM) ErrorS (logStr (show err))
+
+data PhoneRecord = 
+     PhoneRecord 
+     { phoneRecordName :: Maybe T.Text, 
+       phoneRecordSurname :: Maybe T.Text,
+       phoneRecordPhone :: T.Text
+     }
+     deriving stock (Generic, Show)
+  
+instance FromRecord PhoneRecord
+instance ToRecord PhoneRecord
+
+assignPhonesToSurvey hasql minio fileIdent = do 
+  metam <- transactionM hasql $ statement File.getMeta $ Id fileIdent
+  let file404 = "file " <> show fileIdent <> " not found"
+  fmap (join . maybeToRight file404) $ 
+    for metam $ \meta -> do
+      let bucket = coerce $ meta^._4
+      let hash = coerce $ meta^._1
+      let name :: T.Text = coerce $ meta^._2
+      let (ext:_) = meta^._5
+      if ext /= "csv" then
+        return $ Left "system supports only csv format"
+      else
+        fmap (join . first show) $
+          liftIO $ Minio.runMinioWith minio $ do
+          o <- Minio.getObject bucket hash Minio.defaultGetObjectOptions
+          Conduit.runConduit $ do
+            tm <- (toS . show . systemSeconds) <$> liftIO getSystemTime
+            path <- Minio.gorObjectStream o
+                    Conduit..| 
+                    Conduit.sinkSystemTempFile
+                    (toS name <> "_" <> tm <> "." <> toS ext)
+            liftIO $ fmap (decodeWith @PhoneRecord defaultDecodeOptions { decDelimiter = fromIntegral (ord ';')} NoHeader) $ BL.readFile path
