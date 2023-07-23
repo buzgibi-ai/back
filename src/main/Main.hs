@@ -264,7 +264,8 @@ main = do
           logEnv = unEnv,
           telnyxCfg = envKeys >>= envKeysTelnyx,
           openaiCfg = envKeys >>= envKeysOpenAI,
-          manager = manager
+          manager = manager,
+          minio = minioEnv
         }
 
   let s@Buzgibi.Config.SendGrid {..} = cfg ^. Buzgibi.Config.sendGrid

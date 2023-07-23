@@ -67,6 +67,7 @@ import TextShow
 import qualified Katip.Wai as Katip.Wai
 import Control.Monad.IO.Unlift (MonadUnliftIO (withRunInIO))
 import Data.Maybe (fromMaybe)
+import qualified Network.Minio as Minio
 
 data Cfg = Cfg
   { cfgHost :: !String,
@@ -79,7 +80,8 @@ data Cfg = Cfg
     logEnv :: !LogEnv,
     telnyxCfg :: !(Maybe Telnyx),
     openaiCfg :: !(Maybe OpenAI),
-    manager :: !HTTP.Manager
+    manager :: !HTTP.Manager,
+    minio :: Minio.MinioConn
   }
 
 run :: Cfg -> KatipContextT AppM ()
@@ -152,7 +154,8 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
         { logger = telnyx_logger,
           pool = katipEnvHasqlDbPool configKatipEnv, 
           openaiCfg = fromMaybe (error "openai not set") openaiCfg,
-          manager = manager
+          manager = manager,
+          minio = minio
         }
   openai <- liftIO $ async $ Job.OpenAI.getTranscription openAICfg
 
