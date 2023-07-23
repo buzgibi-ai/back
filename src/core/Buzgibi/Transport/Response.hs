@@ -73,7 +73,7 @@ instance ToJSON a => ToJSON (Response a) where
         (["errors" .= xs | not (null xs)])
   toJSON (Response (Just x) ys xs) =
     object
-      $ (if null ys then id else (("warning" .= ys) :))
+      $ (if null ys then id else (("warnings" .= ys) :))
         . (if null xs then id else (("errors" .= xs) :))
       $ ["success" .= x]
 

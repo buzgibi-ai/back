@@ -15,6 +15,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TupleSections #-}
 
 module Buzgibi.Api.Controller.User.MakeSurvey (controller, Survey, PhoneRecord (..)) where
 
@@ -36,7 +37,7 @@ import Katip.Controller
 import Control.Lens
 import Data.Default.Class
 import Data.Either.Combinators (maybeToRight)
-import Buzgibi.Api.Controller.Utils (withError)
+import Buzgibi.Api.Controller.Utils (withErrorExt)
 import Data.Traversable (for)
 import Data.Coerce (coerce)
 import qualified Control.Concurrent.Lifted as Concurrent (fork)
@@ -64,6 +65,13 @@ instance Show Error where
   show BarkCredentials404 = "we cannot perform the request"
   show InsertionFail = "new enquiry entry cannot be fulfilled"
   show (File e) = e
+
+data FileError = File404 Int64 | MinioError String | Csv String
+
+instance Show FileError where
+  show (File404 fileIdent) = "file " <> show fileIdent <> " not found"
+  show (MinioError e) = e
+  show (Csv e) = e
 
 data Location = Location
   { locationLatitude :: Double,
@@ -109,7 +117,9 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
       phoneXsE <- assignPhonesToSurvey hasql minioConn $ head surveyPhonesFileIdent
 
       case phoneXsE of 
-        Left e -> pure $ Left $ File e
+        Left e@(File404 _) -> pure $ Right (undefined, [asError @T.Text (toS (show e))])
+        Left e@(Csv _) -> pure $ Right (undefined, [asError @T.Text (toS (show e))])
+        Left (MinioError e) -> pure $ Left $ File e
         Right phoneRecordXs -> do
           let survey = 
                 def { 
@@ -152,8 +162,8 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                           mkBark (Bark.responseIdent resp) Survey.BarkSent
                     Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
                 Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
-          return $ maybeToRight InsertionFail identm
-  return $ withError resp $ const ()
+          return $ maybeToRight InsertionFail $ fmap (, mempty) identm
+  return $ withErrorExt resp $ const ()
 
 data Input = Input { inputPrompt :: T.Text }
   deriving stock (Generic)
@@ -207,17 +217,16 @@ mkCsvError = toS $  "system supports one of the following format: " <> T.interca
 
 assignPhonesToSurvey hasql minio fileIdent = do 
   metam <- transactionM hasql $ statement File.getMeta $ Id fileIdent
-  let file404 = "file " <> show fileIdent <> " not found"
-  fmap (join . maybeToRight file404) $ 
+  fmap (join . maybeToRight (File404 fileIdent)) $ 
     for metam $ \meta -> do
       let bucket = coerce $ meta^._4
       let hash = coerce $ meta^._1
       let name :: T.Text = coerce $ meta^._2
       let (ext:_) = meta^._5
       if ext /= "csv" then
-        return $ Left "system supports only csv format"
+        return $ Left $ Csv "system supports only csv format"
       else
-        fmap (join . first show) $
+        fmap (join . first (MinioError . show)) $
           liftIO $ Minio.runMinioWith minio $ do
           o <- Minio.getObject bucket hash Minio.defaultGetObjectOptions
           Conduit.runConduit $ do
@@ -229,4 +238,4 @@ assignPhonesToSurvey hasql minio fileIdent = do
             let mkRecords bytes = 
                   msum $ flip map delimiters $ \del -> 
                     decodeWith @PhoneRecord defaultDecodeOptions { decDelimiter = fromIntegral (ord del)} NoHeader bytes     
-            liftIO $ fmap (first (const mkCsvError) . mkRecords) $ BL.readFile path
+            liftIO $ fmap (first (const (Csv mkCsvError)) . mkRecords) $ BL.readFile path

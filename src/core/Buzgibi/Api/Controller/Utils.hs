@@ -1,9 +1,12 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 
-module Buzgibi.Api.Controller.Utils (withError, getContent, ContentError (..), extractMIMEandExts) where
+module Buzgibi.Api.Controller.Utils (withError, withErrorExt, getContent, ContentError (..), extractMIMEandExts) where
 
 import Buzgibi.Transport.Response
+import qualified Buzgibi.Transport.Error as E
 import Control.Lens
 import Control.Lens.Iso.Extended
 import Data.Aeson (FromJSON)
@@ -16,10 +19,14 @@ import GitHub.Data.Content (contentFileContent)
 import Network.HTTP.Types.URI (extractPath)
 import Network.Mime (defaultMimeLookup, fileNameExtensions)
 import qualified Data.ByteString as B
+import Data.Bifunctor (second)
 
-withError :: Show e => Either e a -> (a -> b) -> Response b
-withError (Left e) _ = Error $ asError (show e ^. stext)
-withError (Right x) ok = Ok $ ok x
+withErrorExt :: Show e => Either e (a, [E.Error]) -> (a -> r) -> Response r
+withErrorExt (Left e) _ = Error $ asError (show e ^. stext)
+withErrorExt (Right (x, ws)) ok = Warnings (ok x) ws
+
+withError :: Show e => Either e a -> (a -> r) -> Response r
+withError res = withErrorExt (second (,mempty) res)
 
 data ContentError = Resource404 | Yaml T.Text
 
