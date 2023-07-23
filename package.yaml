@@ -188,7 +188,6 @@ library:
     - lifted-async
     - http-conduit
     - sendgrid
-    - openai
     - github
     - quickcheck-instances 
     - bark

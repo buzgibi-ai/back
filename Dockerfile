@@ -41,7 +41,6 @@ RUN . /home/nix/.nix-profile/etc/profile.d/nix.sh && \
      --log-format bar-with-logs \ 
      --verbose --command \ 
      "./scripts/api-generator.sh ./openapi/sendgrid-openapiv3.yaml SendGrid sendgrid . && \
-     ./scripts/api-generator.sh ./openapi/openai-openapiv3.yaml OpenAI openai . && \
      ./scripts/api-generator.sh ./openapi/bark-openapiv3.yaml Bark bark . && \
       stack install --system-ghc --fast -j12 --test"
 

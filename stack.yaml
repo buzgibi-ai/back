@@ -58,7 +58,6 @@ extra-deps:
   - jose-0.10
   - servant-auth-server-0.4.8.0
   - ./src/foreign/SendGrid
-  - ./src/foreign/OpenAI
   - ./src/foreign/Bark
 
 # - acme-missiles-0.3
