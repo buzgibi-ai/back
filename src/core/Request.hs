@@ -11,6 +11,7 @@ import Data.String.Conv
 import qualified Data.ByteString as B
 import Data.Aeson (ToJSON, encode, FromJSON, eitherDecodeStrict)
 import Data.Maybe (fromMaybe)
+import Network.HTTP.Client.MultipartFormData (Part, formDataBody)
 
 make ::
   ToJSON a =>
@@ -18,17 +19,24 @@ make ::
   -> HTTP.Manager
   -> [HTTP.Header]
   -> HTTP.Method
-  -> Maybe a
+  -> Either (Maybe a) [Part]
   -> IO (Either B.ByteString (B.ByteString, HTTP.ResponseHeaders))
-make url manager headers method body = do
- req <- HTTP.parseRequest $ T.unpack url
- response <- 
-   flip HTTP.httpLbs manager 
-     req {
-        HTTP.method = method, 
-        HTTP.requestHeaders = headers,
-        HTTP.requestBody = HTTP.RequestBodyLBS $ fromMaybe mempty $ fmap encode body
-     }
+make url manager headers method bodye = do
+ req_tmp <- HTTP.parseRequest $ T.unpack url
+ let req =
+      case bodye of 
+        Left body ->
+          pure $ 
+            req_tmp {
+              HTTP.method = method, 
+              HTTP.requestHeaders = headers,
+              HTTP.requestBody = 
+                HTTP.RequestBodyLBS $ 
+                  fromMaybe mempty $ 
+                    fmap encode body
+            }
+        Right parts -> formDataBody parts req_tmp
+ response <- flip HTTP.httpLbs manager =<< req
  let response_status = HTTP.statusCode $ HTTP.responseStatus response
  let response_body = toS $ HTTP.responseBody response
  return $

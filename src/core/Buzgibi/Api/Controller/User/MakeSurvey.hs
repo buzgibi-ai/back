@@ -121,7 +121,7 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
               (bark^.url) manager 
               [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
               HTTP.methodPost $ 
-              Just (mkReq (bark^.version) surveySurvey)
+              Left (Just (mkReq (bark^.version) surveySurvey))
           let mkBark ident st = 
                 Survey.Bark {
                   Survey.barkReq = toJSON $ mkReq (bark^.version) surveySurvey,

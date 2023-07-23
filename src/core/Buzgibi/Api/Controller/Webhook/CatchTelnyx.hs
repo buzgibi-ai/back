@@ -13,8 +13,9 @@ module Buzgibi.Api.Controller.Webhook.CatchTelnyx (controller) where
 import Buzgibi.Api.Controller.Utils (extractMIMEandExts)
 import Buzgibi.Api.Controller.Webhook.CatchBark (commitToMinio) 
 import Buzgibi.Transport.Model.Telnyx
-import Buzgibi.Api.Telnyx 
+import Buzgibi.Api.CallApi
 import Buzgibi.Auth (AuthenticatedUser (..))
+import Buzgibi.Api.CallApi.Instance ()  
 import Buzgibi.Transport.Id (Id (..))
 import qualified Buzgibi.Statement.User.Survey as User.Survey (insertVoiceTelnyx, getUserByAppIdent, insertAppPhoneCall, updateAppPhoneCall, CallStatus (..))
 import Katip.Controller
@@ -43,7 +44,7 @@ import Data.Maybe (fromMaybe)
 data UrlError = NetworkFailure B.ByteString | UserMissing
   deriving Show
 
-type instance TelnyxApi "calls/{call_control_id}/actions/record_start" RecordingStartRequest RecordingStartResponse = ()
+type instance Api "calls/{call_control_id}/actions/record_start" RecordingStartRequest RecordingStartResponse = ()
 
 controller :: Payload -> KatipControllerM ()
 controller Payload {..} = do
@@ -61,11 +62,11 @@ controller Payload {..} = do
            $(logTM) InfoS $ logStr $ "Buzgibi.Api.Controller.Webhook.CatchTelnyx: hangup received " <> show hangup
          AnsweredWrapper answered@Answered {..} -> do
            env <- fmap (^. katipEnv) ask
-           telnyxApiCfg <- fmap (TelnyxApiCfg (fromMaybe undefined (env^.telnyx)) (env^.httpReqManager)) askLoggerIO
+           telnyxApiCfg <- fmap (ApiCfg (fromMaybe undefined (env^.telnyx)) (env^.httpReqManager)) askLoggerIO
            let request = RecordingStartRequest { recordingStartRequestFormat = MP3,  recordingStartRequestChannels = Single }
            let queryParam = [("{call_control_id}", answeredCallControlId)]
            callRes <- liftIO $ callApi @("calls/{call_control_id}/actions/record_start") @RecordingStartRequest @RecordingStartResponse 
-                         telnyxApiCfg request methodPost queryParam Left (const (Right ()))
+                         telnyxApiCfg (Left request) methodPost queryParam Left (const (Right ()))
 
            hasql <- fmap (^. katipEnv . hasqlDbPool) ask              
            res <- for callRes $ const $ transactionM hasql $ 
@@ -86,7 +87,7 @@ controller Payload {..} = do
            for_ getRecordingUrls $ \url -> do
              res <- E.runExceptT $ do
                manager <- lift $ fmap (^. katipEnv . httpReqManager) ask
-               file_resp <- liftIO $ Request.make url manager [] HTTP.methodGet (Nothing @())
+               file_resp <- liftIO $ Request.make url manager [] HTTP.methodGet (Left (Nothing @()))
                file <- E.withExceptT NetworkFailure $ E.except file_resp
                let (mime, exts) = extractMIMEandExts url
                usere <- lift $ transactionM hasql $ statement User.Survey.getUserByAppIdent recordConnectionId

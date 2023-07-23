@@ -557,8 +557,14 @@ insertVoiceTelnyx =
       telnyx_id = (select app_id from telnyx_phone) and 
       phone_id = (select phone_id from telnyx_phone)|]
 
-
-data OpenAIPhone = OpenAIPhone { openAIPhonePhoneIdent :: Int64, openAIPhoneVoiceIdent :: Int64 } 
+data OpenAIPhone = 
+     OpenAIPhone 
+     { openAIPhonePhoneIdent :: Int64, 
+       openAIPhoneVoiceBucket :: T.Text,
+       openAIPhoneVoiceHash :: T.Text,
+       openAIPhoneVoiceTitle :: T.Text,
+       openAIPhoneVoiceExt :: [T.Text]
+     } 
      deriving stock (Generic)
      deriving
      (ToJSON, FromJSON)
@@ -574,12 +580,22 @@ getSurveysForTranscription =
       s.id :: int8,
       array_agg(jsonb_build_object(
         'phone_ident', sp.id :: int8,
-        'voice_ident', apt.voice_id)) :: jsonb[]
+        'voice_bucket', f.bucket,
+        'voice_hash', f.hash,
+        'title', f.title,
+        'voice_exts', 
+         array(
+          select 
+            trim(both '"' from cast(el as text)) 
+          from json_array_elements(f.exts) as el))
+      ) :: jsonb[]
     from customer.survey as s
     inner join customer.survey_phones as sp
     on s.id = sp.survey_id
     inner join customer.phone_telnyx_app as apt
     on sp.id = apt.phone_id
+    inner join storage.file as f
+    on apt.voice_id = f.id
     where s.survey_status = $1 :: text group by s.id|]
 
 insertTranscription :: HS.Statement (Int64, [(Int64, T.Text)]) ()

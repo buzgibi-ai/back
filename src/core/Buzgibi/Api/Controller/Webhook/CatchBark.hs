@@ -70,7 +70,7 @@ controller payload = do
            url <- E.except $ maybeToRight AudioOutIsMissing $ M.lookup (T.pack "audio_out") out
            manager <- lift $ fmap (^. katipEnv . httpReqManager) ask
            $(logTM) DebugS (logStr @String  ("catch bark webhook --> url: " <> show url))
-           file_resp <- liftIO $ Request.make url manager [] HTTP.methodGet (Nothing @())
+           file_resp <- liftIO $ Request.make url manager [] HTTP.methodGet (Left (Nothing @()))
            file <- E.withExceptT NetworkFailure $ E.except file_resp
            let (mime, exts) = extractMIMEandExts url
             

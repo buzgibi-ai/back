@@ -9,13 +9,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
-module Buzgibi.Api.Telnyx (TelnyxApi, TelnyxApiCfg (..), methodPost, callApi) where
+module Buzgibi.Api.CallApi (Api, ApiCfg (..), IsApi (..), methodPost, callApi) where
 
 import Data.Kind (Type, Constraint)
 import GHC.TypeLits (Symbol, symbolVal, KnownSymbol)
 import Data.Proxy (Proxy (..))
 import qualified Network.HTTP.Client as HTTP
-import Buzgibi.EnvKeys (Telnyx (..))
 import Data.Typeable (Typeable)
 import qualified Data.Text as T
 import Network.HTTP.Types.Header (ResponseHeaders)
@@ -29,37 +28,42 @@ import Data.Bifunctor (first)
 import Control.Monad (join)
 import Katip
 import Data.Foldable (foldl')
+import Network.HTTP.Client.MultipartFormData (Part)
 
-type family TelnyxApi (api :: Symbol) (req :: Type) (resp :: Type) :: Constraint
+type family Api (api :: Symbol) (req :: Type) (resp :: Type) :: Constraint
 
-data TelnyxApiCfg =
-      TelnyxApiCfg 
-      { telnyxCfg :: Telnyx,
+data ApiCfg a =
+      ApiCfg 
+      { cfg :: a,
         manager :: HTTP.Manager,
         logger :: Severity -> LogStr -> IO ()
       } 
 
+class IsApi a where
+  getUrl :: a -> T.Text
+  getKey :: a -> T.Text
+
 callApi ::
-  forall a b c e r .
-  (KnownSymbol a, Typeable a, FromJSON c, ToJSON b, TelnyxApi a b c) => 
-  TelnyxApiCfg ->
-  b ->
+  forall a b c e r cfg .
+  (KnownSymbol a, Typeable a, FromJSON c, ToJSON b, Api a b c, IsApi cfg) => 
+  ApiCfg cfg ->
+  Either b [Part] ->
   Method ->
   [(T.Text, T.Text)] ->
   (T.Text -> (Either e r)) -> 
   ((c, ResponseHeaders) -> Either e r) -> 
   IO (Either e r)
-callApi TelnyxApiCfg {..} request method queryXs onError onOk = do
-  let url_tmp = telnyxUrl telnyxCfg <> "/" <> toS (symbolVal (Proxy @a))
+callApi ApiCfg {..} request method queryXs onError onOk = do
+  let url_tmp = getUrl cfg <> "/" <> toS (symbolVal (Proxy @a))
   let reduce tmp (needle, v) = T.replace needle v tmp
   let url | length queryXs > 0 = foldl' reduce url_tmp queryXs
           | otherwise = url_tmp
-  let authH = (hAuthorization, toS ("Bearer " <> telnyxKey telnyxCfg))
+  let authH = (hAuthorization, toS ("Bearer " <> getKey cfg))
   let contTypeH = (hContentType, "application/json")
 
-  logger DebugS $ logStr $ "Buzgibi.Api.Telnyx: url ----> " <> url
+  logger DebugS $ logStr $ "Buzgibi.Api.CallApi: url ----> " <> url
 
   resp <- fmap (join . first (toS . show)) $ try @HttpException $ 
-            Request.make @b url manager [authH, contTypeH] method $ Just $ request
+            Request.make @b url manager [authH, contTypeH] method $ first Just request
   return $ Request.withError @c resp onError onOk
 

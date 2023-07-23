@@ -46,7 +46,7 @@ mkScribe manager Telegram {..} permitF verbosity = do
                     text = "`" <> toS chunk <> "`",
                     parse_mode = "markdown" 
                   }
-            Request.make url manager mempty HTTP.methodPost $ Just body
+            Request.make url manager mempty HTTP.methodPost $ Left $ Just body
   return $ Scribe logger finalize permitF
   where 
     split xs source | BL.length source < 4096 = source : xs

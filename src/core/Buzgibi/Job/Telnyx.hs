@@ -16,9 +16,10 @@ import Buzgibi.Statement.User.Survey
         insertTelnyxApp, 
         getPhonesToCall, 
         insertAppCall)
+import Buzgibi.Api.CallApi.Instance ()        
 import Buzgibi.EnvKeys (Telnyx (..))
 import Buzgibi.Transport.Model.Telnyx
-import Buzgibi.Api.Telnyx
+import Buzgibi.Api.CallApi
 import Database.Transaction
 import Katip
 import Control.Concurrent (threadDelay)
@@ -41,8 +42,8 @@ data TelnyxEnv =
        manager :: HTTP.Manager
      }
 
-type instance TelnyxApi "call_control_applications" AppRequest AppResponse = ()
-type instance TelnyxApi "calls" CallRequest CallResponseData = ()
+type instance Api "call_control_applications" AppRequest AppResponse = ()
+type instance Api "calls" CallRequest CallResponseData = ()
 
 makeApp :: TelnyxEnv -> IO ()
 makeApp TelnyxEnv {..} = forever $ do 
@@ -60,7 +61,7 @@ makeApp TelnyxEnv {..} = forever $ do
           { appRequestApplicationName = title,
             appRequestWebhookEventUrl = webhook
           }
-    callApi @"call_control_applications" @AppRequest @AppResponse (TelnyxApiCfg telnyxCfg manager logger) request methodPost mempty (Left . (ident, )) $ \(app, _) -> pure $ (ident, title,) $ coerce app
+    callApi @"call_control_applications" @AppRequest @AppResponse (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (ident, )) $ \(app, _) -> pure $ (ident, title,) $ coerce app
 
   let (errXs, appXs) = partitionEithers resp
   for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " app for " <> show ident <> " hasn't been created, error --> " <> toS e
@@ -89,7 +90,7 @@ makeCall TelnyxEnv {..} = forever $ do
             callRequestConnectionId = telnyxIdent,
             callRequestAudioUrl = link
           }
-    callApi @"calls" @CallRequest @CallResponseData (TelnyxApiCfg telnyxCfg manager logger) request methodPost mempty (Left . (ident, )) $ \(call, _) -> pure (ident, coerce call)    
+    callApi @"calls" @CallRequest @CallResponseData (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (ident, )) $ \(call, _) -> pure (ident, coerce call)    
  
   let (errXs, callXs) = partitionEithers resp
   for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS e  
