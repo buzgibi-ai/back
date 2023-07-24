@@ -30,4 +30,4 @@ makeReport SurveyCfg {..} = forever $ do
   -- 3 commit a file to minio
 
   end <- getCurrentTime
-  logger InfoS $ logStr $ "Buzgibi.Job.OpenAI: end at " <> show end
+  logger InfoS $ logStr $ "Buzgibi.Job.Survey: end at " <> show end
