@@ -58,6 +58,8 @@ import Data.String.Conv (toS)
 import Data.Time.Clock.System (getSystemTime, systemSeconds)
 import Data.Csv (FromRecord, ToRecord, decodeWith, HasHeader (NoHeader), DecodeOptions (..), defaultDecodeOptions)
 import Data.Char (ord)
+import qualified Data.Vector as V
+import Data.Monoid (All (..))
 
 data Error = BarkCredentials404 | InsertionFail | File String
 
@@ -66,12 +68,13 @@ instance Show Error where
   show InsertionFail = "new enquiry entry cannot be fulfilled"
   show (File e) = e
 
-data FileError = File404 Int64 | MinioError String | Csv String
+data FileError = File404 | MinioError String | CsvFormatError | NotCsv
 
 instance Show FileError where
-  show (File404 fileIdent) = "file " <> show fileIdent <> " not found"
+  show File404 = "file_404"
   show (MinioError e) = e
-  show (Csv e) = e
+  show CsvFormatError = "csv_format_error"
+  show NotCsv = "not_csv"
 
 data Location = Location
   { locationLatitude :: Double,
@@ -117,8 +120,9 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
       phoneXsE <- assignPhonesToSurvey hasql minioConn $ head surveyPhonesFileIdent
 
       case phoneXsE of 
-        Left e@(File404 _) -> pure $ Right (undefined, [asError @T.Text (toS (show e))])
-        Left e@(Csv _) -> pure $ Right (undefined, [asError @T.Text (toS (show e))])
+        Left e@File404 -> pure $ Right (undefined, [asError @T.Text (toS (show e))])
+        Left e@CsvFormatError -> pure $ Right (undefined, [asError @T.Text (toS (show e))])
+        Left e@NotCsv -> pure $ Right (undefined, [asError @T.Text (toS (show e))])
         Left (MinioError e) -> pure $ Left $ File e
         Right phoneRecordXs -> do
           let survey = 
@@ -135,7 +139,7 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
           identm <- transactionM hasql $ statement Survey.insert survey
           for_ identm $ \survey_ident -> 
             Concurrent.fork $ do
-              let phoneXs = flip fmap phoneRecordXs $ \PhoneRecord {..} -> phoneRecordPhone
+              let phoneXs = V.take 30 $ flip fmap phoneRecordXs $ \PhoneRecord {..} -> phoneRecordPhone
               -- parse file and assign phones to survey
               transactionM hasql $ statement Survey.insertPhones (survey_ident, phoneXs)
 
@@ -162,7 +166,8 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                           mkBark (Bark.responseIdent resp) Survey.BarkSent
                     Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
                 Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
-          return $ maybeToRight InsertionFail $ fmap (, mempty) identm
+          let truncatedTo30 = if V.length phoneRecordXs > 30 then [asError @T.Text "truncated_to_30"] else mempty     
+          return $ maybeToRight InsertionFail $ fmap (, truncatedTo30) identm
   return $ withErrorExt resp $ const ()
 
 data Input = Input { inputPrompt :: T.Text }
@@ -210,27 +215,29 @@ data PhoneRecord =
 instance FromRecord PhoneRecord
 instance ToRecord PhoneRecord
 
-
 delimiters = [',', ';', '\t', ' ', '|']
 
-mkCsvError = toS $  "system supports one of the following format: " <> T.intercalate " " (map (`T.cons` mempty) delimiters)
+checkExt xs | length xs == 0 = False 
+            | otherwise = getAll $ foldMap (All . (== "csv")) xs
 
 assignPhonesToSurvey hasql minio fileIdent = do 
   metam <- transactionM hasql $ statement File.getMeta $ Id fileIdent
-  fmap (join . maybeToRight (File404 fileIdent)) $ 
+  fmap (join . maybeToRight File404) $ 
     for metam $ \meta -> do
       let bucket = coerce $ meta^._4
       let hash = coerce $ meta^._1
       let name :: T.Text = coerce $ meta^._2
-      let (ext:_) = meta^._5
-      if ext /= "csv" then
-        return $ Left $ Csv "system supports only csv format"
+      let exts = meta^._5
+      if not (checkExt exts) 
+      then
+        return $ Left NotCsv
       else
         fmap (join . first (MinioError . show)) $
           liftIO $ Minio.runMinioWith minio $ do
           o <- Minio.getObject bucket hash Minio.defaultGetObjectOptions
           Conduit.runConduit $ do
             tm <- (toS . show . systemSeconds) <$> liftIO getSystemTime
+            let (ext:_) = meta^._5
             path <- Minio.gorObjectStream o
                     Conduit..| 
                     Conduit.sinkSystemTempFile
@@ -238,4 +245,4 @@ assignPhonesToSurvey hasql minio fileIdent = do
             let mkRecords bytes = 
                   msum $ flip map delimiters $ \del -> 
                     decodeWith @PhoneRecord defaultDecodeOptions { decDelimiter = fromIntegral (ord del)} NoHeader bytes     
-            liftIO $ fmap (first (const (Csv mkCsvError)) . mkRecords) $ BL.readFile path
+            liftIO $ fmap (first (const CsvFormatError) . mkRecords) $ BL.readFile path

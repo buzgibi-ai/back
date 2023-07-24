@@ -41,6 +41,13 @@ data Resource = ResourceUser | ResourceStub
 instance Default Resource where
   def = ResourceUser
 
+data Endpoints = EndpointsMakeSurvey | EndpointsStub
+  deriving stock (Generic)
+  deriving (Enum)
+
+instance Default Endpoints where
+  def = EndpointsMakeSurvey
+
 mkToSchemaAndJSON ''Page
 mkEnumConvertor ''Page
 
@@ -49,3 +56,6 @@ mkEnumConvertor ''Menu
 
 mkToSchemaAndJSON ''Resource
 mkEnumConvertor ''Resource
+
+mkToSchemaAndJSON ''Endpoints
+mkEnumConvertor ''Endpoints

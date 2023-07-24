@@ -92,7 +92,8 @@ data Translation = Translation
   { translationPage :: ![Map Enum.Page [Map T.Text T.Text]],
     translationMenu :: ![Map Enum.Menu T.Text],
     translationCopyright :: !T.Text,
-    translationResource :: ![Map Enum.Resource [Map T.Text T.Text]]
+    translationResource :: ![Map Enum.Resource [Map T.Text T.Text]],
+    translationEndpoints :: ![Map Enum.Endpoints [Map T.Text T.Text]]
   }
   deriving stock (Generic)
   deriving
