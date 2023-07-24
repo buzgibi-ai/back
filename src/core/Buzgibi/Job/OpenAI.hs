@@ -9,7 +9,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Buzgibi.Job.OpenAI (getTranscription, OpenAIEnv (..)) where
+module Buzgibi.Job.OpenAI (getTranscription, OpenAICfg (..)) where
 
 
 import Buzgibi.Statement.User.Survey (getSurveysForTranscription, insertTranscription, OpenAIPhone (..))
@@ -40,8 +40,8 @@ import Network.HTTP.Client.MultipartFormData (partBS, partFileSource)
 import Data.Bifunctor (first, bimap)
 import Control.Monad (join)
 
-data OpenAIEnv =
-     OpenAIEnv 
+data OpenAICfg =
+     OpenAICfg 
      { logger :: Severity -> LogStr -> IO (), 
        pool :: Pool Hasql.Connection,
        openaiCfg :: OpenAI,
@@ -51,8 +51,8 @@ data OpenAIEnv =
 
 type instance Api "audio/transcriptions" () TranscriptionResponse = ()
 
-getTranscription :: OpenAIEnv -> IO ()
-getTranscription OpenAIEnv {..} = forever $ do 
+getTranscription :: OpenAICfg -> IO ()
+getTranscription OpenAICfg {..} = forever $ do 
   threadDelay (300 * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.OpenAI: start at " <> show start

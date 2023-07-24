@@ -24,6 +24,7 @@ module Buzgibi.App (Cfg (..), AppM (..), run) where
 import BuildInfo
 import Buzgibi.Job.Telnyx as Job.Telnyx
 import Buzgibi.Job.OpenAI as Job.OpenAI 
+import Buzgibi.Job.Survey as Job.Survey
 import Buzgibi.Api
 import Buzgibi.EnvKeys (Telnyx (..), OpenAI (..))
 import qualified Buzgibi.Api.Controller.Controller as Controller
@@ -139,7 +140,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   
   telnyx_logger <- katipAddNamespace (Namespace ["telnyx"]) askLoggerIO
   let telnyxEnv =
-        Job.Telnyx.TelnyxEnv
+        Job.Telnyx.TelnyxCfg
         { logger = telnyx_logger,
           pool = katipEnvHasqlDbPool configKatipEnv, 
           telnyxCfg = fromMaybe (error "telnyx not set") telnyxCfg,
@@ -150,7 +151,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
 
   
   let openAICfg =
-        Job.OpenAI.OpenAIEnv
+        Job.OpenAI.OpenAICfg
         { logger = telnyx_logger,
           pool = katipEnvHasqlDbPool configKatipEnv, 
           openaiCfg = fromMaybe (error "openai not set") openaiCfg,
@@ -159,8 +160,18 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
         }
   openai <- liftIO $ async $ Job.OpenAI.getTranscription openAICfg
 
+
+  let surveyCfg =
+        Job.Survey.SurveyCfg
+        { logger = telnyx_logger,
+          pool = katipEnvHasqlDbPool configKatipEnv,
+          manager = manager,
+          minio = minio
+        }
+  survey <- liftIO $ async $ Job.Survey.makeReport surveyCfg
+
   flip logExceptionM ErrorS $ liftIO $ void $ waitAnyCancel 
-    [serverAsync, telnyxApp, telnyxCall, openai]
+    [serverAsync, telnyxApp, telnyxCall, openai, survey]
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application
 middleware cors log app = mkCors cors app

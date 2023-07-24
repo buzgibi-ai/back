@@ -9,7 +9,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Buzgibi.Job.Telnyx (makeApp, makeCall, TelnyxEnv (..)) where
+module Buzgibi.Job.Telnyx (makeApp, makeCall, TelnyxCfg (..)) where
 
 import Buzgibi.Statement.User.Survey 
        (getSurveyForTelnyxApp, 
@@ -34,8 +34,8 @@ import Data.Either (partitionEithers)
 import Data.Foldable (for_)
 import Data.Coerce (coerce)
 
-data TelnyxEnv =
-     TelnyxEnv 
+data TelnyxCfg =
+     TelnyxCfg 
      { logger :: Severity -> LogStr -> IO (), 
        pool :: Pool Hasql.Connection,
        telnyxCfg :: Telnyx,
@@ -45,8 +45,8 @@ data TelnyxEnv =
 type instance Api "call_control_applications" AppRequest AppResponse = ()
 type instance Api "calls" CallRequest CallResponseData = ()
 
-makeApp :: TelnyxEnv -> IO ()
-makeApp TelnyxEnv {..} = forever $ do 
+makeApp :: TelnyxCfg -> IO ()
+makeApp TelnyxCfg {..} = forever $ do 
   threadDelay (300 * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: start at " <> show start
@@ -72,8 +72,8 @@ makeApp TelnyxEnv {..} = forever $ do
   end <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: end at " <> show end
 
-makeCall :: TelnyxEnv -> IO ()
-makeCall TelnyxEnv {..} = forever $ do
+makeCall :: TelnyxCfg -> IO ()
+makeCall TelnyxCfg {..} = forever $ do
   threadDelay (300 * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: start at " <> show start
