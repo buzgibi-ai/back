@@ -9,10 +9,17 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Buzgibi.Job.OpenAI (getTranscription, OpenAICfg (..)) where
+module Buzgibi.Job.OpenAI (getTranscription, performSentimentalAnalysis, OpenAICfg (..)) where
 
 
-import Buzgibi.Statement.User.Survey (getSurveysForTranscription, insertTranscription, OpenAIPhone (..))
+import Buzgibi.Statement.User.Survey 
+       (getSurveysForTranscription, 
+        getSurveysForSA, 
+        insertTranscription,
+        insertSA,
+        OpenAITranscription (..), 
+        OpenAISA (..)
+       )
 import qualified Network.HTTP.Client as HTTP
 import qualified Hasql.Connection as Hasql
 import Buzgibi.Api.CallApi
@@ -50,42 +57,73 @@ data OpenAICfg =
      }
 
 type instance Api "audio/transcriptions" () TranscriptionResponse = ()
+type instance Api "audio/completions" SARequest SAResponse = ()
+
+mkErrorMsg _ _ _ [] = pure ()
+mkErrorMsg job logger surveyIdent ((phoneIdent, e):es) = 
+  logger ErrorS $ logStr $ "Buzgibi.Job.OpenAI(" <> job <> "): survey id: " <> show surveyIdent <> ", phone id: " <> show phoneIdent <> ", error ---> " <> toS e
 
 getTranscription :: OpenAICfg -> IO ()
 getTranscription OpenAICfg {..} = forever $ do 
   threadDelay (300 * 10 ^ 6)
   start <- getCurrentTime
-  logger InfoS $ logStr $ "Buzgibi.Job.OpenAI: start at " <> show start
+  logger InfoS $ logStr $ "Buzgibi.Job.OpenAI(getTranscription): start at " <> show start
 
   xs <- transaction pool logger $ statement getSurveysForTranscription ()
   Async.forConcurrently_ xs $ \(survIdent, ys) -> do 
-    let phones = sequence $ map (eitherDecode @OpenAIPhone . encode) ys
+    let phones = sequence $ map (eitherDecode @OpenAITranscription . encode) ys
     res <- for phones $ \xs -> do
       yse <- Async.forConcurrently xs $
-        \OpenAIPhone {..} -> 
-          fmap (bimap (openAIPhonePhoneIdent,) (openAIPhonePhoneIdent,) . join . first (toS . show)) $ 
+        \OpenAITranscription {..} -> 
+          fmap (bimap (openAITranscriptionPhoneIdent,) (openAITranscriptionPhoneIdent,) . join . first (toS . show)) $ 
           Minio.runMinioWith minio $ do
-            let (ext:_) = openAIPhoneVoiceExt
+            let (ext:_) = openAITranscriptionVoiceExt
             tm <- (toS . show . systemSeconds) <$> liftIO getSystemTime
-            o <- Minio.getObject openAIPhoneVoiceBucket openAIPhoneVoiceHash Minio.defaultGetObjectOptions
+            o <- Minio.getObject openAITranscriptionVoiceBucket openAITranscriptionVoiceHash Minio.defaultGetObjectOptions
             path <-
               runConduit $
                Minio.gorObjectStream o
                  .| sinkSystemTempFile
-                 (toS (openAIPhoneVoiceTitle <> "_" <> tm <> "." <> ext))
+                 (toS (openAITranscriptionVoiceTitle <> "_" <> tm <> "." <> ext))
             let parts = [partFileSource "file" path, partBS "model" "whisper-1"]    
             liftIO $ callApi @"audio/transcriptions" @() @TranscriptionResponse
               (ApiCfg openaiCfg manager logger) (Right parts) methodPost mempty Left $ 
                 (pure . transcriptionResponseText . fst)
 
       let (es, ys) = partitionEithers yse
-      mkErrorMsg logger survIdent es
+      mkErrorMsg "getTranscription" logger survIdent es
       transaction pool logger $ statement insertTranscription (survIdent, ys)
-    when (isLeft res) $ logger ErrorS $ logStr $ "Buzgibi.Job.OpenAI: phone parse failed for survey " <> show survIdent
+    when (isLeft res) $ logger ErrorS $ logStr $ "Buzgibi.Job.OpenAI(getTranscription): phone parse failed for survey " <> show survIdent
 
   end <- getCurrentTime
-  logger InfoS $ logStr $ "Buzgibi.Job.OpenAI: end at " <> show end
+  logger InfoS $ logStr $ "Buzgibi.Job.OpenAI(getTranscription): end at " <> show end
 
-mkErrorMsg _ _ [] = pure ()
-mkErrorMsg logger surveyIdent ((phoneIdent, e):es) = 
-  logger ErrorS $ logStr $ "Buzgibi.Job.OpenAI: survey id: " <> show surveyIdent <> ", phone id: " <> show phoneIdent <> ", error ---> " <> toS e 
+performSentimentalAnalysis :: OpenAICfg -> IO ()
+performSentimentalAnalysis OpenAICfg {..} = 
+  forever $ do 
+  threadDelay (300 * 10 ^ 6)
+  start <- getCurrentTime
+  logger InfoS $ logStr $ "Buzgibi.Job.OpenAI(performSentimentalAnalysis): start at " <> show start
+
+  xs <- transaction pool logger $ statement getSurveysForSA () 
+  Async.forConcurrently_ xs $ \(survIdent, ys) -> do 
+    let phones = sequence $ map (eitherDecode @OpenAISA . encode) ys
+    res <- for phones $ \xs -> do 
+      yse <- Async.forConcurrently xs $
+        \OpenAISA {..} -> liftIO $ do 
+           let request = defSARequest { sARequestPrompt = openAISAText }
+           fmap (bimap (openAISAPhoneIdent,) (openAISAPhoneIdent,)) $
+             callApi @"audio/completions" @SARequest @SAResponse 
+               (ApiCfg openaiCfg manager logger) 
+               (Left request) methodPost mempty Left $
+                 \(SAResponse xs, _) ->
+                   case xs of [] -> Left "empty choices"; (x:_) -> Right x
+
+      let (es, ys) = partitionEithers yse
+      mkErrorMsg "performSentimentalAnalysis" logger survIdent es
+      transaction pool logger $ statement insertSA (survIdent, ys)
+
+    when (isLeft res) $ logger ErrorS $ logStr $ "Buzgibi.Job.OpenAI(performSentimentalAnalysis): SA failed for survey " <> show survIdent
+
+  end <- getCurrentTime
+  logger InfoS $ logStr $ "Buzgibi.Job.OpenAI(performSentimentalAnalysis): end at " <> show end

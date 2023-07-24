@@ -35,8 +35,11 @@ module Buzgibi.Statement.User.Survey
     getUserByAppIdent,
     insertVoiceTelnyx,
     getSurveysForTranscription,
-    OpenAIPhone (..),
-    insertTranscription
+    OpenAITranscription (..),
+    insertTranscription,
+    OpenAISA (..),
+    getSurveysForSA,
+    insertSA
   ) where
 
 
@@ -61,7 +64,14 @@ import Data.String.Conv (toS)
 import Data.Tuple.Extended (snocT, consT)
 import Data.Aeson.Generic.DerivingVia
 
-data Status = Received | ProcessedByBark | PickedByTelnyx | ProcessedByTelnyx | ProcessedByOpenAI | SurveyProcessed | Fail T.Text
+data Status = 
+     Received | 
+     ProcessedByBark | 
+     PickedByTelnyx | 
+     ProcessedByTelnyx | 
+     TranscriptionsDoneOpenAI |
+     SentimentalAnalysisDoneOpenAI |
+     SurveyProcessed | Fail T.Text
   deriving Generic
 
 instance Show Status where
@@ -69,7 +79,8 @@ instance Show Status where
     show ProcessedByBark = "processed by bark" 
     show PickedByTelnyx = "telnyx app is created"
     show ProcessedByTelnyx = "processed by telnyx"
-    show ProcessedByOpenAI = "transcriptions are finished"
+    show TranscriptionsDoneOpenAI = "transcriptions are finished"
+    show SentimentalAnalysisDoneOpenAI = "sentimental analysis is finished"
     show SurveyProcessed = "processed"
     show (Fail reason) = "fail: " <> toS reason
 
@@ -557,20 +568,20 @@ insertVoiceTelnyx =
       telnyx_id = (select app_id from telnyx_phone) and 
       phone_id = (select phone_id from telnyx_phone)|]
 
-data OpenAIPhone = 
-     OpenAIPhone 
-     { openAIPhonePhoneIdent :: Int64, 
-       openAIPhoneVoiceBucket :: T.Text,
-       openAIPhoneVoiceHash :: T.Text,
-       openAIPhoneVoiceTitle :: T.Text,
-       openAIPhoneVoiceExt :: [T.Text]
+data OpenAITranscription = 
+     OpenAITranscription 
+     { openAITranscriptionPhoneIdent :: Int64, 
+       openAITranscriptionVoiceBucket :: T.Text,
+       openAITranscriptionVoiceHash :: T.Text,
+       openAITranscriptionVoiceTitle :: T.Text,
+       openAITranscriptionVoiceExt :: [T.Text]
      } 
      deriving stock (Generic)
      deriving
      (ToJSON, FromJSON)
      via WithOptions
-          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor OpenAIPhone)]]
-          OpenAIPhone
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor OpenAITranscription)]]
+          OpenAITranscription
 
 getSurveysForTranscription :: HS.Statement () [(Int64, [Value])]
 getSurveysForTranscription = 
@@ -598,14 +609,56 @@ getSurveysForTranscription =
     on apt.voice_id = f.id
     where s.survey_status = $1 :: text group by s.id|]
 
+data OpenAISA = 
+     OpenAISA
+     { openAISAPhoneIdent :: Int64,
+       openAISAText :: T.Text 
+     }
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor OpenAISA)]]
+          OpenAISA     
+
+getSurveysForSA :: HS.Statement () [(Int64, [Value])]
+getSurveysForSA = 
+   dimap (const (toS (show TranscriptionsDoneOpenAI))) (V.toList . fmap (second V.toList)) $
+   [vectorStatement|
+     select
+       s.id :: int8,
+       array_agg(jsonb_build_object(
+         'phone_ident', pt.phone_id, 
+         'text', pt.transcription)) :: jsonb[] 
+     from customer.survey as s
+     inner join customer.phone_transcription as pt
+     on s.id = pt.survey_id
+     where s.survey_status = $1 :: text
+     group by s.id|]
+
 insertTranscription :: HS.Statement (Int64, [(Int64, T.Text)]) ()
 insertTranscription = 
-  lmap (\(x, y) -> snocT (toS (show ProcessedByOpenAI)) $ consT x $ V.unzip $ V.fromList y) $
+  lmap (\(x, y) -> snocT (toS (show TranscriptionsDoneOpenAI)) $ consT x $ V.unzip $ V.fromList y) $
   [resultlessStatement|
     with 
       phones as (  
         insert into customer.phone_transcription
         (survey_id, phone_id, transcription)
+        select $1 :: int8, phone_id, res
+        from unnest( $2 :: int8[], $3 :: text[]) 
+        as x(phone_id, res))
+    update customer.survey 
+    set survey_status = $4 :: text
+    where id = $1 :: int8|]
+
+insertSA :: HS.Statement (Int64, [(Int64, T.Text)]) ()
+insertSA = 
+  lmap (\(x, y) -> snocT (toS (show SentimentalAnalysisDoneOpenAI)) $ consT x $ V.unzip $ V.fromList y) $
+  [resultlessStatement|
+    with 
+      phones as (  
+        insert into customer.phone_sentiment_analysis
+        (survey_id, phone_id, result)
         select $1 :: int8, phone_id, res
         from unnest( $2 :: int8[], $3 :: text[]) 
         as x(phone_id, res))

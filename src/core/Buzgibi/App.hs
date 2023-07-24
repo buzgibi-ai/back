@@ -149,7 +149,6 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   telnyxApp <- liftIO $ async $ Job.Telnyx.makeApp telnyxEnv
   telnyxCall <- liftIO $ async $ Job.Telnyx.makeCall telnyxEnv
 
-  
   let openAICfg =
         Job.OpenAI.OpenAICfg
         { logger = telnyx_logger,
@@ -158,8 +157,8 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
           manager = manager,
           minio = minio
         }
-  openai <- liftIO $ async $ Job.OpenAI.getTranscription openAICfg
-
+  openaiTranscrip <- liftIO $ async $ Job.OpenAI.getTranscription openAICfg
+  openaiSA <- liftIO $ async $ Job.OpenAI.performSentimentalAnalysis openAICfg
 
   let surveyCfg =
         Job.Survey.SurveyCfg
@@ -171,7 +170,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   survey <- liftIO $ async $ Job.Survey.makeReport surveyCfg
 
   flip logExceptionM ErrorS $ liftIO $ void $ waitAnyCancel 
-    [serverAsync, telnyxApp, telnyxCall, openai, survey]
+    [serverAsync, telnyxApp, telnyxCall, openaiTranscrip, openaiSA, survey]
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application
 middleware cors log app = mkCors cors app

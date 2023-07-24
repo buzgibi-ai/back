@@ -94,6 +94,8 @@ explainTests =
        "updateAppPhoneCall" =>> Buzgibi.Statement.User.Survey.updateAppPhoneCall,
        "getUserByAppIdent" =>> Buzgibi.Statement.User.Survey.getUserByAppIdent,
        "insertVoiceTelnyx" =>> Buzgibi.Statement.User.Survey.insertVoiceTelnyx,
-       "insertTranscription" =>> Buzgibi.Statement.User.Survey.insertTranscription
+       "insertTranscription" =>> Buzgibi.Statement.User.Survey.insertTranscription,
+       "getSurveysForSA" =>> Buzgibi.Statement.User.Survey.getSurveysForSA,
+       "insertSA" =>> Buzgibi.Statement.User.Survey.insertSA
      ]
   ]

@@ -49,7 +49,7 @@ makeApp :: TelnyxCfg -> IO ()
 makeApp TelnyxCfg {..} = forever $ do 
   threadDelay (300 * 10 ^ 6)
   start <- getCurrentTime
-  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: start at " <> show start
+  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx(makeApp): start at " <> show start
   xs <- transaction pool logger $ statement getSurveyForTelnyxApp ()
   logger DebugS $ logStr $ "Buzgibi.Job.Telnyx: surveys for Telnyx " <> show xs
 
@@ -70,13 +70,13 @@ makeApp TelnyxCfg {..} = forever $ do
   for_ appXs $ transaction pool logger . statement insertTelnyxApp
 
   end <- getCurrentTime
-  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: end at " <> show end
+  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx(makeApp): end at " <> show end
 
 makeCall :: TelnyxCfg -> IO ()
 makeCall TelnyxCfg {..} = forever $ do
   threadDelay (300 * 10 ^ 6)
   start <- getCurrentTime
-  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: start at " <> show start
+  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx(makeCall): start at " <> show start
 
   xs <- transaction pool logger $ statement getPhonesToCall ()
   
@@ -98,4 +98,4 @@ makeCall TelnyxCfg {..} = forever $ do
   for_ callXs $ transaction pool logger . statement insertAppCall
 
   end <- getCurrentTime
-  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx: end at " <> show end
+  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx(makeCall): end at " <> show end
