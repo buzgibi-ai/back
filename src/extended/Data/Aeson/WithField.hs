@@ -16,9 +16,10 @@ import Data.Aeson
 import Data.Swagger
 import qualified Data.Aeson.KeyMap as K
 import Data.Proxy (Proxy (..))
-import Control.Lens
+import Control.Lens hiding ((.=))
 import GHC.Exts
-
+import qualified Data.List as L
+import Data.String.Conv (toS)
 
 -- | Injects field 'a' into 'b' with tag 's'. It has
 -- special instances for 'ToJSON' and 'FromJSON' for
@@ -49,30 +50,39 @@ instance Bifunctor (WithField s) where
   bimap fa fb (WithField a b) = WithField (fa a) (fb b)
 
 instance (KnownSymbol s, ToJSON a, ToJSON b) => ToJSON (WithField (s :: Symbol) a b) where
-  toJSON (WithField x y) = inject (toJSON x) (toJSON y)
+  toJSON (WithField x y) = inject x (toJSON y)
     where 
-      inject (String s) (Object obj) = 
-        Object $ K.insert (fromString (symbolVal (Proxy @s))) (toJSON s) obj
-      inject _ _ = error "unsupported types"
+      inject x (Object obj) =
+        Object $ K.insert (fromString (symbolVal (Proxy @s))) (toJSON x) obj
+      inject x _ = object [ "value" .= toJSON y, fromString (symbolVal (Proxy @s)) .= toJSON x ]
 
 instance (KnownSymbol s, FromJSON a, FromJSON b) => FromJSON (WithField s a b) where
   parseJSON obj = 
     flip (withObject "WithField") obj $ \o -> do 
       x <- o .: fromString (symbolVal (Proxy @s))
-      y <- parseJSON obj
+      let o' = K.delete (fromString (symbolVal (Proxy @s))) o
+      y <- parseJSON $ Object o'
       return $ WithField x y
 
 instance (KnownSymbol s, ToSchema a, ToSchema b) => ToSchema (WithField s a b) where
   declareNamedSchema _ = do
-    NamedSchema nb sb <- declareNamedSchema (Proxy @a)
-    NamedSchema na sa <- declareNamedSchema (Proxy @b)
-    let combinedName a b = "WithFields_" <> a <> "_" <> b
-    let newName = combinedName <$> na <*> nb
-    let wrapper a = mempty
-          & type_ ?~ SwaggerObject
-          & properties .~ fromList  [ ((fromString (symbolVal (Proxy @s))), Inline a) ]
-          & required .~ [ (fromString (symbolVal (Proxy @s))) ]
-    return . NamedSchema newName $ 
-      case (sa ^. type_ , sb ^. type_) of
-        (_, Just SwaggerObject) -> sb <> wrapper sa
-        _ -> error "unsupported types"
+     NamedSchema n s <- declareNamedSchema (Proxy :: Proxy b)
+     if s ^. type_ == Just SwaggerObject then inline n s
+     else wrapper n s
+     where
+       field = toS $ symbolVal (Proxy :: Proxy s)
+       namePrefix = "WithField '" <> field <> "' "
+       wrapper n s = do
+         indexSchema <- declareSchema (Proxy :: Proxy a)
+         return $ NamedSchema (fmap (namePrefix <>) n) $ mempty
+            & type_ .~ Just SwaggerObject
+            & properties .~ fromList
+                [ ("value", Inline s)
+                , (field, Inline indexSchema)
+                ]
+            & required .~ (L.nub [ "value", field ])
+       inline n s = do
+        indexSchema <- declareSchema (Proxy :: Proxy a)
+        return $ NamedSchema (fmap (namePrefix <>) n) $ s
+            & properties %~ (fromList [(field, Inline indexSchema)] <>)
+            & required %~ ([field] <>)
