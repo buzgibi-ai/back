@@ -174,8 +174,11 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
         }
   survey <- liftIO $ async $ Job.Survey.makeReport surveyCfg
 
-  flip logExceptionM ErrorS $ liftIO $ void $ waitAnyCancel 
+  end <- fmap snd $ flip logExceptionM ErrorS $ liftIO $ waitAnyCatchCancel 
     [serverAsync, telnyxApp, telnyxCall, openaiTranscrip, openaiSA, survey]
+  
+  whenLeft end $ \e -> $(logTM) ErrorS $ logStr $ "server has been terminated. error " <> show e
+
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application
 middleware cors log app = mkCors cors app

@@ -217,7 +217,7 @@ main = do
   manager <-
     Http.newTlsManagerWith
       Http.tlsManagerSettings
-        { managerConnCount = 1,
+        { managerConnCount = 50,
           managerResponseTimeout =
             responseTimeoutMicro (5 * 10 ^ 6)
         }

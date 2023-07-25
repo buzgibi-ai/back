@@ -60,11 +60,11 @@ makeApp TelnyxCfg {..} = forever $ do
 
   resp <- Async.forConcurrently xs $ \(ident, title) -> do 
     logger DebugS $ logStr $ $location <> "(makeApp): trying creating app for " <> show ident
-    let webhook = webhook <> "/webhook/telnyx"
+    let url = webhook <> "/webhook/telnyx"
     let request =
           AppRequest 
           { appRequestApplicationName = title,
-            appRequestWebhookEventUrl = webhook
+            appRequestWebhookEventUrl = url
           }
     callApi @"call_control_applications" @AppRequest @AppResponse 
       (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (ident, )) $ 
