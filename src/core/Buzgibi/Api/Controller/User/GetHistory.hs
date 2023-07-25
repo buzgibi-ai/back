@@ -34,6 +34,14 @@ import Data.Proxy (Proxy (..))
 import Database.Transaction
 import Data.Coerce (coerce)
 import Data.Int (Int32)
+import TH.Mk (mkToSchemaAndJSON)
+import Data.Aeson.WithField
+import Data.Bifunctor (first)
+
+data Status = InProcess | Done | Fail
+  deriving stock (Generic)
+
+mkToSchemaAndJSON ''Status
 
 data HistoryItem = 
      HistoryItem
@@ -56,7 +64,7 @@ data History =
      { 
         historyTotal :: !Int32,
         historyPerPage :: !Int32,
-        historyItems :: ![HistoryItem]
+        historyItems :: ![WithField "status" Status HistoryItem]
      }
      deriving stock (Generic)
      deriving
@@ -74,5 +82,12 @@ controller user page = do
   res <- fmap mkHistory $ transactionM hasql $ statement Survey.getHistory (coerce user, offset)
   return $ withError res id
 
-mkHistory (Just (xs, total)) = let xs' = sequence (map (eitherDecode . encode) xs) in fmap (History total 10) xs'
+mkHistory (Just (xs, total)) = 
+   let xs' = sequence (map (fmap (first mkStatus) . eitherDecode @(WithField "status"  Survey.Status HistoryItem) . encode) xs)
+   in fmap (History total 10) xs'
 mkHistory _ = Right $ History 0 0 []
+
+mkStatus :: Survey.Status -> Status
+mkStatus Survey.SurveyProcessed = Done
+mkStatus Survey.Fail = Fail
+mkStatus _ = InProcess

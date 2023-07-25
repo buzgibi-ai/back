@@ -75,7 +75,7 @@ data Status =
      TranscriptionsDoneOpenAI |
      SentimentalAnalysisDoneOpenAI |
      SurveyProcessed | 
-     Fail T.Text
+     Fail
   deriving Generic
 
 instance Show Status where
@@ -86,7 +86,7 @@ instance Show Status where
     show TranscriptionsDoneOpenAI = "transcriptions are finished"
     show SentimentalAnalysisDoneOpenAI = "sentimental analysis is finished"
     show SurveyProcessed = "processed"
-    show (Fail reason) = "fail: " <> toS reason
+    show Fail = "fail"
 
 instance ParamsShow Status where
     render = show
@@ -94,6 +94,7 @@ instance ParamsShow Status where
 instance Default Status where
     def = Received
 
+mkToSchemaAndJSON ''Status
 mkArbitrary ''Status
 
 data Category = 
@@ -280,15 +281,16 @@ getHistory =
            distinct on (f.id, e.survey, f.created)
            f.id :: int8 as ident,
            e.survey :: text as title,
-           f.created :: timestamptz
+           f.created :: timestamptz,
+           e.survey_status :: text
          from customer.profile as p
          inner join customer.survey as e
          on p.id = e.user_id 
-         left join customer.survey_bark as eb
-         on e.id = eb.survey_id
+         left join customer.survey_files as sf
+         on e.id = sf.survey_id
          inner join storage.file as f
-         on eb.voice_id = f.id
-         where p.user_id = $1 :: int8 and eb.voice_id is not null
+         on sf.report_id = f.id
+         where p.user_id = $1 :: int8
          group by f.id, e.survey, f.created
          order by f.id desc),
       total as (select count(*) from tbl),
