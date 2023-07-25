@@ -143,15 +143,17 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
               -- parse file and assign phones to survey
               transactionM hasql $ statement Survey.insertPhones (survey_ident, phoneXs)
 
+              webhook <- fmap (^. katipEnv . webhook) ask
+
               resp <- liftIO $ 
                 Request.make
                   (bark^.url) manager 
                   [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
                   HTTP.methodPost $ 
-                  Left (Just (mkReq (bark^.version) surveySurvey))
+                  Left (Just (mkReq webhook (bark^.version) surveySurvey))
               let mkBark ident st = 
                     Survey.Bark {
-                      Survey.barkReq = toJSON $ mkReq (bark^.version) surveySurvey,
+                      Survey.barkReq = toJSON $ mkReq webhook (bark^.version) surveySurvey,
                       Survey.barkStatus = st,
                       Survey.barkIdent = ident,
                       Survey.barkSurveyId = survey_ident
@@ -201,7 +203,7 @@ data BarkRequestBody =
 --   "webhook": "https://buzgibi.app/foreign/webhook/bark",
 --   "webhook_events_filter": ["start", "completed"]
 -- }
-mkReq version survey = BarkRequestBody version (Input survey) "https://buzgibi.app/foreign/webhook/bark" ["start", "completed"]
+mkReq webhook version survey = BarkRequestBody version (Input survey) (webhook <> "/foreign/webhook/bark") ["start", "completed"]
 
 
 data PhoneRecord = 

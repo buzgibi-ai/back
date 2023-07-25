@@ -82,7 +82,8 @@ data Cfg = Cfg
     telnyxCfg :: !(Maybe Telnyx),
     openaiCfg :: !(Maybe OpenAI),
     manager :: !HTTP.Manager,
-    minio :: !(Minio.MinioConn, T.Text)
+    minio :: !(Minio.MinioConn, T.Text),
+    webhook :: !T.Text
   }
 
 run :: Cfg -> KatipContextT AppM ()
@@ -144,7 +145,8 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
         { logger = telnyx_logger,
           pool = katipEnvHasqlDbPool configKatipEnv, 
           telnyxCfg = fromMaybe (error "telnyx not set") telnyxCfg,
-          manager = manager
+          manager = manager,
+          webhook = webhook
         }
   telnyxApp <- liftIO $ async $ Job.Telnyx.makeApp telnyxEnv
   telnyxCall <- liftIO $ async $ Job.Telnyx.makeCall telnyxEnv

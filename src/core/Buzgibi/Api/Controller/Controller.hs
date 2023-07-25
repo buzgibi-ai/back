@@ -35,7 +35,7 @@ import qualified Buzgibi.Api.Controller.Webhook.CatchBark as Webhook.CatchBark
 import qualified Buzgibi.Api.Controller.Webhook.CatchTelnyx as Webhook.CatchTelnyx
 import qualified Buzgibi.Auth as Auth
 import Katip
-import Katip.Controller
+import Katip.Controller hiding (webhook)
 import Servant.API.Generic
 import Servant.RawM.Server ()
 import Servant.Server.Generic

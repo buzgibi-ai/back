@@ -58,6 +58,7 @@ module Buzgibi.Config
     origins,
     serverError,
     sendGrid,
+    webhook,
 
     -- * Iso
     isoEnv,
@@ -178,7 +179,9 @@ data Config = Config
     configServerConnection :: !ServerConnection,
     configCors :: !Cors,
     configServerError :: !ServerError,
-    configSendGrid :: !SendGrid
+    configSendGrid :: !SendGrid,
+    configJobFrequency :: !Int,
+    configWebhook :: !T.Text
   }
   deriving (Show)
 

@@ -40,7 +40,7 @@ import GHC.Read
 import qualified Hasql.Connection as HasqlConn
 import Katip
 import Katip.Scribes.Minio as Scribes.Minio
-import Katip.Controller
+import Katip.Controller hiding (webhook)
 import Network.HTTP.Client
   ( ManagerSettings
       ( managerConnCount,
@@ -265,7 +265,8 @@ main = do
           telnyxCfg = envKeys >>= envKeysTelnyx,
           openaiCfg = envKeys >>= envKeysOpenAI,
           manager = manager,
-          minio = (minioEnv, cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix)
+          minio = (minioEnv, cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix),
+          webhook = cfg^.webhook 
         }
 
   let s@Buzgibi.Config.SendGrid {..} = cfg ^. Buzgibi.Config.sendGrid
@@ -285,7 +286,8 @@ main = do
             katipEnvJwk = jwk,
             katipEnvGithub = envKeys >>= envKeysGithub,
             katipEnvBark = envKeys >>= envKeysBark,
-            katipEnvTelnyx = envKeys >>= envKeysTelnyx
+            katipEnvTelnyx = envKeys >>= envKeysTelnyx,
+            katipEnvWebhook = cfg^.webhook
          }
 
   let runApp le = runKatipContextT le (mempty @LogContexts) mempty $ App.run appCfg

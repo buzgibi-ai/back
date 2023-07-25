@@ -57,3 +57,6 @@ configSendGrid:
   sendGridPersons:
     - email: fclaw007@gmail.com
       personalization: Sergey Yakovlev
+
+configJobFrequency: 300
+configWebhook: https://api.buzgibi.app

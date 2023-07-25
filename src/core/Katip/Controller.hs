@@ -39,6 +39,7 @@ module Katip.Controller
     github,
     bark,
     telnyx,
+    webhook,
 
     -- * run
     runKatipController,
@@ -97,7 +98,8 @@ data KatipEnv = KatipEnv
     katipEnvJwk :: !Jose.JWK,
     katipEnvGithub :: !(Maybe Github),
     katipEnvBark :: !(Maybe Bark),
-    katipEnvTelnyx :: !(Maybe Telnyx)
+    katipEnvTelnyx :: !(Maybe Telnyx),
+    katipEnvWebhook :: !T.Text
   }
 
 data Minio = Minio {minioConn :: !Minio.MinioConn, minioBucketPrefix :: !T.Text}
