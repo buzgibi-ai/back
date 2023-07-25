@@ -266,7 +266,8 @@ main = do
           openaiCfg = envKeys >>= envKeysOpenAI,
           manager = manager,
           minio = (minioEnv, cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix),
-          webhook = cfg^.webhook 
+          webhook = cfg^.webhook,
+          jobFrequency = cfg^.jobFrequency
         }
 
   let s@Buzgibi.Config.SendGrid {..} = cfg ^. Buzgibi.Config.sendGrid

@@ -44,12 +44,13 @@ data SurveyCfg =
      SurveyCfg 
      { logger :: Severity -> LogStr -> IO (), 
        pool :: Pool Hasql.Connection,
-       minio :: (Minio.MinioConn, T.Text)
+       minio :: (Minio.MinioConn, T.Text),
+       jobFrequency :: Int
      }
 
 makeReport :: SurveyCfg -> IO ()
 makeReport SurveyCfg {..} = forever $ do 
-  threadDelay (300 * 10 ^ 6)
+  threadDelay (jobFrequency * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ $location <> "(makeReport): start at " <> show start
 

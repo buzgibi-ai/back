@@ -59,6 +59,7 @@ module Buzgibi.Config
     serverError,
     sendGrid,
     webhook,
+    jobFrequency,
 
     -- * Iso
     isoEnv,

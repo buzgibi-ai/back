@@ -54,7 +54,8 @@ data OpenAICfg =
        pool :: Pool Hasql.Connection,
        openaiCfg :: OpenAI,
        manager :: HTTP.Manager,
-       minio :: Minio.MinioConn
+       minio :: Minio.MinioConn,
+       jobFrequency :: Int
      }
 
 type instance Api "audio/transcriptions" () TranscriptionResponse = ()
@@ -66,7 +67,7 @@ mkErrorMsg job logger surveyIdent ((phoneIdent, e):es) =
 
 getTranscription :: OpenAICfg -> IO ()
 getTranscription OpenAICfg {..} = forever $ do 
-  threadDelay (300 * 10 ^ 6)
+  threadDelay (jobFrequency * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ $location <> "(getTranscription): start at " <> show start
 
@@ -103,7 +104,7 @@ getTranscription OpenAICfg {..} = forever $ do
 performSentimentalAnalysis :: OpenAICfg -> IO ()
 performSentimentalAnalysis OpenAICfg {..} = 
   forever $ do 
-  threadDelay (300 * 10 ^ 6)
+  threadDelay (jobFrequency * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ $location <> "(performSentimentalAnalysis): start at " <> show start
 

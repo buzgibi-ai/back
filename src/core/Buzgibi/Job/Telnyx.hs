@@ -35,13 +35,16 @@ import Data.Either (partitionEithers)
 import Data.Foldable (for_)
 import Data.Coerce (coerce)
 import BuildInfo (location)
+import qualified Data.Text as T
 
 data TelnyxCfg =
      TelnyxCfg 
      { logger :: Severity -> LogStr -> IO (), 
        pool :: Pool Hasql.Connection,
        telnyxCfg :: Telnyx,
-       manager :: HTTP.Manager
+       manager :: HTTP.Manager,
+       webhook :: T.Text,
+       jobFrequency :: Int
      }
 
 type instance Api "call_control_applications" AppRequest AppResponse = ()
@@ -49,7 +52,7 @@ type instance Api "calls" CallRequest CallResponseData = ()
 
 makeApp :: TelnyxCfg -> IO ()
 makeApp TelnyxCfg {..} = forever $ do 
-  threadDelay (300 * 10 ^ 6)
+  threadDelay (jobFrequency * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ $location <> "(makeApp): start at " <> show start
   xs <- transaction pool logger $ statement getSurveyForTelnyxApp ()
@@ -57,7 +60,7 @@ makeApp TelnyxCfg {..} = forever $ do
 
   resp <- Async.forConcurrently xs $ \(ident, title) -> do 
     logger DebugS $ logStr $ $location <> "(makeApp): trying creating app for " <> show ident
-    let webhook = "https://buzgibi.app/foreign/webhook/telnyx"
+    let webhook = webhook <> "/webhook/telnyx"
     let request =
           AppRequest 
           { appRequestApplicationName = title,
@@ -78,7 +81,7 @@ makeApp TelnyxCfg {..} = forever $ do
 
 makeCall :: TelnyxCfg -> IO ()
 makeCall TelnyxCfg {..} = forever $ do
-  threadDelay (300 * 10 ^ 6)
+  threadDelay (jobFrequency * 10 ^ 6)
   start <- getCurrentTime
   logger InfoS $ logStr $ "Buzgibi.Job.Telnyx(makeCall): start at " <> show start
 

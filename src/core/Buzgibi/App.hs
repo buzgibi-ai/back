@@ -83,7 +83,8 @@ data Cfg = Cfg
     openaiCfg :: !(Maybe OpenAI),
     manager :: !HTTP.Manager,
     minio :: !(Minio.MinioConn, T.Text),
-    webhook :: !T.Text
+    webhook :: !T.Text,
+    jobFrequency :: !Int
   }
 
 run :: Cfg -> KatipContextT AppM ()
@@ -146,7 +147,8 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
           pool = katipEnvHasqlDbPool configKatipEnv, 
           telnyxCfg = fromMaybe (error "telnyx not set") telnyxCfg,
           manager = manager,
-          webhook = webhook
+          webhook = webhook,
+          jobFrequency = jobFrequency
         }
   telnyxApp <- liftIO $ async $ Job.Telnyx.makeApp telnyxEnv
   telnyxCall <- liftIO $ async $ Job.Telnyx.makeCall telnyxEnv
@@ -157,7 +159,8 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
           pool = katipEnvHasqlDbPool configKatipEnv, 
           openaiCfg = fromMaybe (error "openai not set") openaiCfg,
           manager = manager,
-          minio = fst minio
+          minio = fst minio,
+          jobFrequency = jobFrequency
         }
   openaiTranscrip <- liftIO $ async $ Job.OpenAI.getTranscription openAICfg
   openaiSA <- liftIO $ async $ Job.OpenAI.performSentimentalAnalysis openAICfg
@@ -166,7 +169,8 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
         Job.Survey.SurveyCfg
         { logger = telnyx_logger,
           pool = katipEnvHasqlDbPool configKatipEnv,
-          minio = minio
+          minio = minio,
+          jobFrequency = jobFrequency
         }
   survey <- liftIO $ async $ Job.Survey.makeReport surveyCfg
 
