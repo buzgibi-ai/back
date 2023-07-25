@@ -194,6 +194,7 @@ library:
     - unliftio-core
     - katip-wai
     - cassava
+    - xlsx
 
   source-dirs:
     - src/core

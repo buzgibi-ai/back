@@ -23,7 +23,7 @@ let
   };
   openapi-generator = import ./openapi3-haskell.nix { inherit pkgs; };
   #  for  using BERT in sentimental analysis
-  pythonEnv = pkgs.python3.withPackages (ps: []);
+  pythonEnv = pkgs.python3.withPackages (ps: [ ps.openai ]);
 in
 pkgs.mkShell {
   packages = [pythonEnv];
@@ -36,6 +36,7 @@ pkgs.mkShell {
     pkgs.haskell.compiler.ghc928
     pkgs.ormolu
     pkgs.python3
+    pkgs.expat
   ];
   # Configure the Nix path to our own `pkgs`, to ensure Stack-with-Nix uses the correct one rather than the global <nixpkgs> when looking for the right `ghc` argument to pass in `nix/stack-integration.nix`
   # See https://nixos.org/nixos/nix-pills/nix-search-paths.html for more information
