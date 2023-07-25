@@ -60,7 +60,8 @@ instance Show Error where
 data Env = Env
   { envToTelegram :: !Bool,
     envIsCaptcha :: !Bool,
-    envLogLevel :: !T.Text
+    envLogLevel :: !T.Text,
+    envIsTest :: !Bool 
   }
   deriving stock (Generic)
   deriving
