@@ -168,7 +168,7 @@ insert =
         (user_id, survey, survey_status, latitude, longitude, category, survey_type)
         select
           id :: int8,
-          $2 :: text, 
+          $2 :: text,
           $3 :: text, 
           $4 :: float8, 
           $5 :: float8,
@@ -278,20 +278,20 @@ getHistory =
     with 
       tbl as 
         (select
-           distinct on (f.id, e.survey, f.created)
-           f.id :: int8 as ident,
+           distinct on (f.id, e.survey, e.created, e.survey_status)
+           f.id :: int8? as ident,
            e.survey :: text as title,
-           f.created :: timestamptz,
-           e.survey_status :: text
+           e.created :: timestamptz,
+           e.survey_status :: text as status
          from customer.profile as p
          inner join customer.survey as e
          on p.id = e.user_id 
          left join customer.survey_files as sf
          on e.id = sf.survey_id
-         inner join storage.file as f
+         left join storage.file as f
          on sf.report_id = f.id
          where p.user_id = $1 :: int8
-         group by f.id, e.survey, f.created
+         group by f.id, e.survey, e.created, e.survey_status
          order by f.id desc),
       total as (select count(*) from tbl),
       history as (select * from tbl offset (($2 :: int4 - 1) * 10) limit 10)
@@ -300,7 +300,8 @@ getHistory =
         jsonb_build_object(
           'ident', ident, 
           'name', title, 
-          'timestamp', created)) :: jsonb[], 
+          'timestamp', created,
+          'status', status)) :: jsonb[], 
       (select * from total) :: int4 as cnt 
     from history group by cnt|]
 
