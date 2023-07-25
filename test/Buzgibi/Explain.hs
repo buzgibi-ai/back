@@ -96,6 +96,8 @@ explainTests =
        "insertVoiceTelnyx" =>> Buzgibi.Statement.User.Survey.insertVoiceTelnyx,
        "insertTranscription" =>> Buzgibi.Statement.User.Survey.insertTranscription,
        "getSurveysForSA" =>> Buzgibi.Statement.User.Survey.getSurveysForSA,
-       "insertSA" =>> Buzgibi.Statement.User.Survey.insertSA
+       "insertSA" =>> Buzgibi.Statement.User.Survey.insertSA,
+       "getSurveyForReport" =>> Buzgibi.Statement.User.Survey.getSurveyForReport,
+       "saveReport" =>> Buzgibi.Statement.User.Survey.saveReport
      ]
   ]

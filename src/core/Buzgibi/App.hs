@@ -82,7 +82,7 @@ data Cfg = Cfg
     telnyxCfg :: !(Maybe Telnyx),
     openaiCfg :: !(Maybe OpenAI),
     manager :: !HTTP.Manager,
-    minio :: Minio.MinioConn
+    minio :: !(Minio.MinioConn, T.Text)
   }
 
 run :: Cfg -> KatipContextT AppM ()
@@ -155,7 +155,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
           pool = katipEnvHasqlDbPool configKatipEnv, 
           openaiCfg = fromMaybe (error "openai not set") openaiCfg,
           manager = manager,
-          minio = minio
+          minio = fst minio
         }
   openaiTranscrip <- liftIO $ async $ Job.OpenAI.getTranscription openAICfg
   openaiSA <- liftIO $ async $ Job.OpenAI.performSentimentalAnalysis openAICfg
@@ -164,7 +164,6 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
         Job.Survey.SurveyCfg
         { logger = telnyx_logger,
           pool = katipEnvHasqlDbPool configKatipEnv,
-          manager = manager,
           minio = minio
         }
   survey <- liftIO $ async $ Job.Survey.makeReport surveyCfg

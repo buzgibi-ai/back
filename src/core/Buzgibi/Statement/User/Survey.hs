@@ -39,7 +39,10 @@ module Buzgibi.Statement.User.Survey
     insertTranscription,
     OpenAISA (..),
     getSurveysForSA,
-    insertSA
+    insertSA,
+    getSurveyForReport,
+    saveReport,
+    SurveyForReportItem (..)
   ) where
 
 
@@ -71,7 +74,8 @@ data Status =
      ProcessedByTelnyx | 
      TranscriptionsDoneOpenAI |
      SentimentalAnalysisDoneOpenAI |
-     SurveyProcessed | Fail T.Text
+     SurveyProcessed | 
+     Fail T.Text
   deriving Generic
 
 instance Show Status where
@@ -664,4 +668,49 @@ insertSA =
         as x(phone_id, res))
     update customer.survey 
     set survey_status = $4 :: text
+    where id = $1 :: int8|]
+
+data SurveyForReportItem =
+     SurveyForReportItem
+     { surveyForReportItemPhone :: T.Text,
+       surveyForReportItemResult :: T.Text
+     }
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor SurveyForReportItem)]]
+          SurveyForReportItem   
+
+getSurveyForReport :: HS.Statement () [(Int64, Int64, [Value])]
+getSurveyForReport =
+  dimap (const (toS (show SentimentalAnalysisDoneOpenAI))) (V.toList . fmap (second V.toList)) $
+  [vectorStatement|
+  select
+    distinct on (s.id, u.id)
+    s.id :: int8,
+    u.id :: int8,
+    array_agg(jsonb_build_object(
+      'phone', sp.phone,
+      'result', psa.result)) :: jsonb[]
+  from auth.user as u
+  inner join customer.survey as s
+  on u.id = s.user_id
+  inner join customer.survey_phones as sp
+  on s.id = sp.survey_id
+  inner join customer.phone_sentiment_analysis as psa
+  on sp.id = psa.phone_id
+  where s.survey_status = $1 :: text
+  group by u.id, s.id|]
+
+saveReport :: HS.Statement (Int64, Int64) ()
+saveReport =
+  lmap (snocT (toS (show SurveyProcessed)))
+  [resultlessStatement|
+    with report as (
+      update customer.survey_files 
+      set report_id = $2 :: int8
+      where report_id = $1 :: int8)
+    update customer.survey
+    set survey_status = $3 :: text
     where id = $1 :: int8|]

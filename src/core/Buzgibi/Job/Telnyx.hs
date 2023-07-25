@@ -8,6 +8,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Buzgibi.Job.Telnyx (makeApp, makeCall, TelnyxCfg (..)) where
 
@@ -33,6 +34,7 @@ import Data.String.Conv
 import Data.Either (partitionEithers)
 import Data.Foldable (for_)
 import Data.Coerce (coerce)
+import BuildInfo (location)
 
 data TelnyxCfg =
      TelnyxCfg 
@@ -49,19 +51,21 @@ makeApp :: TelnyxCfg -> IO ()
 makeApp TelnyxCfg {..} = forever $ do 
   threadDelay (300 * 10 ^ 6)
   start <- getCurrentTime
-  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx(makeApp): start at " <> show start
+  logger InfoS $ logStr $ $location <> "(makeApp): start at " <> show start
   xs <- transaction pool logger $ statement getSurveyForTelnyxApp ()
-  logger DebugS $ logStr $ "Buzgibi.Job.Telnyx: surveys for Telnyx " <> show xs
+  logger DebugS $ logStr $ $location <>"(makeApp): surveys for Telnyx " <> show xs
 
   resp <- Async.forConcurrently xs $ \(ident, title) -> do 
-    logger DebugS $ logStr $ "Buzgibi.Job.Telnyx: trying creating app for " <> show ident
+    logger DebugS $ logStr $ $location <> "(makeApp): trying creating app for " <> show ident
     let webhook = "https://buzgibi.app/foreign/webhook/telnyx"
     let request =
           AppRequest 
           { appRequestApplicationName = title,
             appRequestWebhookEventUrl = webhook
           }
-    callApi @"call_control_applications" @AppRequest @AppResponse (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (ident, )) $ \(app, _) -> pure $ (ident, title,) $ coerce app
+    callApi @"call_control_applications" @AppRequest @AppResponse 
+      (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (ident, )) $ 
+        \(app, _) -> pure $ (ident, title,) $ coerce app
 
   let (errXs, appXs) = partitionEithers resp
   for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " app for " <> show ident <> " hasn't been created, error --> " <> toS e
@@ -70,7 +74,7 @@ makeApp TelnyxCfg {..} = forever $ do
   for_ appXs $ transaction pool logger . statement insertTelnyxApp
 
   end <- getCurrentTime
-  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx(makeApp): end at " <> show end
+  logger InfoS $ logStr $ $location <> "(makeApp): end at " <> show end
 
 makeCall :: TelnyxCfg -> IO ()
 makeCall TelnyxCfg {..} = forever $ do
@@ -90,7 +94,9 @@ makeCall TelnyxCfg {..} = forever $ do
             callRequestConnectionId = telnyxIdent,
             callRequestAudioUrl = link
           }
-    callApi @"calls" @CallRequest @CallResponseData (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (ident, )) $ \(call, _) -> pure (ident, coerce call)    
+    callApi @"calls" @CallRequest @CallResponseData 
+      (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (ident, )) $ 
+        \(call, _) -> pure (ident, coerce call)    
  
   let (errXs, callXs) = partitionEithers resp
   for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS e  
@@ -98,4 +104,4 @@ makeCall TelnyxCfg {..} = forever $ do
   for_ callXs $ transaction pool logger . statement insertAppCall
 
   end <- getCurrentTime
-  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx(makeCall): end at " <> show end
+  logger InfoS $ logStr $ $location <> "(makeCall): end at " <> show end
