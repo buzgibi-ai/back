@@ -46,7 +46,7 @@ mkToSchemaAndJSON ''Status
 data HistoryItem = 
      HistoryItem
      { 
-        historyItemIdent :: !Int64,
+        historyItemIdent :: !(Maybe Int64),
         historyItemName :: !T.Text,
         historyItemTimestamp :: !UTCTime
      }
@@ -54,7 +54,7 @@ data HistoryItem =
      deriving
        (ToJSON, FromJSON)
        via WithOptions
-          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor HistoryItem)]]
+          '[OmitNothingFields 'True, FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor HistoryItem)]]
           HistoryItem
 
 deriveToSchemaFieldLabelModifier ''HistoryItem [|modify (Proxy @HistoryItem)|]
