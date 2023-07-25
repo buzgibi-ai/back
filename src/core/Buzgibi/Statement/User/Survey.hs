@@ -4,6 +4,8 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
@@ -60,7 +62,8 @@ import Data.Maybe
 import Database.Transaction (ParamsShow (..))
 import qualified Hasql.Statement as HS
 import Test.QuickCheck.Extended ()
-import Data.Aeson.Types (Value, FromJSON, ToJSON)
+import Data.Aeson.Types (Value, FromJSON (parseJSON), ToJSON)
+import Data.Aeson (withText)
 import Data.Bifunctor (second, first)
 import qualified Data.Vector as V
 import Data.String.Conv (toS)
@@ -94,7 +97,20 @@ instance ParamsShow Status where
 instance Default Status where
     def = Received
 
-mkToSchemaAndJSON ''Status
+
+instance FromJSON Status where
+  parseJSON = 
+    withText "Status" $ \case 
+      "received" -> pure Received
+      "processed by bark" -> pure ProcessedByBark
+      "telnyx app is created" -> pure PickedByTelnyx
+      "processed by telnyx" -> pure ProcessedByTelnyx
+      "transcriptions are finished" -> pure TranscriptionsDoneOpenAI
+      "sentimental analysis is finished" -> pure SentimentalAnalysisDoneOpenAI
+      "processed" -> pure SurveyProcessed
+      "fail" -> pure Fail
+      str -> fail $ toS str <> " doesn't fall into Status type"
+
 mkArbitrary ''Status
 
 data Category = 
