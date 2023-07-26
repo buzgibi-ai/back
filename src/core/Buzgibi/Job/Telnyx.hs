@@ -64,7 +64,12 @@ makeApp TelnyxCfg {..} = forever $ do
     let request =
           AppRequest 
           { appRequestApplicationName = title,
-            appRequestWebhookEventUrl = url
+            appRequestWebhookEventUrl = url,
+            appRequestOutbound = 
+            Outbound {
+              outboundChannelLimit = Just (length xs),
+              outboundOutboundVoiceProfileId = telnyxOutbound telnyxCfg
+            }
           }
     callApi @"call_control_applications" @AppRequest @AppResponse 
       (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (ident, )) $ 

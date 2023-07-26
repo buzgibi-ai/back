@@ -16,6 +16,7 @@
 
 module Buzgibi.Transport.Model.Telnyx 
        (AppRequest (..), 
+        Outbound (..),
         AppResponse (..),
         CallRequest (..),
         CallResponse (..),
@@ -50,10 +51,23 @@ import GHC.TypeLits (symbolVal, KnownSymbol, Symbol)
 import Data.Proxy (Proxy (..))
 import Control.Monad (when)
 
-data AppRequest = 
+data Outbound =  
+     Outbound 
+     { outboundChannelLimit :: !(Maybe Int),
+       outboundOutboundVoiceProfileId :: !T.Text
+     }
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[OmitNothingFields 'True,  FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor Outbound)]]
+          Outbound
+
+data AppRequest =
      AppRequest 
      { appRequestApplicationName :: !T.Text, 
-       appRequestWebhookEventUrl :: !T.Text 
+       appRequestWebhookEventUrl :: !T.Text,
+       appRequestOutbound :: !Outbound 
      }
      deriving stock (Generic)
      deriving

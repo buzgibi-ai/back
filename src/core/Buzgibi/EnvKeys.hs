@@ -36,7 +36,13 @@ data Bark = Bark { barkKey :: !T.Text, barkVersion :: !T.Text, barkUrl :: !T.Tex
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Bark)]]
           Bark
 
-data Telnyx = Telnyx { telnyxUrl :: !T.Text, telnyxKey :: !T.Text, telnyxPhone :: !T.Text } 
+data Telnyx = 
+     Telnyx 
+     { telnyxUrl :: !T.Text, 
+       telnyxKey :: !T.Text, 
+       telnyxPhone :: !T.Text, 
+       telnyxOutbound :: !T.Text
+     } 
   deriving stock (Generic)
   deriving stock (Show)
   deriving
