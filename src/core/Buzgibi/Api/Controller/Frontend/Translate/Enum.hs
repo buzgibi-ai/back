@@ -41,7 +41,7 @@ data Resource = ResourceUser | ResourceStub
 instance Default Resource where
   def = ResourceUser
 
-data Endpoints = EndpointsMakeSurvey | EndpointsStub
+data Endpoints = EndpointsMakeSurvey | EndpointsHistory
   deriving stock (Generic)
   deriving (Enum)
 
