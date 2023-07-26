@@ -26,6 +26,7 @@ import Data.Foldable (for_)
 import qualified Network.HTTP.Types as HTTP
 import GHC.Generics (Generic)
 import Data.Aeson (ToJSON)
+import Control.Concurrent.MVar
 
 data Body = Body { chat_id :: String, text :: String, parse_mode :: String }
   deriving stock (Generic)
@@ -36,18 +37,19 @@ mkScribe manager Telegram {..} permitF verbosity = do
   let finalize = return ()
   let bot = fromMaybe undefined telegramBot
   let url = telegramHost <> bot <> "/sendMessage"
-  let logger item = do
-        let msg = encodePretty (itemJson verbosity item) ^. from textbsl . from stext
-        when (telegramEnv == Dev) $ do
-          for_ ((reverse . split []) (toS msg)) $ \chunk -> do 
-            let body = 
-                  Body
-                  { chat_id = toS telegramChat, 
-                    text = "`" <> toS chunk <> "`",
-                    parse_mode = "markdown" 
-                  }
-            Request.make url manager mempty HTTP.methodPost $ Left $ Just body
-  return $ Scribe logger finalize permitF
-  where 
-    split xs source | BL.length source < 4096 = source : xs
-    split xs old = let (x, new) = BL.splitAt 4096 old in split (x : xs) new
+  let split xs source | BL.length source < 4096 = source : xs
+      split xs old = let (x, new) = BL.splitAt 4096 old in split (x : xs) new
+  lock <- newMVar ()
+  let logger manager lock item =
+        withMVar lock $ const $ do
+          let msg = encodePretty (itemJson verbosity item) ^. from textbsl . from stext
+          when (telegramEnv == Dev) $ do
+            for_ ((reverse . split []) (toS msg)) $ \chunk -> do 
+              let body = 
+                    Body
+                    { chat_id = toS telegramChat, 
+                      text = "`" <> toS chunk <> "`",
+                      parse_mode = "markdown" 
+                    }
+              Request.make url manager mempty HTTP.methodPost $ Left $ Just body
+  return $ Scribe (logger manager lock) finalize permitF

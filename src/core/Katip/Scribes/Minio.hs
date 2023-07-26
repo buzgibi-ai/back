@@ -4,7 +4,6 @@
 module Katip.Scribes.Minio (mkScribe) where
 
 import Control.Concurrent.MVar
-import Control.Exception (bracket_)
 import Control.Lens
 import Control.Lens.Iso.Extended
 import Control.Monad
@@ -16,22 +15,28 @@ import Katip
 import Network.Minio
 import System.Directory
 import System.FilePath
+import Network.Mime (defaultMimeLookup)
+import Data.String.Conv
 
 mkScribe :: MinioConn -> Text -> PermitFunc -> Verbosity -> IO Scribe
 mkScribe conn bucket permitF verb = do
   lock <- newMVar ()
-  let logger item = do
-        bracket_ (takeMVar lock) (putMVar lock ()) $
-          void $
-            runMinioWith conn $ do
-              (hash, path) <- liftIO $ do
-                let hash = mkHash (item ^. itemTime)
-                tmp <- getTemporaryDirectory
-                let path = tmp </> unpack hash
-                writeFile path $ encodePretty (itemJson verb item) ^. from textbsl . from stext
-                return (hash, path)
-              exists <- bucketExists bucket
-              unless exists $ makeBucket bucket Nothing
-              fPutObject bucket hash path defaultPutObjectOptions
+  let logger conn lock item = 
+        withMVar lock $ const $
+          runMinioWith conn $ do
+            (hash, path) <- liftIO $ do
+              let hash = mkHash (item ^. itemTime)
+              tmp <- getTemporaryDirectory
+              let path = tmp </> unpack hash </> ".jaon"
+              writeFile path $ 
+                encodePretty (itemJson verb item)
+                ^.from textbsl.from stext
+              return (hash, path)
+            exists <- bucketExists bucket
+            unless exists $ makeBucket bucket Nothing
+            fPutObject bucket hash path
+              defaultPutObjectOptions
+              { pooContentType = 
+                Just (toS (defaultMimeLookup ".json")) }
   let finalize = return ()
-  return $ Scribe logger finalize permitF
+  return $ Scribe (void . logger conn lock) finalize permitF

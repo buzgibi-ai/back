@@ -40,6 +40,7 @@ import GHC.Read
 import qualified Hasql.Connection as HasqlConn
 import Katip
 import Katip.Scribes.Minio as Scribes.Minio
+import qualified Katip.Scribes.Telegram as Scribes.Telegram
 import Katip.Controller hiding (webhook)
 import Network.HTTP.Client
   ( ManagerSettings
@@ -59,7 +60,6 @@ import Text.ParserCombinators.ReadPrec (pfail)
 import qualified Text.Read.Lex as L
 import Crypto.JOSE.JWK (genJWK, KeyMaterialGenParam( RSAGenParam ))
 import Control.Monad.IO.Class
-import qualified Katip.Scribes.Telegram as Scribes.Telegram
 
 data PrintCfg = Y | N deriving stock (Generic)
 
@@ -245,11 +245,11 @@ main = do
       (permitItem (cfg ^. katip . severity . from stringify))
       (cfg ^. katip . verbosity . from stringify)
 
-  let env = do
+  let env =
         registerScribe "stdout" std defaultScribeSettings init_env >>=
           registerScribe "file" file defaultScribeSettings >>=
             registerScribe "minio" minioScribe defaultScribeSettings >>=
-              registerScribe "telegram" telegramScribe defaultScribeSettings { _scribeBufferSize = 0 }
+              registerScribe "telegram" telegramScribe defaultScribeSettings { _scribeBufferSize = 10 }
 
   unEnv <- env
   let appCfg =

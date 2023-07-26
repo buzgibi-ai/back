@@ -177,7 +177,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   end <- fmap snd $ flip logExceptionM ErrorS $ liftIO $ waitAnyCatchCancel 
     [serverAsync, telnyxApp, telnyxCall, openaiTranscrip, openaiSA, survey]
   
-  whenLeft end $ \e -> $(logTM) ErrorS $ logStr $ "server has been terminated. error " <> show e
+  whenLeft end $ \e -> $(logTM) EmergencyS $ logStr $ "server has been terminated. error " <> show e
 
 
 middleware :: Cfg.Cors -> KatipLoggerLocIO -> Application -> Application
@@ -187,8 +187,8 @@ logUncaughtException :: KatipLoggerIO -> Maybe Request -> SomeException -> IO ()
 logUncaughtException log req e =
   when (Warp.defaultShouldDisplayException e) $
     maybe
-      ( log ErrorS (logStr ("before request being handled" <> show e)))
-      ( \r -> log ErrorS (logStr ("\"" <> toS (requestMethod r) <> " " <> toS (rawPathInfo r) <> " " <> toS (show (httpVersion r)) <> "500 - " <> show e)))
+      ( log CriticalS (logStr ("before request being handled" <> show e)))
+      ( \r -> log CriticalS (logStr ("\"" <> toS (requestMethod r) <> " " <> toS (rawPathInfo r) <> " " <> toS (show (httpVersion r)) <> "500 - " <> show e)))
       req
 
 mk500Response :: SomeException -> Bool -> Maybe Bool -> Response
