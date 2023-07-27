@@ -26,13 +26,13 @@ import qualified Hasql.Connection as Hasql
 import Buzgibi.Api.CallApi
 import Buzgibi.Transport.Model.OpenAI 
 import Buzgibi.EnvKeys (OpenAI (..))
+import Buzgibi.Job.Utils (withElapsedTime)
 import Buzgibi.Api.CallApi.Instance () 
 import Data.Pool (Pool)
 import Katip
 import Control.Concurrent (threadDelay)
 import Control.Monad (forever)
 import Database.Transaction
-import Data.Time.Clock (getCurrentTime)
 import Data.Traversable (for)
 import Data.Aeson (eitherDecode, encode)
 import qualified Control.Concurrent.Async as Async
@@ -68,66 +68,59 @@ mkErrorMsg job logger surveyIdent ((phoneIdent, e):es) =
 getTranscription :: OpenAICfg -> IO ()
 getTranscription OpenAICfg {..} = forever $ do 
   threadDelay (jobFrequency * 10 ^ 6)
-  start <- getCurrentTime
-  logger InfoS $ logStr $ $location <> "(getTranscription): start at " <> show start
+  withElapsedTime logger ($location <> "(getTranscription)") $ do
 
-  xs <- transaction pool logger $ statement getSurveysForTranscription ()
-  Async.forConcurrently_ xs $ \(survIdent, ys) -> do 
-    let phones = sequence $ map (eitherDecode @OpenAITranscription . encode) ys
-    res <- for phones $ \xs -> do
-      yse <- Async.forConcurrently xs $
-        \OpenAITranscription {..} -> 
-          fmap (bimap (openAITranscriptionPhoneIdent,) (openAITranscriptionPhoneIdent,) . join . first (toS . show)) $ 
-          Minio.runMinioWith minio $ do
-            let (ext:_) = openAITranscriptionVoiceExt
-            tm <- (toS . show . systemSeconds) <$> liftIO getSystemTime
-            o <- Minio.getObject openAITranscriptionVoiceBucket openAITranscriptionVoiceHash Minio.defaultGetObjectOptions
-            path <-
-              runConduit $
-               Minio.gorObjectStream o
-                 .| sinkSystemTempFile
-                 (toS (openAITranscriptionVoiceTitle <> "_" <> tm <> "." <> ext))
-            let parts = [partFileSource "file" path, partBS "model" "whisper-1"]    
-            liftIO $ callApi @"audio/transcriptions" @() @TranscriptionResponse
-              (ApiCfg openaiCfg manager logger) (Right parts) methodPost mempty Left $ 
-                (pure . transcriptionResponseText . fst)
+    xs <- transaction pool logger $ statement getSurveysForTranscription ()
+    Async.forConcurrently_ xs $ \(survIdent, ys) -> do 
+      let phones = sequence $ map (eitherDecode @OpenAITranscription . encode) ys
+      res <- for phones $ \xs -> do
+        yse <- Async.forConcurrently xs $
+          \OpenAITranscription {..} -> 
+            fmap (bimap (openAITranscriptionPhoneIdent,) (openAITranscriptionPhoneIdent,) . join . first (toS . show)) $ 
+            Minio.runMinioWith minio $ do
+              let (ext:_) = openAITranscriptionVoiceExt
+              tm <- (toS . show . systemSeconds) <$> liftIO getSystemTime
+              o <- Minio.getObject openAITranscriptionVoiceBucket openAITranscriptionVoiceHash Minio.defaultGetObjectOptions
+              path <-
+                runConduit $
+                Minio.gorObjectStream o
+                  .| sinkSystemTempFile
+                  (toS (openAITranscriptionVoiceTitle <> "_" <> tm <> "." <> ext))
+              let parts = [partFileSource "file" path, partBS "model" "whisper-1"]    
+              liftIO $ callApi @"audio/transcriptions" @() @TranscriptionResponse
+                (ApiCfg openaiCfg manager logger) (Right parts) methodPost mempty Left $ 
+                  (pure . transcriptionResponseText . fst)
 
-      let (es, ys) = partitionEithers yse
-      mkErrorMsg "getTranscription" logger survIdent es
-      transaction pool logger $ statement insertTranscription (survIdent, ys)
-    whenLeft res $ \error ->  
-      logger ErrorS $ logStr $ $location <> ": phone parse failed for survey " <> show survIdent <> ", error: " <> error
+        let (es, ys) = partitionEithers yse
+        mkErrorMsg "getTranscription" logger survIdent es
+        transaction pool logger $ statement insertTranscription (survIdent, ys)
+      whenLeft res $ \error ->  
+        logger ErrorS $ logStr $ $location <> ": phone parse failed for survey " <> show survIdent <> ", error: " <> error
 
-  end <- getCurrentTime
-  logger InfoS $ logStr $ $location <> "(getTranscription): end at " <> show end
 
 performSentimentalAnalysis :: OpenAICfg -> IO ()
 performSentimentalAnalysis OpenAICfg {..} = 
   forever $ do 
   threadDelay (jobFrequency * 10 ^ 6)
-  start <- getCurrentTime
-  logger InfoS $ logStr $ $location <> "(performSentimentalAnalysis): start at " <> show start
+  withElapsedTime logger ($location <> "(performSentimentalAnalysis)") $ do
 
-  xs <- transaction pool logger $ statement getSurveysForSA () 
-  Async.forConcurrently_ xs $ \(survIdent, ys) -> do 
-    let phones = sequence $ map (eitherDecode @OpenAISA . encode) ys
-    res <- for phones $ \xs -> do 
-      yse <- Async.forConcurrently xs $
-        \OpenAISA {..} -> liftIO $ do 
-           let request = defSARequest { sARequestPrompt = openAISAText }
-           fmap (bimap (openAISAPhoneIdent,) (openAISAPhoneIdent,)) $
-             callApi @"audio/completions" @SARequest @SAResponse 
-               (ApiCfg openaiCfg manager logger) 
-               (Left request) methodPost mempty Left $
-                 \(SAResponse xs, _) ->
-                   case xs of [] -> Left "empty choices"; (x:_) -> Right x
+    xs <- transaction pool logger $ statement getSurveysForSA () 
+    Async.forConcurrently_ xs $ \(survIdent, ys) -> do 
+      let phones = sequence $ map (eitherDecode @OpenAISA . encode) ys
+      res <- for phones $ \xs -> do 
+        yse <- Async.forConcurrently xs $
+          \OpenAISA {..} -> liftIO $ do 
+            let request = defSARequest { sARequestPrompt = openAISAText }
+            fmap (bimap (openAISAPhoneIdent,) (openAISAPhoneIdent,)) $
+              callApi @"audio/completions" @SARequest @SAResponse 
+                (ApiCfg openaiCfg manager logger) 
+                (Left request) methodPost mempty Left $
+                  \(SAResponse xs, _) ->
+                    case xs of [] -> Left "empty choices"; (x:_) -> Right x
 
-      let (es, ys) = partitionEithers yse
-      mkErrorMsg "performSentimentalAnalysis" logger survIdent es
-      transaction pool logger $ statement insertSA (survIdent, ys)
+        let (es, ys) = partitionEithers yse
+        mkErrorMsg "performSentimentalAnalysis" logger survIdent es
+        transaction pool logger $ statement insertSA (survIdent, ys)
 
-    whenLeft res $ \error -> 
-      logger ErrorS $ logStr $ $location <> ": SA failed for survey " <> show survIdent <> ", error: " <> error
-
-  end <- getCurrentTime
-  logger InfoS $ logStr $ $location <> "(performSentimentalAnalysis): end at " <> show end
+      whenLeft res $ \error -> 
+        logger ErrorS $ logStr $ $location <> ": SA failed for survey " <> show survIdent <> ", error: " <> error

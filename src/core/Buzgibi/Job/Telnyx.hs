@@ -23,13 +23,13 @@ import Buzgibi.Api.CallApi.Instance ()
 import Buzgibi.EnvKeys (Telnyx (..))
 import Buzgibi.Transport.Model.Telnyx
 import Buzgibi.Api.CallApi
+import Buzgibi.Job.Utils (withElapsedTime)
 import Database.Transaction
 import Katip
 import Control.Concurrent (threadDelay)
 import Control.Monad (forever)
 import qualified Hasql.Connection as Hasql
 import Data.Pool (Pool)
-import Data.Time.Clock (getCurrentTime)
 import qualified Control.Concurrent.Async as Async
 import qualified Network.HTTP.Client as HTTP
 import Data.String.Conv
@@ -58,69 +58,63 @@ type instance Api "calls" CallRequest CallResponseData = ()
 makeApp :: TelnyxCfg -> IO ()
 makeApp TelnyxCfg {..} = forever $ do 
   threadDelay (jobFrequency * 10 ^ 6)
-  start <- getCurrentTime
-  logger InfoS $ logStr $ $location <> "(makeApp): start at " <> show start
-  xs <- transaction pool logger $ statement getSurveyForTelnyxApp ()
-  logger DebugS $ logStr $ $location <>"(makeApp): surveys for Telnyx " <> show xs
+  withElapsedTime logger ($location <> "(makeApp)") $ do
 
-  resp <- Async.forConcurrently xs $ \(ident, title) -> do 
-    logger DebugS $ logStr $ $location <> "(makeApp): trying creating app for " <> show ident
-    let url = webhook <> "/foreign/webhook/telnyx"
-    let request =
-          AppRequest 
-          { appRequestApplicationName = title,
-            appRequestWebhookEventUrl = url,
-            appRequestOutbound = 
-            Outbound {
-              outboundChannelLimit = Just $ (length xs) + 10,
-              outboundOutboundVoiceProfileId = telnyxOutbound telnyxCfg
+    xs <- transaction pool logger $ statement getSurveyForTelnyxApp ()
+    logger DebugS $ logStr $ $location <>"(makeApp): surveys for Telnyx " <> show xs
+
+    resp <- Async.forConcurrently xs $ \(ident, title) -> do 
+      logger DebugS $ logStr $ $location <> "(makeApp): trying creating app for " <> show ident
+      let url = webhook <> "/foreign/webhook/telnyx"
+      let request =
+            AppRequest 
+            { appRequestApplicationName = title,
+              appRequestWebhookEventUrl = url,
+              appRequestOutbound = 
+              Outbound {
+                outboundChannelLimit = Just $ (length xs) + 10,
+                outboundOutboundVoiceProfileId = telnyxOutbound telnyxCfg
+              }
             }
-          }
-    callApi @"call_control_applications" @AppRequest @AppResponse 
-      (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (ident, )) $ 
-        \(app, _) -> pure $ (ident, title,) $ coerce app
+      callApi @"call_control_applications" @AppRequest @AppResponse 
+        (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (ident, )) $ 
+          \(app, _) -> pure $ (ident, title,) $ coerce app
 
-  let (errXs, appXs) = partitionEithers resp
-  for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " app for " <> show ident <> " hasn't been created, error --> " <> toS e
-  
-  logger InfoS $ logStr $ "apps for the following surveys " <> show appXs <> " are about to be added"
-  for_ appXs $ transaction pool logger . statement insertTelnyxApp
+    let (errXs, appXs) = partitionEithers resp
+    for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " app for " <> show ident <> " hasn't been created, error --> " <> toS e
+    
+    logger InfoS $ logStr $ "apps for the following surveys " <> show appXs <> " are about to be added"
+    for_ appXs $ transaction pool logger . statement insertTelnyxApp
 
-  end <- getCurrentTime
-  logger InfoS $ logStr $ $location <> "(makeApp): end at " <> show end
 
 makeCall :: TelnyxCfg -> IO ()
 makeCall TelnyxCfg {..} = forever $ do
   threadDelay (jobFrequency * 10 ^ 6)
-  start <- getCurrentTime
-  logger InfoS $ logStr $ "Buzgibi.Job.Telnyx(makeCall): start at " <> show start
+  withElapsedTime logger ($location <> "(makeCall)") $ do
 
-  xs <- transaction pool logger $ statement getPhonesToCall ()
+    xs <- transaction pool logger $ statement getPhonesToCall ()
+    
+    Async.forConcurrently_ xs $ \(ident, telnyxIdent, link, phonesJson) -> do
+      let phonese = sequence $ map (eitherDecode @PhoneToCall . encode) phonesJson
+      decodeRes <- for phonese $ \phones -> do 
+        resp <- Async.forConcurrently phones $ \PhoneToCall {..} -> do
+        
+          let request =
+                CallRequest
+                {
+                  callRequestTo = [phoneToCallPhone],
+                  callRequestFrom = telnyxPhone telnyxCfg,
+                  callRequestFromDisplayName = mempty,
+                  callRequestConnectionId = telnyxIdent,
+                  callRequestAudioUrl = link
+                }
+          callApi @"calls" @CallRequest @CallResponseData 
+            (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (phoneToCallIdent,)) $ 
+              \(call, _) -> pure $ coerce call
   
-  Async.forConcurrently_ xs $ \(ident, telnyxIdent, link, phonesJson) -> do
-    let phonese = sequence $ map (eitherDecode @PhoneToCall . encode) phonesJson
-    decodeRes <- for phonese $ \phones -> do 
-      resp <- Async.forConcurrently phones $ \PhoneToCall {..} -> do
-      
-        let request =
-              CallRequest
-              {
-                callRequestTo = [phoneToCallPhone],
-                callRequestFrom = telnyxPhone telnyxCfg,
-                callRequestFromDisplayName = mempty,
-                callRequestConnectionId = telnyxIdent,
-                callRequestAudioUrl = link
-              }
-        callApi @"calls" @CallRequest @CallResponseData 
-          (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (phoneToCallIdent,)) $ 
-            \(call, _) -> pure $ coerce call
- 
-      let (errXs, callXs) = partitionEithers resp
-      for_ errXs $ \e -> logger ErrorS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)
-      transaction pool logger $ statement insertAppCall (ident, callXs)
-      transaction pool logger $ statement invalidatePhones errXs
+        let (errXs, callXs) = partitionEithers resp
+        for_ errXs $ \e -> logger ErrorS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)
+        transaction pool logger $ statement insertAppCall (ident, callXs)
+        transaction pool logger $ statement invalidatePhones errXs
 
-    whenLeft decodeRes $ \e -> logger CriticalS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)
-
-  end <- getCurrentTime
-  logger InfoS $ logStr $ $location <> "(makeCall): end at " <> show end
+      whenLeft decodeRes $ \e -> logger CriticalS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)

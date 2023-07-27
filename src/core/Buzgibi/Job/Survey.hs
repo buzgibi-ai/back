@@ -12,8 +12,8 @@ import Buzgibi.Transport.Id (Id (..))
 import Katip
 import Control.Lens ((&), (?~))
 import Control.Concurrent (threadDelay)
+import Buzgibi.Job.Utils (withElapsedTime)
 import Control.Monad (forever, unless)
-import Data.Time.Clock (getCurrentTime)
 import qualified Hasql.Connection as Hasql
 import Data.Pool (Pool)
 import qualified Network.Minio as Minio
@@ -50,35 +50,32 @@ data SurveyCfg =
 makeReport :: SurveyCfg -> IO ()
 makeReport SurveyCfg {..} = forever $ do 
   threadDelay (jobFrequency * 10 ^ 6)
-  start <- getCurrentTime
-  logger InfoS $ logStr $ $location <> "(makeReport): start at " <> show start
+  withElapsedTime logger ($location <> "(makeReport)") $ do
 
-  -- 1 fetch data from db: survey id, phones, SA result
-  xs <- transaction pool logger $ statement getSurveyForReport ()
-  -- 2 prepare a file
-  Async.forConcurrently_ xs $ \(survIdent, user, ys) -> do
-    logger InfoS $ logStr $ $location <> " ---> report is about to be made for " <> show survIdent
-    let xse = sequence $ map (eitherDecode @SurveyForReportItem . encode) ys
-    logger DebugS $ logStr $ $location <> "  ---> report: users " <> show xse <> " for survey " <> show survIdent
-    res <- for xse $ \xs -> do
-      let xlsxFile = makeFile 1 (def @Worksheet) xs
-      liftIO $ logger DebugS $ logStr $ $location <> "  ---> report: xslx file " <> show xlsxFile
-      runMinioWith (fst minio) $ do
-        file <- commitToMinio user (snd minio) xlsxFile
-        liftIO $ logger DebugS $ logStr $ $location <> "  ---> report: minio file " <> show file
+    -- 1 fetch data from db: survey id, phones, SA result
+    xs <- transaction pool logger $ statement getSurveyForReport ()
+    -- 2 prepare a file
+    Async.forConcurrently_ xs $ \(survIdent, user, ys) -> do
+      logger InfoS $ logStr $ $location <> " ---> report is about to be made for " <> show survIdent
+      let xse = sequence $ map (eitherDecode @SurveyForReportItem . encode) ys
+      logger DebugS $ logStr $ $location <> "  ---> report: users " <> show xse <> " for survey " <> show survIdent
+      res <- for xse $ \xs -> do
+        let xlsxFile = makeFile 1 (def @Worksheet) xs
+        liftIO $ logger DebugS $ logStr $ $location <> "  ---> report: xslx file " <> show xlsxFile
+        runMinioWith (fst minio) $ do
+          file <- commitToMinio user (snd minio) xlsxFile
+          liftIO $ logger DebugS $ logStr $ $location <> "  ---> report: minio file " <> show file
 
-        ids <- liftIO $ transaction pool logger $ statement save [file]
-        for_ ids $ \id -> liftIO $ transaction pool logger $ statement saveReport (survIdent, coerce id)
-    whenLeft res $ \error -> 
-      logger ErrorS $ logStr $ 
-        $location <> " cannot fetch phones data for report " <> show survIdent <> ", error: " <> error
+          ids <- liftIO $ transaction pool logger $ statement save [file]
+          for_ ids $ \id -> liftIO $ transaction pool logger $ statement saveReport (survIdent, coerce id)
+      whenLeft res $ \error -> 
+        logger ErrorS $ logStr $ 
+          $location <> " cannot fetch phones data for report " <> show survIdent <> ", error: " <> error
 
-  end <- getCurrentTime
-  logger InfoS $ logStr $ $location <> "(makeReport): end at " <> show end
 
 makeFile _ sheet [] = def @Xlsx & atSheet "phones" ?~ sheet
 makeFile !idx sheet (x:xs) =
-  let newSheet = 
+  let newSheet =
         force $
           sheet 
           & cellValueAt (idx, 1) ?~ 
@@ -97,12 +94,5 @@ commitToMinio ident prefix xlsx = do
         defaultPutObjectOptions
         { pooContentType = 
           Just (toS (defaultMimeLookup ".xlsx")) }
-  putObject newBucket (toS hash) (sourceLazy (fromXlsx tm xlsx)) Nothing opts
-  return
-    NewFile
-    { newFileHash = toS hash,
-      newFileName = "report", 
-      newFileMime = toS (defaultMimeLookup ".xlsx"),
-      newFileBucket = newBucket,
-      newFileExts = ["xlsx"]
-    }
+  putObject newBucket (toS hash) (sourceLazy (fromXlsx tm xlsx)) Nothing opts *> pure 
+    NewFile { newFileHash = toS hash, newFileName = "report", newFileMime = toS (defaultMimeLookup ".xlsx"), newFileBucket = newBucket, newFileExts = ["xlsx"] }
