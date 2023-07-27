@@ -1,0 +1,1 @@
+alter table customer.survey_phones add column is_invalid text;

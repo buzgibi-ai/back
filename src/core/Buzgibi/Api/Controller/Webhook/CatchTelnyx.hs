@@ -40,6 +40,8 @@ import Data.Either.Combinators (maybeToRight)
 import Data.Bifunctor (first)
 import Data.Coerce (coerce)
 import Data.Maybe (fromMaybe)
+import BuildInfo (location)
+import Data.String.Conv
 
 data UrlError = NetworkFailure B.ByteString | UserMissing
   deriving Show
@@ -47,19 +49,27 @@ data UrlError = NetworkFailure B.ByteString | UserMissing
 type instance Api "calls/{call_control_id}/actions/record_start" RecordingStartRequest RecordingStartResponse = ()
 
 controller :: Payload -> KatipControllerM ()
-controller Payload {..} = do
+controller payload@Payload {..} = do
+  $(logTM) InfoS $ logStr $ $location <> " payload ----> " <> show payload
   let parseRes = do 
-        Webhook {..} <- eitherDecode @(Webhook "event") $ encode getPayload
+        Webhook {..} <- eitherDecode @Webhook $ encode getPayload
         case webhookEventType of 
           CallAnswered -> fmap AnsweredWrapper $ eitherDecode @Answered $ encode webhookPayload
           CallHangup -> fmap HangupWrapper $ eitherDecode @Hangup $ encode webhookPayload
-          RecordingSaved -> fmap RecordWrapper $ eitherDecode @Record $ encode webhookPayload
+          CallRecordingSaved -> fmap RecordWrapper $ eitherDecode @Record $ encode webhookPayload
+          _ -> Right $ Skip webhookEventType
   res :: Either String () 
     <- for parseRes $ \case
-         HangupWrapper hangup -> do
-           hasql <- fmap (^. katipEnv . hasqlDbPool) ask
-           transactionM hasql $ statement User.Survey.insertAppPhoneCall $ app4 Just $ snocT User.Survey.Hangup (encodeHangup hangup)
-           $(logTM) InfoS $ logStr $ "Buzgibi.Api.Controller.Webhook.CatchTelnyx: hangup received " <> show hangup
+         Skip evType -> $(logTM) InfoS $ logStr $ $location <> " ---->  webhook " <> show evType <> " was skipped"
+         HangupWrapper hangup ->
+           if hangupHangupCause hangup == NormalClearing 
+           then $(logTM) InfoS $ logStr $ $location <> " ---> hangup received " <> show hangup <> ", normal clearing. skip"
+           else do 
+             hasql <- fmap (^. katipEnv . hasqlDbPool) ask
+             transactionM hasql $ 
+               statement User.Survey.insertAppPhoneCall $ 
+                 app4 (Just . toS . encode) $ snocT User.Survey.Hangup (encodeHangup hangup)
+             $(logTM) InfoS $ logStr $ $location <> " ---> hangup received " <> show hangup
          AnsweredWrapper answered@Answered {..} -> do
            env <- fmap (^. katipEnv) ask
            telnyxApiCfg <- fmap (ApiCfg (fromMaybe undefined (env^.telnyx)) (env^.httpReqManager)) askLoggerIO
@@ -73,14 +83,14 @@ controller Payload {..} = do
              statement User.Survey.insertAppPhoneCall $ 
                snocT User.Survey.Answered $ snocT Nothing $ del2 (encodeAnswered answered)
 
-           when (isLeft res) $ $(logTM) ErrorS (logStr @String ("Buzgibi.Api.Controller.Webhook.CatchTelnyx --> answered case has failed, error: " <> show res))    
+           when (isLeft res) $ $(logTM) ErrorS (logStr @String ($location <> " --> answered case has failed, error: " <> show res))    
 
          RecordWrapper record@Record {recordConnectionId, recordCallLegId, recordRecordingUrls=Payload {..}} -> do
            
            let getRecordingUrls = (decode . encode) =<< K.lookup "mp3" getPayload <|> K.lookup "wav" getPayload
            let status = maybe User.Survey.UrlLinkBroken (const User.Survey.Recorded) getRecordingUrls
 
-           $(logTM) InfoS $ logStr $ "Buzgibi.Api.Controller.Webhook.CatchTelnyx: url ---> " <> show getRecordingUrls
+           $(logTM) InfoS $ logStr $ $location <> " url ---> " <> show getRecordingUrls
 
            hasql <- fmap (^. katipEnv . hasqlDbPool) ask
 
@@ -100,7 +110,7 @@ controller Payload {..} = do
                    statement User.Survey.insertVoiceTelnyx (recordConnectionId, recordCallLegId, coerce ident)
                    statement User.Survey.updateAppPhoneCall $ app3 (const status) (encodeRecord record)
 
-             when (isLeft res) $ $(logTM) ErrorS (logStr @String ("Buzgibi.Api.Controller.Webhook.CatchTelnyx --> record case has failed, error: " <> show res))
+             when (isLeft res) $ $(logTM) ErrorS (logStr @String ($location <> " --> record case has failed, error: " <> show res))
             
-           $(logTM) InfoS $ logStr $ "Buzgibi.Api.Controller.Webhook.CatchTelnyx: record received " <> show record
-  when (isLeft res) $ $(logTM) ErrorS $ logStr $ "Buzgibi.Api.Controller.Webhook.CatchTelnyx: parse error: " <> show res
+           $(logTM) InfoS $ logStr $ $location <> " ---> record received " <> show record
+  when (isLeft res) $ $(logTM) CriticalS $ logStr $ $location <> " ---> parse error: " <> show res

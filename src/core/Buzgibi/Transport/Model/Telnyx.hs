@@ -13,6 +13,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 
 module Buzgibi.Transport.Model.Telnyx 
        (AppRequest (..), 
@@ -34,7 +35,8 @@ module Buzgibi.Transport.Model.Telnyx
         RecordingStartRequest (..),
         RecordingStartResponse,
         Channels (..),
-        Format (..)
+        Format (..),
+        HangupCause (..)
        ) where
 
 import Database.Transaction (ParamsShow (..))
@@ -47,9 +49,7 @@ import TH.Mk
 import Data.Maybe (fromMaybe)
 import Data.Text.Extended ()
 import Data.Time.Clock (UTCTime)
-import GHC.TypeLits (symbolVal, KnownSymbol, Symbol)
-import Data.Proxy (Proxy (..))
-import Control.Monad (when)
+import Data.String.Conv
 
 data Outbound =  
      Outbound 
@@ -152,24 +152,23 @@ instance ParamsShow CallResponse where
   render = render . encodeCallResponse
 
 
-data EventType = CallAnswered | CallHangup | RecordingSaved
+data EventType = CallAnswered | CallHangup | CallRecordingSaved | CallInitiated
      deriving stock (Generic, Show)
      deriving
      (ToJSON, FromJSON)
      via WithOptions
-          '[ConstructorTagModifier '[CamelTo2 "_"]]
+          '[ConstructorTagModifier '[CamelTo2 "."]]
           EventType
 
 
 -- webhook
 -- {
---     "record_type": "event",
 --     "id": "0ccc7b54-4df3-4bca-a65a-3da1ecc777f0",
 --     "event_type": "call_bridged",
 --     "created_at": "2018-02-02T22:25:27.521992Z",
 --     "payload": a json particular to web hook
 -- }
-data Webhook (s :: Symbol) =
+data Webhook =
      Webhook 
      { webhookId :: T.Text,
        webhookEventType :: EventType, 
@@ -177,26 +176,52 @@ data Webhook (s :: Symbol) =
        webhookPayload :: Object
      }
  
-instance KnownSymbol s => FromJSON (Webhook s) where
+instance FromJSON Webhook where
   parseJSON = withObject "Webhook" $ \o -> do
-    webhookRecordType <- o .: "record_type"
-    when (webhookRecordType /= symbolVal (Proxy @s)) $ 
-      fail $ "record_type isn't one of `" <> symbolVal (Proxy @s) <> "`"
-    webhookId <- o .: "id"
-    webhookEventType <- o .: "event_type"
-    webhookCreatedAt <- o .: "created_at"
-    webhookPayload <- o .: "payload"
+    dataObj <- o .: "data"
+    webhookId <- dataObj .: "id"
+    webhookEventType <- dataObj .: "event_type"
+    webhookCreatedAt <- dataObj .: "occurred_at"
+    webhookPayload <- dataObj .: "payload"
     pure $ Webhook {..}
 
+data HangupCause = 
+    -- Callee chose not to accept this call. The callee is not busy nor incompatible
+    CallRejected | 
+    -- Call is being cleared because one of the users involved in the call has requested that the call be cleared.
+    NormalClearing | 
+    -- SIP request has been terminated by a bye or cancel.
+    OriginatorCancel |
+    -- Call was canceled because the destination channel took too long to answer
+    Timeout |
+    -- Call lasted the maximum allowable duration of 4 hours or a custom time limit configured in the Dial or Transfer call commands.
+    TimeLimit |
+    -- Called party is unable to accept another call because the user busy condition has been encountered.
+    UserBusy |
+    -- Called party cannot be reached because the valid destination number is not currently allocated (assigned).
+    NotFound |
+    -- Unexpected hangup not matching any of the above causes. `sip_hangup_cause` contained in the webhook may contain additional information.
+    Unspecified
+    deriving stock (Generic, Show, Eq, Ord)
+    deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[ConstructorTagModifier '[CamelTo2 "_"]]
+          HangupCause
 
-data CallPayload = HangupWrapper Hangup | AnsweredWrapper Answered | RecordWrapper Record 
+mkArbitrary ''HangupCause
+
+instance ParamsShow HangupCause where
+    render = toS . encode
+
+data CallPayload = HangupWrapper Hangup | AnsweredWrapper Answered | RecordWrapper Record | Skip EventType
 
 data Hangup =
      Hangup
      { hangupConnectionId :: T.Text,
        hangupFrom :: T.Text,
        hangupTo :: T.Text,
-       hangupHangupCause :: T.Text
+       hangupHangupCause :: HangupCause
      } 
      deriving stock (Generic, Show)
      deriving
@@ -245,7 +270,7 @@ mkArbitrary ''Answered
 mkEncoder ''Record
 mkArbitrary ''Record
 
-encodeHangup :: Hangup -> (T.Text, T.Text, T.Text, T.Text)
+encodeHangup :: Hangup -> (T.Text, T.Text, T.Text, HangupCause)
 encodeHangup = fromMaybe (error "cannot encode Hangup") . mkEncoderHangup
 
 encodeAnswered :: Answered -> (T.Text, T.Text, T.Text, T.Text)

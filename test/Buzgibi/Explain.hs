@@ -62,7 +62,7 @@ explainTests :: [(String, [(String, ST)])]
 explainTests =
   [ "Buzgibi.Statement.File" ==>
       [ "save" =>> Buzgibi.Statement.File.save,
-        "getMetaForBark" =>> Buzgibi.Statement.File.getMetaForBark,
+        "getMetaForReport" =>> Buzgibi.Statement.File.getMetaForReport,
         "getMeta" =>> Buzgibi.Statement.File.getMeta,
         "delete" =>> Buzgibi.Statement.File.delete,
         "getHashWithBucket" =>> Buzgibi.Statement.File.getHashWithBucket,
@@ -98,6 +98,7 @@ explainTests =
        "getSurveysForSA" =>> Buzgibi.Statement.User.Survey.getSurveysForSA,
        "insertSA" =>> Buzgibi.Statement.User.Survey.insertSA,
        "getSurveyForReport" =>> Buzgibi.Statement.User.Survey.getSurveyForReport,
-       "saveReport" =>> Buzgibi.Statement.User.Survey.saveReport
+       "saveReport" =>> Buzgibi.Statement.User.Survey.saveReport,
+       "invalidatePhones" =>> Buzgibi.Statement.User.Survey.invalidatePhones
      ]
   ]

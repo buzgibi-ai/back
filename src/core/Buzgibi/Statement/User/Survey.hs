@@ -44,7 +44,9 @@ module Buzgibi.Statement.User.Survey
     insertSA,
     getSurveyForReport,
     saveReport,
-    SurveyForReportItem (..)
+    SurveyForReportItem (..),
+    invalidatePhones, 
+    PhoneToCall (..)
   ) where
 
 
@@ -75,6 +77,7 @@ data Status =
      ProcessedByBark | 
      PickedByTelnyx | 
      ProcessedByTelnyx | 
+     CallMadeByTelnyx |
      TranscriptionsDoneOpenAI |
      SentimentalAnalysisDoneOpenAI |
      SurveyProcessed | 
@@ -86,6 +89,7 @@ instance Show Status where
     show ProcessedByBark = "processed by bark" 
     show PickedByTelnyx = "telnyx app is created"
     show ProcessedByTelnyx = "processed by telnyx"
+    show CallMadeByTelnyx = "call made by telnyx"
     show TranscriptionsDoneOpenAI = "transcriptions are finished"
     show SentimentalAnalysisDoneOpenAI = "sentimental analysis is finished"
     show SurveyProcessed = "processed"
@@ -343,7 +347,7 @@ getVoiceObject :: HS.Statement T.Text (Maybe (T.Text, T.Text, T.Text, [T.Text]))
 getVoiceObject = 
   rmap (fmap (\x -> x & _4 %~ V.toList)) $
   [maybeStatement|
-    select 
+    select
       f.hash :: text,
       f.bucket :: text,
       s.survey :: text,
@@ -420,7 +424,15 @@ insertTelnyxApp =
       on s.id = sp.survey_id
       where s.id = $1 :: int8|]
 
-getPhonesToCall :: HS.Statement () [(Int64, T.Text, T.Text, [T.Text])]
+data PhoneToCall = PhoneToCall { phoneToCallIdent :: Int64, phoneToCallPhone :: T.Text }
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor PhoneToCall)]]
+          PhoneToCall
+
+getPhonesToCall :: HS.Statement () [(Int64, T.Text, T.Text, [Value])]
 getPhonesToCall =
   dimap 
     (const (toS (show PickedByTelnyx))) 
@@ -431,7 +443,9 @@ getPhonesToCall =
       t.id :: int8,
       t.telnyx_ident :: text,
       vsl.share_link_url :: text,
-      array_agg(sp.phone) :: text[]
+      array_agg(jsonb_build_object( 
+       'phone', sp.phone,
+       'ident', sp.id)) :: jsonb[]
     from customer.survey as s
     inner join customer.survey_bark as b
     on s.id = b.survey_id
@@ -446,14 +460,40 @@ getPhonesToCall =
     where s.survey_status = $1 :: text
     group by t.id, t.telnyx_ident, vsl.share_link_url|]
 
-insertAppCall :: HS.Statement (Int64, CallResponse) ()
+insertAppCall :: HS.Statement (Int64, [CallResponse]) ()
 insertAppCall = 
-  lmap (\(x, y) -> x `consT` encodeCallResponse y) $ 
+  lmap (\(x, y) -> snocT (toS (show CallMadeByTelnyx)) $ x `consT` V.unzip5 (V.fromList (map encodeCallResponse y))) $ 
   [resultlessStatement|
-    insert into foreign_api.telnyx_app_call
-    (telnyx_app_id, record_type, call_session_id, call_leg_id, call_control_id, is_alive)
-    values ($1 :: int8, $2 :: text, $3 :: text, $4 :: text, $5 :: text, $6 :: boolean)|]
-
+    with call as 
+     (insert into foreign_api.telnyx_app_call
+      (telnyx_app_id, record_type, call_session_id, call_leg_id, call_control_id, is_alive)
+      select 
+        $1 :: int8,
+        record_type :: text, 
+        call_session_id :: text, 
+        call_leg_id :: text, 
+        call_control_id :: text, 
+        is_alive :: boolean
+      from unnest(
+        $2 :: text[], 
+        $3 :: text[], 
+        $4 :: text[], 
+        $5 :: text[], 
+        $6 :: bool[])
+        as x(record_type, call_session_id, call_leg_id, call_control_id, is_alive))
+    update customer.survey
+    set survey_status = $7 :: text
+    where id = 
+      (select 
+        distinct s.id
+      from customer.survey as s
+      inner join customer.survey_phones as sp
+      on s.id = sp.survey_id
+      inner join customer.phone_telnyx_app as pt
+      on sp.id = pt.phone_id
+      inner join foreign_api.telnyx_app as t
+      on pt.telnyx_id = t.id
+      where t.id = $1 :: int8)|]
 
 data CallStatus = Hangup | Answered | Recorded | UrlLinkBroken
      deriving Generic
@@ -694,7 +734,7 @@ data SurveyForReportItem =
      { surveyForReportItemPhone :: T.Text,
        surveyForReportItemResult :: T.Text
      }
-     deriving stock (Generic)
+     deriving stock (Generic, Show)
      deriving
      (ToJSON, FromJSON)
      via WithOptions
@@ -703,24 +743,58 @@ data SurveyForReportItem =
 
 getSurveyForReport :: HS.Statement () [(Int64, Int64, [Value])]
 getSurveyForReport =
-  dimap (const (toS (show SentimentalAnalysisDoneOpenAI))) (V.toList . fmap (second V.toList)) $
+  dimap (const (toS (show SentimentalAnalysisDoneOpenAI), toS (show Fail))) (V.toList . fmap (second V.toList)) $
   [vectorStatement|
-  select
-    distinct on (s.id, u.id)
-    s.id :: int8,
-    u.id :: int8,
-    array_agg(jsonb_build_object(
-      'phone', sp.phone,
-      'result', psa.result)) :: jsonb[]
-  from auth.user as u
-  inner join customer.survey as s
-  on u.id = s.user_id
-  inner join customer.survey_phones as sp
-  on s.id = sp.survey_id
-  inner join customer.phone_sentiment_analysis as psa
-  on sp.id = psa.phone_id
-  where s.survey_status = $1 :: text
-  group by u.id, s.id|]
+    with 
+      success_report as (
+        select
+          distinct on (s.id, u.id)
+          s.id :: int8 as survey_id,
+          u.id :: int8 as user_id,
+          array_agg(jsonb_build_object(
+            'phone', sp.phone,
+            'result', coalesce(psa.result, sp.is_invalid))) :: jsonb[] as v
+        from auth.user as u
+        inner join customer.survey as s
+        on u.id = s.user_id
+        inner join customer.survey_phones as sp
+        on s.id = sp.survey_id
+        left join customer.phone_sentiment_analysis as psa
+        on sp.id = psa.phone_id
+        where s.survey_status = $1 :: text and 
+              (select report_id 
+               from customer.survey_files 
+               where survey_id = s.id) is null
+        group by u.id, s.id),
+      failure_report as (
+        select
+          distinct on (s.id, u.id)
+          s.id :: int8 as survey_id,
+          u.id :: int8 as user_id,
+          array_agg(jsonb_build_object(
+            'phone', sp.phone,
+            'result', sp.is_invalid)) :: jsonb[] as v
+        from auth.user as u
+        inner join customer.survey as s
+        on u.id = s.user_id
+        inner join customer.survey_phones as sp
+        on s.id = sp.survey_id
+        where s.survey_status = $2 :: text and
+              (select report_id 
+               from customer.survey_files 
+               where survey_id = s.id) is null
+        group by u.id, s.id)
+    (select 
+       survey_id :: int8, 
+       user_id :: int8, 
+       v :: jsonb[]
+     from success_report) 
+    union 
+    (select 
+       survey_id :: int8, 
+       user_id :: int8, 
+       v :: jsonb[] 
+     from failure_report)|]
 
 saveReport :: HS.Statement (Int64, Int64) ()
 saveReport =
@@ -729,7 +803,43 @@ saveReport =
     with report as (
       update customer.survey_files 
       set report_id = $2 :: int8
-      where report_id = $1 :: int8)
+      where survey_id = $1 :: int8)
     update customer.survey
     set survey_status = $3 :: text
     where id = $1 :: int8|]
+
+invalidatePhones :: HS.Statement [(Int64, T.Text)] ()
+invalidatePhones =
+  lmap (snocT (toS (show Fail)) . V.unzip . V.fromList)
+  [resultlessStatement|
+    with invalid as 
+      (update customer.survey_phones
+       set is_invalid = phones.reason
+       from unnest($1 :: int8[], $2 :: text[]) 
+       as phones(ident, reason)
+       where id = phones.ident),
+      survey as (
+       select
+         s.id,
+         count(
+           case 
+             when cp.is_invalid is null 
+             then 0
+             else 1
+           end) as invalid,
+         count (*) as cnt
+       from customer.survey as s
+       inner join customer.survey_phones as cp
+       on s.id = cp.survey_id
+       where s.id =
+          (select 
+            distinct s.id
+           from customer.survey as s
+           inner join customer.survey_phones as cp
+           on s.id = cp.survey_id
+           where cp.id = any($1 :: int8[]))
+        group by s.id)
+    update customer.survey 
+    set survey_status = $3 :: text
+    where id = (select id from survey) and 
+          ((select invalid from survey) = (select cnt from survey))|]

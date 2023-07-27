@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Buzgibi.Job.Survey (makeReport, SurveyCfg (..)) where
 
@@ -28,17 +29,15 @@ import Control.DeepSeq (force)
 import Codec.Xlsx.Lens (cellValueAt, atSheet)
 import Data.Default.Class (def)
 import Network.Minio
-import System.Directory (getTemporaryDirectory)
-import System.FilePath ((</>))
 import Hash (mkHash)
 import Codec.Xlsx.Writer (fromXlsx)
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Data.String.Conv (toS)
 import Control.Monad.IO.Class
-import qualified Data.ByteString.Lazy as L
 import qualified Data.Text as T
 import Network.Mime (defaultMimeLookup)
 import Data.Coerce (coerce)
+import Data.Conduit.Combinators (sourceLazy)
 
 data SurveyCfg =
      SurveyCfg 
@@ -57,14 +56,19 @@ makeReport SurveyCfg {..} = forever $ do
   -- 1 fetch data from db: survey id, phones, SA result
   xs <- transaction pool logger $ statement getSurveyForReport ()
   -- 2 prepare a file
-  Async.forConcurrently_ xs $ \(survIdent, user, ys) -> do 
+  Async.forConcurrently_ xs $ \(survIdent, user, ys) -> do
+    logger InfoS $ logStr $ $location <> " ---> report is about to be made for " <> show survIdent
     let xse = sequence $ map (eitherDecode @SurveyForReportItem . encode) ys
-    res <- for xse $ \xs -> do 
+    logger DebugS $ logStr $ $location <> "  ---> report: users " <> show xse <> " for survey " <> show survIdent
+    res <- for xse $ \xs -> do
       let xlsxFile = makeFile 1 (def @Worksheet) xs
-      minioRes <- runMinioWith (fst minio) $ do 
+      liftIO $ logger DebugS $ logStr $ $location <> "  ---> report: xslx file " <> show xlsxFile
+      runMinioWith (fst minio) $ do
         file <- commitToMinio user (snd minio) xlsxFile
-        liftIO $ transaction pool logger $ statement save [file]
-      for_ minioRes $ \[file] -> transaction pool logger $ statement saveReport (survIdent, coerce file)
+        liftIO $ logger DebugS $ logStr $ $location <> "  ---> report: minio file " <> show file
+
+        ids <- liftIO $ transaction pool logger $ statement save [file]
+        for_ ids $ \id -> liftIO $ transaction pool logger $ statement saveReport (survIdent, coerce id)
     whenLeft res $ \error -> 
       logger ErrorS $ logStr $ 
         $location <> " cannot fetch phones data for report " <> show survIdent <> ", error: " <> error
@@ -73,7 +77,7 @@ makeReport SurveyCfg {..} = forever $ do
   logger InfoS $ logStr $ $location <> "(makeReport): end at " <> show end
 
 makeFile _ sheet [] = def @Xlsx & atSheet "phones" ?~ sheet
-makeFile idx sheet (x:xs) = 
+makeFile !idx sheet (x:xs) =
   let newSheet = 
         force $
           sheet 
@@ -85,22 +89,20 @@ makeFile idx sheet (x:xs) =
 
 commitToMinio ident prefix xlsx = do
   tm <- liftIO getPOSIXTime
-  tmp <- liftIO getTemporaryDirectory
-  let filePath = tmp </> toS (mkHash xlsx) </> ".xlsx"
-  liftIO $ L.writeFile filePath $ fromXlsx tm xlsx
+  let hash = mkHash $ show xlsx <> show tm
   let newBucket = prefix <> "." <>  "user" <> toS (show ident) <> "." <> "survey"
   exist <- bucketExists newBucket
   unless exist $ makeBucket newBucket Nothing
   let opts = 
-        defaultPutObjectOptions 
+        defaultPutObjectOptions
         { pooContentType = 
-          Just (toS (defaultMimeLookup (toS filePath))) }
-  fPutObject newBucket (mkHash xlsx) filePath opts
+          Just (toS (defaultMimeLookup ".xlsx")) }
+  putObject newBucket (toS hash) (sourceLazy (fromXlsx tm xlsx)) Nothing opts
   return
     NewFile
-    { newFileHash = mkHash xlsx, 
+    { newFileHash = toS hash,
       newFileName = "report", 
-      newFileMime = toS (defaultMimeLookup (toS filePath)),
+      newFileMime = toS (defaultMimeLookup ".xlsx"),
       newFileBucket = newBucket,
       newFileExts = ["xlsx"]
     }

@@ -10,7 +10,7 @@
 module Buzgibi.Statement.File
   ( save,
     getMeta,
-    getMetaForBark,
+    getMetaForReport,
     Buzgibi.Statement.File.delete,
     getHashWithBucket,
     patch,
@@ -41,7 +41,7 @@ data NewFile =
        newFileBucket :: T.Text, 
        newFileExts :: [T.Text]
      }
-     deriving Generic
+     deriving (Generic, Show)
 
 mkEncoder ''NewFile
 mkArbitrary ''NewFile
@@ -76,8 +76,8 @@ save =
           x(hash, title, mime, bucket, exts)
           returning id :: int8|]
 
-getMetaForBark :: HS.Statement (Id "user", Id "file") (Maybe (Hash, Name, Mime, Bucket, [T.Text]))
-getMetaForBark =
+getMetaForReport :: HS.Statement (Id "user", Id "file") (Maybe (Hash, Name, Mime, Bucket, [T.Text]))
+getMetaForReport =
   dimap (\x -> x & _1 %~ coerce & _2 %~ coerce) (fmap mkTpl) $
     [maybeStatement|
       select
@@ -90,10 +90,10 @@ getMetaForBark =
       from customer.profile as p
       inner join customer.survey as ce
       on p.id = ce.user_id
-      inner join customer.survey_bark as eb
-      on ce.id = eb.survey_id
+      inner join customer.survey_files as sf
+      on ce.id = sf.survey_id
       inner join storage.file as f
-      on eb.voice_id = f.id
+      on sf.report_id = f.id
       where p.user_id = $1 :: int8 
             and f.id = $2 :: int8
             and not is_deleted|]

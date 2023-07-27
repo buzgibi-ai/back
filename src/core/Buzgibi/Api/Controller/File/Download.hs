@@ -57,7 +57,7 @@ controller userId option id width_m height_m = do
   let notFound = "file {" <> show (coerce @(Id "file") @Int64 id) ^. stext <> "} not found"
   meta <-
     fmap (maybeToRight (asError notFound)) $
-      transactionM hasql $ statement File.getMetaForBark (userId, id)
+      transactionM hasql $ statement File.getMetaForReport (userId, id)
   minioResp <- fmap join $ for meta $ \x -> do
     Minio {..} <- fmap (^. katipEnv . minio) ask
     let bucket = x ^. _4 . coerced

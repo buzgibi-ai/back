@@ -195,6 +195,7 @@ library:
     - katip-wai
     - cassava
     - xlsx
+    - conduit-extra
 
   source-dirs:
     - src/core
