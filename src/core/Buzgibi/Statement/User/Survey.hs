@@ -410,10 +410,11 @@ insertTelnyxApp =
       survey as (
         update customer.survey
         set survey_status = $4 :: text
-        where id = $1 :: int8)
+        where id = $1 :: int8
+        returning id :: int8 as ident)
     insert into foreign_api.telnyx_app 
-    (telnyx_ident, application_name) 
-    values ($3 :: text, $2 :: text)|]
+    (survey_id, telnyx_ident, application_name)
+    select ident, $3 :: text, $2 :: text from survey|]
 
 data PhoneToCall = PhoneToCall { phoneToCallIdent :: Int64, phoneToCallPhone :: T.Text }
      deriving stock (Generic)
@@ -449,7 +450,7 @@ getPhonesToCall =
     where s.survey_status = $1 :: text
     group by t.id, t.telnyx_ident, vsl.share_link_url|]
 
-data CallStatus = Init | CallMade | Hangup | Answered | Recorded
+data CallStatus = Invalid | CallMade | Hangup | Answered | Recorded
      deriving Generic
      deriving Show
 
@@ -737,12 +738,12 @@ saveReport =
 
 invalidatePhones :: HS.Statement [(Int64, T.Text)] Int64
 invalidatePhones =
-  lmap (V.unzip . V.fromList)
+  lmap (snocT (toS (show Invalid)) . V.unzip . V.fromList)
   [singletonStatement|
       with invalid as 
         (insert into customer.call_telnyx_app
-         (phone_id, invalid)
-         select ident, reason
+         (phone_id, invalid, call_status)
+         select ident, reason, $3 :: text
          from unnest($1 :: int8[], $2 :: text[]) 
            as phones(ident, reason))
       select
