@@ -59,7 +59,7 @@ data OpenAICfg =
      }
 
 type instance Api "audio/transcriptions" () TranscriptionResponse = ()
-type instance Api "audio/completions" SARequest SAResponse = ()
+type instance Api "completions" SARequest SAResponse = ()
 
 mkErrorMsg _ _ _ [] = pure ()
 mkErrorMsg job logger surveyIdent ((phoneIdent, e):es) = 
@@ -78,7 +78,7 @@ getTranscription OpenAICfg {..} = forever $ do
           \OpenAITranscription {..} -> 
             fmap (bimap (openAITranscriptionPhoneIdent,) (openAITranscriptionPhoneIdent,) . join . first (toS . show)) $ 
             Minio.runMinioWith minio $ do
-              let (ext:_) = openAITranscriptionVoiceExt
+              let (ext:_) = openAITranscriptionVoiceExts
               tm <- (toS . show . systemSeconds) <$> liftIO getSystemTime
               o <- Minio.getObject openAITranscriptionVoiceBucket openAITranscriptionVoiceHash Minio.defaultGetObjectOptions
               path <-
@@ -95,7 +95,7 @@ getTranscription OpenAICfg {..} = forever $ do
         mkErrorMsg "getTranscription" logger survIdent es
         transaction pool logger $ statement insertTranscription (survIdent, ys)
       whenLeft res $ \error ->  
-        logger ErrorS $ logStr $ $location <> ": phone parse failed for survey " <> show survIdent <> ", error: " <> error
+        logger CriticalS $ logStr $ $location <> ": phone parse failed for survey " <> show survIdent <> ", error: " <> error
 
 
 performSentimentalAnalysis :: OpenAICfg -> IO ()
@@ -112,7 +112,7 @@ performSentimentalAnalysis OpenAICfg {..} =
           \OpenAISA {..} -> liftIO $ do 
             let request = defSARequest { sARequestPrompt = openAISAText }
             fmap (bimap (openAISAPhoneIdent,) (openAISAPhoneIdent,)) $
-              callApi @"audio/completions" @SARequest @SAResponse 
+              callApi @"completions" @SARequest @SAResponse 
                 (ApiCfg openaiCfg manager logger) 
                 (Left request) methodPost mempty Left $
                   \(SAResponse xs, _) ->

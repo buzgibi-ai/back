@@ -89,8 +89,9 @@ controller payload = do
       _ -> $(logTM) InfoS (logStr @String ("catch bark webhook --> " <> show resp))
 
 commitToMinio user (file, _) mime bucket extXs name
-  | mime == "audio/wav" || 
-    mime == "audio/x-wav" || 
+  | mime == "audio/wav" ||
+    mime == "audio/x-wav" ||
+    mime == "audio/mpeg" ||
     mime == "audio/mpeg" = do
       tmp <- liftIO getTemporaryDirectory
       let filePath = tmp </> T.unpack (mkHash file)
@@ -98,7 +99,8 @@ commitToMinio user (file, _) mime bucket extXs name
       lift $ fmap (first (MinioError . show) . join . Right . toEither) $ 
         File.Upload.controller user bucket $ 
           Files [File name (mime^.from textbs) filePath extXs]
-
+  | otherwise = error $ "not supported mime type: " <> show mime
+ 
 makeSharableLink minio barkIdent = do
   logger <- ask
   liftIO $ logger DebugS $ logStr @String  (" makeSharableLink ---> bark ident: " <> T.unpack barkIdent)

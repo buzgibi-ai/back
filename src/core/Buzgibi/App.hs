@@ -23,7 +23,7 @@ module Buzgibi.App (Cfg (..), AppM (..), run) where
 
 import BuildInfo
 import Buzgibi.Job.Telnyx as Job.Telnyx
-import Buzgibi.Job.OpenAI as Job.OpenAI 
+import Buzgibi.Job.OpenAI as Job.OpenAI
 import Buzgibi.Job.Survey as Job.Survey
 import Buzgibi.Api
 import Buzgibi.EnvKeys (Telnyx (..), OpenAI (..))
@@ -175,7 +175,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   survey <- liftIO $ async $ Job.Survey.makeReport surveyCfg
 
   end <- fmap snd $ flip logExceptionM ErrorS $ liftIO $ waitAnyCatchCancel 
-    [serverAsync, telnyxApp, telnyxCall, openaiTranscrip, openaiSA, survey]
+    [serverAsync, telnyxApp, telnyxCall, survey, openaiTranscrip, openaiSA ]
   
   whenLeft end $ \e -> $(logTM) EmergencyS $ logStr $ "server has been terminated. error " <> show e
 

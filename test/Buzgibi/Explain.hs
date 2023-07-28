@@ -90,8 +90,6 @@ explainTests =
        "insertTelnyxApp" =>> Buzgibi.Statement.User.Survey.insertTelnyxApp,
        "getPhonesToCall" =>> Buzgibi.Statement.User.Survey.getPhonesToCall,
        "insertAppCall" =>> Buzgibi.Statement.User.Survey.insertAppCall,
-       "insertAppPhoneCall" =>> Buzgibi.Statement.User.Survey.insertAppPhoneCall,
-       "updateAppPhoneCall" =>> Buzgibi.Statement.User.Survey.updateAppPhoneCall,
        "getUserByAppIdent" =>> Buzgibi.Statement.User.Survey.getUserByAppIdent,
        "insertVoiceTelnyx" =>> Buzgibi.Statement.User.Survey.insertVoiceTelnyx,
        "insertTranscription" =>> Buzgibi.Statement.User.Survey.insertTranscription,
@@ -99,6 +97,11 @@ explainTests =
        "insertSA" =>> Buzgibi.Statement.User.Survey.insertSA,
        "getSurveyForReport" =>> Buzgibi.Statement.User.Survey.getSurveyForReport,
        "saveReport" =>> Buzgibi.Statement.User.Survey.saveReport,
-       "invalidatePhones" =>> Buzgibi.Statement.User.Survey.invalidatePhones
+       "invalidatePhones" =>> Buzgibi.Statement.User.Survey.invalidatePhones,
+       "getSurveysForTranscription" =>> Buzgibi.Statement.User.Survey.getSurveysForTranscription,
+       "updateAppCall" =>> Buzgibi.Statement.User.Survey.updateAppCall,
+       "insertHangupCall" =>> Buzgibi.Statement.User.Survey.insertHangupCall,
+       "checkAfterInvalidate" =>> Buzgibi.Statement.User.Survey.checkAfterInvalidate,
+       "checkAfterWebhook" =>>  Buzgibi.Statement.User.Survey.checkAfterWebhook
      ]
   ]

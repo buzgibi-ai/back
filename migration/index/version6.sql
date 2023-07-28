@@ -1,18 +1,7 @@
-alter table customer.survey_phones add column id serial primary key;
-
--- foreign_api.telnyx_app
-create table foreign_api.telnyx (
-    id bigserial primary key,
-    telnyx_ident text not null,
-    application_name text not null,
-    created timestamptz not null default now(),
-    constraint telnyx__telnyx_ident_unique unique (id, telnyx_ident));
-
--- foreign_api.phone_telnyx_app
-create table customer.phone_telnyx (
-    voice_id bigint,
-    telnyx_id bigserial not null,
+create table customer.phone_transcription (
+    transcription text not null,
+    survey_id bigserial not null,
     phone_id bigserial not null,
-    constraint phone_telnyx__phone_id_fk foreign key (phone_id) references customer.survey_phones(id),
-    constraint phone_telnyx__telnyx_id_fk foreign key (telnyx_id) references foreign_api.telnyx(id),
-    constraint phone_telnyx__phone_telnyx unique (phone_id, telnyx_id));
+    constraint phone_openai__phone_id_fk foreign key (phone_id) references customer.survey_phones(id),
+    constraint phone_openai__survey_id_fk foreign key (survey_id) references customer.survey(id),
+    constraint phone_openai__phone_survey_uq unique (phone_id, survey_id));

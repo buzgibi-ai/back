@@ -7,41 +7,41 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TupleSections #-}
 
 module Buzgibi.Api.Controller.Webhook.CatchTelnyx (controller) where
 
-import Buzgibi.Api.Controller.Utils (extractMIMEandExts)
 import Buzgibi.Api.Controller.Webhook.CatchBark (commitToMinio) 
 import Buzgibi.Transport.Model.Telnyx
 import Buzgibi.Api.CallApi
 import Buzgibi.Auth (AuthenticatedUser (..))
 import Buzgibi.Api.CallApi.Instance ()  
 import Buzgibi.Transport.Id (Id (..))
-import qualified Buzgibi.Statement.User.Survey as User.Survey (insertVoiceTelnyx, getUserByAppIdent, insertAppPhoneCall, updateAppPhoneCall, CallStatus (..))
+import qualified Buzgibi.Statement.User.Survey as User.Survey
 import Katip.Controller
 import Katip
 import Buzgibi.Transport.Payload (Payload (..))
 import Data.Aeson (encode, eitherDecode, decode)
 import Data.Traversable (for)
-import Control.Monad (when)
+import Control.Monad (when, join)
 import Data.Either (isLeft)
 import Database.Transaction
 import Control.Lens
-import Data.Tuple.Extended (app3, app4, del2, snocT)
+import Data.Tuple.Extended (app1)
 import qualified Data.Aeson.KeyMap as K (lookup)
 import Control.Applicative ((<|>))
 import qualified Request as Request (make)
-import Data.Foldable (for_)
 import qualified Control.Monad.Trans.Except as E
 import Control.Monad.IO.Class (liftIO)
 import qualified Network.HTTP.Types as HTTP
 import qualified Data.ByteString as B
-import Data.Either.Combinators (maybeToRight)
+import Data.Either.Combinators (maybeToRight, whenLeft)
 import Data.Bifunctor (first)
 import Data.Coerce (coerce)
 import Data.Maybe (fromMaybe)
 import BuildInfo (location)
 import Data.String.Conv
+import Network.Mime (defaultMimeLookup)
 
 data UrlError = NetworkFailure B.ByteString | UserMissing
   deriving Show
@@ -60,16 +60,16 @@ controller payload@Payload {..} = do
           _ -> Right $ Skip webhookEventType
   res :: Either String () 
     <- for parseRes $ \case
-         Skip evType -> $(logTM) InfoS $ logStr $ $location <> " ---->  webhook " <> show evType <> " was skipped"
+         Skip evType -> $(logTM) InfoS $ logStr $ $location <> " (skip case) ---->  webhook " <> show evType <> " was skipped"
          HangupWrapper hangup ->
            if hangupHangupCause hangup == NormalClearing 
-           then $(logTM) InfoS $ logStr $ $location <> " ---> hangup received " <> show hangup <> ", normal clearing. skip"
+           then $(logTM) InfoS $ logStr $ $location <> " (hangup case) ---> hangup received " <> show hangup <> ", normal clearing. skip"
            else do 
              hasql <- fmap (^. katipEnv . hasqlDbPool) ask
-             transactionM hasql $ 
-               statement User.Survey.insertAppPhoneCall $ 
-                 app4 (Just . toS . encode) $ snocT User.Survey.Hangup (encodeHangup hangup)
-             $(logTM) InfoS $ logStr $ $location <> " ---> hangup received " <> show hangup
+             let (telnyxIdent, leg, cause) = encodeHangup hangup
+             transactionM hasql $ statement User.Survey.insertHangupCall (leg, (toS . show) cause)
+             transactionM hasql $ statement User.Survey.checkAfterWebhook telnyxIdent
+             $(logTM) DebugS $ logStr $ $location <> " (hangup case) ---> hangup received " <> show hangup
          AnsweredWrapper answered@Answered {..} -> do
            env <- fmap (^. katipEnv) ask
            telnyxApiCfg <- fmap (ApiCfg (fromMaybe undefined (env^.telnyx)) (env^.httpReqManager)) askLoggerIO
@@ -80,37 +80,39 @@ controller payload@Payload {..} = do
 
            hasql <- fmap (^. katipEnv . hasqlDbPool) ask              
            res <- for callRes $ const $ transactionM hasql $ 
-             statement User.Survey.insertAppPhoneCall $ 
-               snocT User.Survey.Answered $ snocT Nothing $ del2 (encodeAnswered answered)
+             statement User.Survey.updateAppCall $ 
+               app1 (const (toS (show User.Survey.Answered))) $ 
+                 encodeAnswered answered
 
-           when (isLeft res) $ $(logTM) ErrorS (logStr @String ($location <> " --> answered case has failed, error: " <> show res))    
+           when (isLeft res) $ $(logTM) ErrorS (logStr @String ($location <> " (answer case) --> answered case has failed, error: " <> show res))    
 
          RecordWrapper record@Record {recordConnectionId, recordCallLegId, recordRecordingUrls=Payload {..}} -> do
            
-           let getRecordingUrls = (decode . encode) =<< K.lookup "mp3" getPayload <|> K.lookup "wav" getPayload
-           let status = maybe User.Survey.UrlLinkBroken (const User.Survey.Recorded) getRecordingUrls
+           let getRecordingUrls = 
+                 fmap ("mp3",) (join (fmap (decode . encode) (K.lookup "mp3" getPayload))) <|> 
+                 fmap ("wav",) (join (fmap (decode . encode) (K.lookup "wav" getPayload)))
 
-           $(logTM) InfoS $ logStr $ $location <> " url ---> " <> show getRecordingUrls
+           $(logTM) InfoS $ logStr $ $location <> " (record case) url ---> " <> show getRecordingUrls
 
            hasql <- fmap (^. katipEnv . hasqlDbPool) ask
 
-           for_ getRecordingUrls $ \url -> do
+           res <- for (maybeToRight () getRecordingUrls) $ \(ext, url) -> do
              res <- E.runExceptT $ do
                manager <- lift $ fmap (^. katipEnv . httpReqManager) ask
                file_resp <- liftIO $ Request.make url manager [] HTTP.methodGet (Left (Nothing @()))
                file <- E.withExceptT NetworkFailure $ E.except file_resp
-               let (mime, exts) = extractMIMEandExts url
+               let mime = defaultMimeLookup ".mp3"
                usere <- lift $ transactionM hasql $ statement User.Survey.getUserByAppIdent recordConnectionId
                (user, surveyTitle) <- fmap (first AuthenticatedUser) $ E.except $ maybeToRight UserMissing $ usere
               
                let fileTitle = surveyTitle <> "_" <> recordCallLegId
-               file_id <- commitToMinio user file mime "telnyx" exts fileTitle
-               for file_id $ \[ident] -> do
-                 lift $ transactionM hasql $ do
-                   statement User.Survey.insertVoiceTelnyx (recordConnectionId, recordCallLegId, coerce ident)
-                   statement User.Survey.updateAppPhoneCall $ app3 (const status) (encodeRecord record)
+               file_id <- commitToMinio user file mime "telnyx" [ext] fileTitle
+               for file_id $ \[ident] -> lift $ do
+                  transactionM hasql $ statement User.Survey.insertVoiceTelnyx (recordCallLegId, coerce ident)
+                  transactionM hasql $ statement User.Survey.checkAfterWebhook recordConnectionId
+             when (isLeft res) $ $(logTM) ErrorS (logStr @String ($location <> " (record case) --> record case has failed, error: " <> show res))
 
-             when (isLeft res) $ $(logTM) ErrorS (logStr @String ($location <> " --> record case has failed, error: " <> show res))
-            
-           $(logTM) InfoS $ logStr $ $location <> " ---> record received " <> show record
+           whenLeft res $ const $ $(logTM) ErrorS $ logStr $ $location <> " (record case) ---> url broken " <> show getPayload
+
+           $(logTM) InfoS $ logStr $ $location <> " (record case) ---> record received " <> show record
   when (isLeft res) $ $(logTM) CriticalS $ logStr $ $location <> " ---> parse error: " <> show res

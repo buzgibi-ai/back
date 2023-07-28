@@ -7,6 +7,7 @@
 {-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Buzgibi.Api.CallApi (Api, ApiCfg (..), IsApi (..), methodPost, callApi) where
@@ -29,6 +30,7 @@ import Control.Monad (join)
 import Katip
 import Data.Foldable (foldl')
 import Network.HTTP.Client.MultipartFormData (Part)
+import BuildInfo (location)
 
 type family Api (api :: Symbol) (req :: Type) (resp :: Type) :: Constraint
 
@@ -59,9 +61,10 @@ callApi ApiCfg {..} request method queryXs onError onOk = do
   let url | length queryXs > 0 = foldl' reduce url_tmp queryXs
           | otherwise = url_tmp
   let authH = (hAuthorization, toS ("Bearer " <> getKey cfg))
-  let contTypeH = (hContentType, "application/json")
+  let contTypeH = (hContentType, either (const "application/json") (const "multipart/form-data") request)
 
-  logger DebugS $ logStr $ "Buzgibi.Api.CallApi: url ----> " <> url
+  logger DebugS $ logStr @String $ $location <> ": auth header ----> " <> toS (show authH)
+  logger DebugS $ logStr @String $ $location <> ": url ----> " <> toS (show url)
 
   resp <- fmap (join . first (toS . show)) $ try @HttpException $ 
             Request.make @b url manager [authH, contTypeH] method $ first Just request

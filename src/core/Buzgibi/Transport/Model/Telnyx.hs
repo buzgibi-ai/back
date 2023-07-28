@@ -123,17 +123,10 @@ instance FromJSON CallResponseData where
 data CallResponse =
      CallResponse
      {
-      callResponseRecordType :: !T.Text,
-      -- ID that is unique to the call session and can be used to correlate webhook events. 
-      -- Call session is a group of related call legs that 
-      -- logically belong to the same phone call, e.g. an inbound and outbound leg of a transferred call
-      callResponseCallSessionId :: !T.Text,
       -- ID that is unique to the call and can be used to correlate webhook events
       callResponseCallLegId :: !T.Text,
       -- Unique identifier and token for controlling the call.
-      callResponseCallControlId :: !T.Text,
-      -- Indicates whether the call is alive or not. For Dial command it will always be false (dialing is asynchronous).
-      callResponseIsAlive :: !Bool
+      callResponseCallControlId :: !T.Text
      } 
      deriving stock (Generic)
      deriving
@@ -145,7 +138,7 @@ data CallResponse =
 mkEncoder ''CallResponse
 mkArbitrary ''CallResponse
 
-encodeCallResponse :: CallResponse -> (T.Text, T.Text, T.Text, T.Text, Bool)
+encodeCallResponse :: CallResponse -> (T.Text, T.Text)
 encodeCallResponse = fromMaybe (error "cannot encode CallResponse") . mkEncoderCallResponse
 
 instance ParamsShow CallResponse where
@@ -219,8 +212,7 @@ data CallPayload = HangupWrapper Hangup | AnsweredWrapper Answered | RecordWrapp
 data Hangup =
      Hangup
      { hangupConnectionId :: T.Text,
-       hangupFrom :: T.Text,
-       hangupTo :: T.Text,
+       hangupCallLegId :: T.Text,
        hangupHangupCause :: HangupCause
      } 
      deriving stock (Generic, Show)
@@ -230,13 +222,7 @@ data Hangup =
           '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor Hangup)]]
           Hangup
 
-data Answered = 
-     Answered 
-     { answeredConnectionId :: T.Text,
-       answeredCallControlId :: T.Text,
-       answeredFrom :: T.Text,
-       answeredTo :: T.Text
-     }
+data Answered = Answered { answeredCallControlId :: T.Text, answeredCallLegId :: T.Text }
      deriving stock (Generic)
      deriving
      (ToJSON, FromJSON)
@@ -270,10 +256,10 @@ mkArbitrary ''Answered
 mkEncoder ''Record
 mkArbitrary ''Record
 
-encodeHangup :: Hangup -> (T.Text, T.Text, T.Text, HangupCause)
+encodeHangup :: Hangup -> (T.Text, T.Text, HangupCause)
 encodeHangup = fromMaybe (error "cannot encode Hangup") . mkEncoderHangup
 
-encodeAnswered :: Answered -> (T.Text, T.Text, T.Text, T.Text)
+encodeAnswered :: Answered -> (T.Text, T.Text)
 encodeAnswered = fromMaybe (error "cannot encode Answered") . mkEncoderAnswered
 
 encodeRecord :: Record -> (T.Text, T.Text, Payload)

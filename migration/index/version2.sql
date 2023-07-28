@@ -1,13 +1,16 @@
-create schema if not exists storage;
-create table storage.file (
+create schema if not exists auth;
+create table auth.user (
     id bigserial primary key,
-    title text not null,
-    mime text not null,
-    hash text not null,
+    email text not null,
+    pass text not null,
     created timestamptz not null default now(),
     modified timestamptz,
-    bucket text not null default 'default',
-    deleted timestamptz,
-    is_deleted bool not null default false,
-    exts json,
-    constraint "file__hash_unique" unique ("hash"));
+    constraint email__uk unique (email));
+
+create table auth.jwt (
+    user_id bigserial not null,
+    jwt text not null,
+    created timestamptz not null default now(),
+    is_valid boolean not null default true,
+    constraint auth_user__fk foreign key (user_id)
+    references auth.user(id));

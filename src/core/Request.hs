@@ -35,7 +35,7 @@ make url manager headers method bodye = do
                   fromMaybe mempty $ 
                     fmap encode body
             }
-        Right parts -> formDataBody parts req_tmp
+        Right parts -> formDataBody parts req_tmp { HTTP.requestHeaders = headers }
  response <- flip HTTP.httpLbs manager =<< req
  let response_status = HTTP.statusCode $ HTTP.responseStatus response
  let response_body = toS $ HTTP.responseBody response

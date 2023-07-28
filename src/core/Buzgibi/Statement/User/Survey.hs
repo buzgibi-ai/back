@@ -6,6 +6,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
@@ -31,8 +32,6 @@ module Buzgibi.Statement.User.Survey
     insertTelnyxApp,
     getPhonesToCall,
     insertAppCall,
-    insertAppPhoneCall,
-    updateAppPhoneCall,
     CallStatus (..),
     getUserByAppIdent,
     insertVoiceTelnyx,
@@ -45,12 +44,15 @@ module Buzgibi.Statement.User.Survey
     getSurveyForReport,
     saveReport,
     SurveyForReportItem (..),
-    invalidatePhones, 
-    PhoneToCall (..)
+    invalidatePhones,
+    PhoneToCall (..),
+    updateAppCall,
+    insertHangupCall,
+    checkAfterInvalidate,
+    checkAfterWebhook
   ) where
 
 
-import Buzgibi.Transport.Model.Telnyx (CallResponse, encodeCallResponse)
 import Data.Int (Int64, Int32)
 import qualified Data.Text as T
 import Hasql.TH
@@ -75,9 +77,9 @@ import Data.Aeson.Generic.DerivingVia
 data Status = 
      Received | 
      ProcessedByBark | 
-     PickedByTelnyx | 
-     ProcessedByTelnyx | 
-     CallMadeByTelnyx |
+     PickedByTelnyx |
+     PhonesPickedForCallByTelnyx |
+     ProcessedByTelnyx |
      TranscriptionsDoneOpenAI |
      SentimentalAnalysisDoneOpenAI |
      SurveyProcessed | 
@@ -89,7 +91,7 @@ instance Show Status where
     show ProcessedByBark = "processed by bark" 
     show PickedByTelnyx = "telnyx app is created"
     show ProcessedByTelnyx = "processed by telnyx"
-    show CallMadeByTelnyx = "call made by telnyx"
+    show PhonesPickedForCallByTelnyx = "phones picked for calling"
     show TranscriptionsDoneOpenAI = "transcriptions are finished"
     show SentimentalAnalysisDoneOpenAI = "sentimental analysis is finished"
     show SurveyProcessed = "processed"
@@ -242,7 +244,7 @@ insertBark =
         (insert into foreign_api.bark
          (req, bark_status, bark_ident)
          values ($1 :: jsonb, $2 :: text, $3 :: text)
-         on conflict on constraint bark__bark_ident_unique do
+         on conflict on constraint bark__bark_ident_uq do
          update set
            bark_status = excluded.bark_status,
            bark_ident = foreign_api.bark.bark_ident 
@@ -250,7 +252,7 @@ insertBark =
       insert into customer.survey_bark
       (survey_id, bark_id)
       select $4 :: int8, ident :: int8 from bark
-      on conflict on constraint survey_bark__survey_bark do nothing|]
+      on conflict on constraint survey_bark__survey_bark_uq do nothing|]
 
 updateBark :: HS.Statement (T.Text, BarkStatus) ()
 updateBark = 
@@ -402,27 +404,16 @@ getSurveyForTelnyxApp =
 
 insertTelnyxApp :: HS.Statement (Int64, T.Text, T.Text) ()
 insertTelnyxApp =
-  lmap (toS (show PickedByTelnyx) `snocT`)
+  lmap (snocT (toS (show PickedByTelnyx)))
   [resultlessStatement|
     with 
       survey as (
         update customer.survey
         set survey_status = $4 :: text
-        where id = $1 :: int8),
-      app as (
-        insert into foreign_api.telnyx_app 
-        (telnyx_ident, application_name) 
-        values ($3 :: text, $2 :: text)
-        returning id :: int8)
-      insert into customer.phone_telnyx_app
-      (telnyx_id, phone_id)
-      select 
-        (select * from app) :: int8,
-        sp.id :: int8
-      from customer.survey as s 
-      inner join customer.survey_phones as sp
-      on s.id = sp.survey_id
-      where s.id = $1 :: int8|]
+        where id = $1 :: int8)
+    insert into foreign_api.telnyx_app 
+    (telnyx_ident, application_name) 
+    values ($3 :: text, $2 :: text)|]
 
 data PhoneToCall = PhoneToCall { phoneToCallIdent :: Int64, phoneToCallPhone :: T.Text }
      deriving stock (Generic)
@@ -453,49 +444,12 @@ getPhonesToCall =
     on b.bark_id = vsl.bark_id
     inner join customer.survey_phones as sp
     on s.id = sp.survey_id
-    inner join customer.phone_telnyx_app as pt
-    on sp.id = pt.phone_id
     inner join foreign_api.telnyx_app as t
-    on pt.telnyx_id = t.id
+    on t.survey_id = s.id
     where s.survey_status = $1 :: text
     group by t.id, t.telnyx_ident, vsl.share_link_url|]
 
-insertAppCall :: HS.Statement (Int64, [CallResponse]) ()
-insertAppCall = 
-  lmap (\(x, y) -> snocT (toS (show CallMadeByTelnyx)) $ x `consT` V.unzip5 (V.fromList (map encodeCallResponse y))) $ 
-  [resultlessStatement|
-    with call as 
-     (insert into foreign_api.telnyx_app_call
-      (telnyx_app_id, record_type, call_session_id, call_leg_id, call_control_id, is_alive)
-      select 
-        $1 :: int8,
-        record_type :: text, 
-        call_session_id :: text, 
-        call_leg_id :: text, 
-        call_control_id :: text, 
-        is_alive :: boolean
-      from unnest(
-        $2 :: text[], 
-        $3 :: text[], 
-        $4 :: text[], 
-        $5 :: text[], 
-        $6 :: bool[])
-        as x(record_type, call_session_id, call_leg_id, call_control_id, is_alive))
-    update customer.survey
-    set survey_status = $7 :: text
-    where id = 
-      (select 
-        distinct s.id
-      from customer.survey as s
-      inner join customer.survey_phones as sp
-      on s.id = sp.survey_id
-      inner join customer.phone_telnyx_app as pt
-      on sp.id = pt.phone_id
-      inner join foreign_api.telnyx_app as t
-      on pt.telnyx_id = t.id
-      where t.id = $1 :: int8)|]
-
-data CallStatus = Hangup | Answered | Recorded | UrlLinkBroken
+data CallStatus = Init | CallMade | Hangup | Answered | Recorded
      deriving Generic
      deriving Show
 
@@ -507,88 +461,65 @@ mkArbitrary ''CallStatus
 instance ParamsShow CallStatus where
     render = show
 
-insertAppPhoneCall :: HS.Statement (T.Text, T.Text, T.Text, Maybe T.Text, CallStatus) ()
-insertAppPhoneCall =
-  lmap(\x -> snocT (toS (show ProcessedByTelnyx)) (x & _5 %~ (T.pack . show))) $
+insertAppCall :: HS.Statement [(Int64, T.Text, T.Text)] ()
+insertAppCall = 
+  lmap (snocT (toS (show CallMade)) . V.unzip3 . V.fromList) $ 
   [resultlessStatement|
-    with 
-      phone as (
-        insert into foreign_api.telnyx_app_call_phone
-        (telnyx_app_call_id, call_from, call_to, call_hangup_cause, call_status)
-        select 
-          app.id :: int8,
-          $2 :: text,
-          $3 :: text,
-          $4 :: text?,
-          $5 :: text
-        from foreign_api.telnyx_app as app
-        inner join foreign_api.telnyx_app_call as call
-        on app.id = call.telnyx_app_id
-        where app.telnyx_ident = $1 :: text),
-      survey as (
-        select
-         distinct s.id
-        from customer.survey as s
-        inner join customer.survey_phones as sp
-        on sp.survey_id = s.id
-        inner join customer.phone_telnyx_app as pt
-        on sp.id = pt.phone_id
-        inner join foreign_api.telnyx_app as ta
-        on pt.telnyx_id = ta.id
-        where ta.telnyx_ident = $1 :: text)
-    update customer.survey 
-    set survey_status = $6 :: text
-    where 
-      id = (select * from survey) and 
-      (select 
-        count(
-         case when tacp.call_status = null then 0
-         else 1
-         end) > 0
-       from customer.survey_phones as sp
-       left join foreign_api.telnyx_app_call_phone as tacp
-       on sp.phone = tacp.call_to
-       where sp.survey_id = (select * from survey))|]
+     insert into customer.call_telnyx_app
+     (phone_id, call_leg_id, call_control_id, call_status)
+     select
+       ident,
+       call_leg_id_value, 
+       call_control_id_value,
+       $4 :: text
+     from unnest($1 :: int8[], $2 :: text[], $3 :: text[])
+       as x(ident, call_leg_id_value, call_control_id_value)
+     on conflict (call_leg_id) do nothing|]
 
-updateAppPhoneCall :: HS.Statement (T.Text, T.Text, CallStatus) ()
-updateAppPhoneCall =
-  lmap(\x -> snocT (toS (show ProcessedByTelnyx)) (x & _3 %~ (T.pack . show))) $
+updateAppCall ::  HS.Statement (T.Text, T.Text) ()
+updateAppCall = 
   [resultlessStatement|
-    with 
-      phone as (
-        update foreign_api.telnyx_app_call_phone
-        set call_status = $3 :: text
-        where 
-          telnyx_app_call_id = (
-          select app.id :: int8
-          from foreign_api.telnyx_app as app
-          inner join foreign_api.telnyx_app_call as call
-          on app.id = call.telnyx_app_id
-          where app.telnyx_ident = $1 :: text and call.call_leg_id = $2 :: text)),
-      survey as (
-        select
-         distinct s.id
-        from customer.survey as s
-        inner join customer.survey_phones as sp
-        on sp.survey_id = s.id
-        inner join customer.phone_telnyx_app as pt
-        on sp.id = pt.phone_id
-        inner join foreign_api.telnyx_app as ta
-        on pt.telnyx_id = ta.id
-        where ta.telnyx_ident = $1 :: text)
-    update customer.survey 
-    set survey_status = $4 :: text
-    where 
-      id = (select * from survey) and 
-      (select 
-        count(
-         case when tacp.call_status = null then 0
-         else 1
-         end) > 0
-       from customer.survey_phones as sp
-       left join foreign_api.telnyx_app_call_phone as tacp
-       on sp.phone = tacp.call_to
-       where sp.survey_id = (select * from survey))|]
+     update customer.call_telnyx_app
+     set call_status = $1 :: text
+     where call_leg_id = $2 :: text|]
+
+insertHangupCall :: HS.Statement (T.Text, T.Text) ()
+insertHangupCall =
+  lmap (snocT (toS (show Hangup)))
+  [resultlessStatement|
+    update customer.call_telnyx_app
+    set call_status = $3 :: text,
+        call_hangup_cause = $2 :: text 
+    where call_leg_id = $1 :: text|]
+
+checkAfterWebhook ::  HS.Statement T.Text ()
+checkAfterWebhook =
+  lmap ((,toS (show ProcessedByTelnyx), toS (show Fail)))
+  [resultlessStatement|
+    with survey as (
+      select 
+        s.id,
+        count(*) as all_calls,
+        count(cta.invalid) +
+        count(cta.call_hangup_cause) as error_calls,
+        count(cta.voice_id) as ok_calls
+      from customer.survey as s
+      inner join foreign_api.telnyx_app as ta
+      on s.id = ta.survey_id
+      inner join customer.survey_phones as sp
+      on sp.survey_id = s.id
+      inner join customer.call_telnyx_app as cta
+      on cta.phone_id = sp.id
+      where ta.telnyx_ident = $1 :: text
+      group by s.id)
+    update customer.survey
+    set survey_status = 
+          case
+            when (select all_calls = error_calls from survey) then $3 :: text 
+            when (select all_calls = error_calls + ok_calls from survey) then $2 :: text
+            else survey_status
+          end  
+    where id = (select id from survey)|]
 
 getUserByAppIdent :: HS.Statement T.Text (Maybe (Int64, T.Text))
 getUserByAppIdent = 
@@ -600,36 +531,19 @@ getUserByAppIdent =
      from auth.user as u
      inner join customer.survey as s
      on u.id = s.user_id
-     inner join customer.survey_phones as sp
-     on sp.survey_id = s.id
-     inner join customer.phone_telnyx_app as pt
-     on sp.id = pt.phone_id
      inner join foreign_api.telnyx_app as ta
-     on pt.telnyx_id = ta.id
+     on ta.survey_id = s.id
      where ta.telnyx_ident = $1 :: text
      group by u.id, s.id|]
 
-insertVoiceTelnyx :: HS.Statement (T.Text, T.Text, Int64) ()
+insertVoiceTelnyx :: HS.Statement (T.Text, Int64) ()
 insertVoiceTelnyx = 
+  lmap (snocT (toS (show Recorded)))
   [resultlessStatement|
-    with 
-      telnyx_phone as (
-        select
-          sp.id :: int8 as phone_id,
-          ta.id :: int8 as app_id
-        from customer.survey_phones as sp
-        inner join foreign_api.telnyx_app_call_phone as tacp
-        on sp.phone = tacp.call_to
-        inner join foreign_api.telnyx_app_call as tac
-        on tacp.telnyx_app_call_id = tac.id
-        inner join foreign_api.telnyx_app as ta
-        on tac.telnyx_app_id = ta.id
-        where ta.telnyx_ident = $1 :: text and tac.call_leg_id = $2 :: text)
-    update customer.phone_telnyx_app
-    set voice_id = $3 :: int8
-    where 
-      telnyx_id = (select app_id from telnyx_phone) and 
-      phone_id = (select phone_id from telnyx_phone)|]
+     update customer.call_telnyx_app
+     set call_status = $3 :: text,
+         voice_id = $2 :: int8 
+     where call_leg_id = $1 :: text|]
 
 data OpenAITranscription = 
      OpenAITranscription 
@@ -637,7 +551,7 @@ data OpenAITranscription =
        openAITranscriptionVoiceBucket :: T.Text,
        openAITranscriptionVoiceHash :: T.Text,
        openAITranscriptionVoiceTitle :: T.Text,
-       openAITranscriptionVoiceExt :: [T.Text]
+       openAITranscriptionVoiceExts :: [T.Text]
      } 
      deriving stock (Generic)
      deriving
@@ -656,8 +570,8 @@ getSurveysForTranscription =
         'phone_ident', sp.id :: int8,
         'voice_bucket', f.bucket,
         'voice_hash', f.hash,
-        'title', f.title,
-        'voice_exts', 
+        'voice_title', f.title,
+        'voice_exts',
          array(
           select 
             trim(both '"' from cast(el as text)) 
@@ -666,11 +580,12 @@ getSurveysForTranscription =
     from customer.survey as s
     inner join customer.survey_phones as sp
     on s.id = sp.survey_id
-    inner join customer.phone_telnyx_app as apt
-    on sp.id = apt.phone_id
+    inner join customer.call_telnyx_app as cta
+    on sp.id = cta.phone_id
     inner join storage.file as f
-    on apt.voice_id = f.id
-    where s.survey_status = $1 :: text group by s.id|]
+    on cta.voice_id = f.id
+    where s.survey_status = $1 :: text 
+    group by s.id|]
 
 data OpenAISA = 
      OpenAISA
@@ -703,31 +618,33 @@ insertTranscription :: HS.Statement (Int64, [(Int64, T.Text)]) ()
 insertTranscription = 
   lmap (\(x, y) -> snocT (toS (show TranscriptionsDoneOpenAI)) $ consT x $ V.unzip $ V.fromList y) $
   [resultlessStatement|
-    with 
-      phones as (  
+    with
+      transcrip as (
         insert into customer.phone_transcription
         (survey_id, phone_id, transcription)
         select $1 :: int8, phone_id, res
         from unnest( $2 :: int8[], $3 :: text[]) 
-        as x(phone_id, res))
+        as x(phone_id, res)
+        returning 1 :: int4)
     update customer.survey 
     set survey_status = $4 :: text
-    where id = $1 :: int8|]
+    where id = $1 :: int8 and (select (count(*) > 0) :: bool from transcrip)|]
 
 insertSA :: HS.Statement (Int64, [(Int64, T.Text)]) ()
 insertSA = 
   lmap (\(x, y) -> snocT (toS (show SentimentalAnalysisDoneOpenAI)) $ consT x $ V.unzip $ V.fromList y) $
   [resultlessStatement|
     with 
-      phones as (  
+      analysis as (  
         insert into customer.phone_sentiment_analysis
         (survey_id, phone_id, result)
         select $1 :: int8, phone_id, res
         from unnest( $2 :: int8[], $3 :: text[]) 
-        as x(phone_id, res))
+        as x(phone_id, res)
+        returning 1 :: int4)
     update customer.survey 
     set survey_status = $4 :: text
-    where id = $1 :: int8|]
+    where id = $1 :: int8 and (select (count(*) > 0) :: bool from analysis)|]
 
 data SurveyForReportItem =
      SurveyForReportItem
@@ -743,29 +660,9 @@ data SurveyForReportItem =
 
 getSurveyForReport :: HS.Statement () [(Int64, Int64, [Value])]
 getSurveyForReport =
-  dimap (const (toS (show SentimentalAnalysisDoneOpenAI), toS (show Fail))) (V.toList . fmap (second V.toList)) $
+  dimap (const (toS (show Fail), toS (show SentimentalAnalysisDoneOpenAI))) (V.toList . fmap (second V.toList)) $
   [vectorStatement|
     with 
-      success_report as (
-        select
-          distinct on (s.id, u.id)
-          s.id :: int8 as survey_id,
-          u.id :: int8 as user_id,
-          array_agg(jsonb_build_object(
-            'phone', sp.phone,
-            'result', coalesce(psa.result, sp.is_invalid))) :: jsonb[] as v
-        from auth.user as u
-        inner join customer.survey as s
-        on u.id = s.user_id
-        inner join customer.survey_phones as sp
-        on s.id = sp.survey_id
-        left join customer.phone_sentiment_analysis as psa
-        on sp.id = psa.phone_id
-        where s.survey_status = $1 :: text and 
-              (select report_id 
-               from customer.survey_files 
-               where survey_id = s.id) is null
-        group by u.id, s.id),
       failure_report as (
         select
           distinct on (s.id, u.id)
@@ -773,28 +670,57 @@ getSurveyForReport =
           u.id :: int8 as user_id,
           array_agg(jsonb_build_object(
             'phone', sp.phone,
-            'result', sp.is_invalid)) :: jsonb[] as v
+            'result', coalesce(
+              cta.invalid, 
+              trim(both '"' from cta.call_hangup_cause)))) :: jsonb[] as v
         from auth.user as u
         inner join customer.survey as s
         on u.id = s.user_id
         inner join customer.survey_phones as sp
         on s.id = sp.survey_id
+        inner join customer.call_telnyx_app as cta 
+        on cta.phone_id= sp.id
+        where s.survey_status = $1 :: text and
+              (select report_id 
+               from customer.survey_files 
+               where survey_id = s.id) is null
+        group by u.id, s.id),
+      success_report as (
+        select
+          distinct on (s.id, u.id)
+          s.id :: int8 as survey_id,
+          u.id :: int8 as user_id,
+          array_agg(jsonb_build_object(
+            'phone', sp.phone,
+            'result', coalesce(
+              psa.result,
+              cta.invalid, 
+              trim(both '"' from cta.call_hangup_cause)))) :: jsonb[] as v
+        from auth.user as u
+        inner join customer.survey as s
+        on u.id = s.user_id
+        inner join customer.survey_phones as sp
+        on s.id = sp.survey_id
+        inner join customer.call_telnyx_app as cta 
+        on cta.phone_id= sp.id
+        left join customer.phone_sentiment_analysis as psa
+        on psa.phone_id = sp.id
         where s.survey_status = $2 :: text and
               (select report_id 
                from customer.survey_files 
                where survey_id = s.id) is null
         group by u.id, s.id)
-    (select 
-       survey_id :: int8, 
-       user_id :: int8, 
-       v :: jsonb[]
-     from success_report) 
-    union 
-    (select 
+    select 
        survey_id :: int8, 
        user_id :: int8, 
        v :: jsonb[] 
-     from failure_report)|]
+     from failure_report
+     union 
+     select 
+       survey_id :: int8, 
+       user_id :: int8, 
+       v :: jsonb[] 
+     from success_report|]
 
 saveReport :: HS.Statement (Int64, Int64) ()
 saveReport =
@@ -803,43 +729,48 @@ saveReport =
     with report as (
       update customer.survey_files 
       set report_id = $2 :: int8
-      where survey_id = $1 :: int8)
+      where survey_id = $1 :: int8
+      returning 1 :: int4)
     update customer.survey
     set survey_status = $3 :: text
-    where id = $1 :: int8|]
+    where id = $1 :: int8 and (select (count(*) > 0) :: bool from report)|]
 
-invalidatePhones :: HS.Statement [(Int64, T.Text)] ()
+invalidatePhones :: HS.Statement [(Int64, T.Text)] Int64
 invalidatePhones =
-  lmap (snocT (toS (show Fail)) . V.unzip . V.fromList)
+  lmap (V.unzip . V.fromList)
+  [singletonStatement|
+      with invalid as 
+        (insert into customer.call_telnyx_app
+         (phone_id, invalid)
+         select ident, reason
+         from unnest($1 :: int8[], $2 :: text[]) 
+           as phones(ident, reason))
+      select
+        distinct s.id :: int8
+      from customer.survey as s
+      inner join customer.survey_phones as sp
+      on s.id = sp.survey_id
+      where sp.id = any($1 :: int8[])|]
+
+checkAfterInvalidate ::  HS.Statement Int64 ()
+checkAfterInvalidate =
+  lmap ((,toS (show PhonesPickedForCallByTelnyx), toS (show Fail)))
   [resultlessStatement|
-    with invalid as 
-      (update customer.survey_phones
-       set is_invalid = phones.reason
-       from unnest($1 :: int8[], $2 :: text[]) 
-       as phones(ident, reason)
-       where id = phones.ident),
-      survey as (
+    with survey as (
        select
          s.id,
-         count(
-           case 
-             when cp.is_invalid is null 
-             then 0
-             else 1
-           end) as invalid,
-         count (*) as cnt
+         (count(cta.invalid) = count(*)) :: bool as all_invalid
        from customer.survey as s
        inner join customer.survey_phones as cp
        on s.id = cp.survey_id
-       where s.id =
-          (select 
-            distinct s.id
-           from customer.survey as s
-           inner join customer.survey_phones as cp
-           on s.id = cp.survey_id
-           where cp.id = any($1 :: int8[]))
-        group by s.id)
+       inner join customer.call_telnyx_app as cta
+       on cp.id = cta.phone_id
+       where s.id = $1 :: int8
+       group by s.id)
     update customer.survey 
-    set survey_status = $3 :: text
-    where id = (select id from survey) and 
-          ((select invalid from survey) = (select cnt from survey))|]
+    set survey_status = 
+         case 
+           when (select all_invalid from survey) then $3 :: text
+           else $2 :: text
+         end
+    where id = (select id from survey)|]

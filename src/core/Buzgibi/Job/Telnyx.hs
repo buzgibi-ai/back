@@ -18,6 +18,7 @@ import Buzgibi.Statement.User.Survey
         getPhonesToCall, 
         insertAppCall,
         invalidatePhones,
+        checkAfterInvalidate,
         PhoneToCall (..))
 import Buzgibi.Api.CallApi.Instance ()        
 import Buzgibi.EnvKeys (Telnyx (..))
@@ -41,6 +42,7 @@ import qualified Data.Text as T
 import Data.Aeson (eitherDecode, encode)
 import Data.Traversable (for)
 import Data.Either.Combinators (whenLeft)
+import Data.Tuple.Extended (consT)
 
 data TelnyxCfg =
      TelnyxCfg 
@@ -81,9 +83,9 @@ makeApp TelnyxCfg {..} = forever $ do
           \(app, _) -> pure $ (ident, title,) $ coerce app
 
     let (errXs, appXs) = partitionEithers resp
-    for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ " app for " <> show ident <> " hasn't been created, error --> " <> toS e
+    for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ $location <> " app for " <> show ident <> " hasn't been created, error --> " <> toS e
     
-    logger InfoS $ logStr $ "apps for the following surveys " <> show appXs <> " are about to be added"
+    logger InfoS $ logStr $ $location <> "apps for the following surveys " <> show appXs <> " are about to be added"
     for_ appXs $ transaction pool logger . statement insertTelnyxApp
 
 
@@ -110,11 +112,12 @@ makeCall TelnyxCfg {..} = forever $ do
                 }
           callApi @"calls" @CallRequest @CallResponseData 
             (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (phoneToCallIdent,)) $ 
-              \(call, _) -> pure $ coerce call
+              \(call, _) -> pure $ consT phoneToCallIdent $ encodeCallResponse (coerce call)
   
         let (errXs, callXs) = partitionEithers resp
-        for_ errXs $ \e -> logger ErrorS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)
-        transaction pool logger $ statement insertAppCall (ident, callXs)
-        transaction pool logger $ statement invalidatePhones errXs
+        for_ errXs $ \e -> logger ErrorS $ logStr $ $location <> " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)
+        transaction pool logger $ statement insertAppCall callXs
+        surveyId <- transaction pool logger $ statement invalidatePhones errXs
+        transaction pool logger $ statement checkAfterInvalidate surveyId
 
-      whenLeft decodeRes $ \e -> logger CriticalS $ logStr $ " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)
+      whenLeft decodeRes $ \e -> logger CriticalS $ logStr $ $location <> " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)
