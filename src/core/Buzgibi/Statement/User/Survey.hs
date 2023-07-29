@@ -115,6 +115,7 @@ instance FromJSON Status where
       "sentimental analysis is finished" -> pure SentimentalAnalysisDoneOpenAI
       "processed" -> pure SurveyProcessed
       "fail" -> pure Fail
+      "phones picked for calling" -> pure PhonesPickedForCallByTelnyx
       str -> fail $ toS str <> " doesn't fall into Status type"
 
 mkArbitrary ''Status
