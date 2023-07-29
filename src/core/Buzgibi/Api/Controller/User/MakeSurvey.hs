@@ -42,7 +42,7 @@ import Data.Traversable (for)
 import Data.Coerce (coerce)
 import qualified Control.Concurrent.Lifted as Concurrent (fork)
 import Data.Foldable (for_)
-import Control.Monad (join, msum)
+import Control.Monad (join, msum, (<=<))
 import qualified Request as Request (make)
 import qualified Network.HTTP.Types as HTTP
 import Buzgibi.EnvKeys (url, version, key)
@@ -68,13 +68,19 @@ instance Show Error where
   show InsertionFail = "new enquiry entry cannot be fulfilled"
   show (File e) = e
 
-data FileError = File404 | MinioError String | CsvFormatError | NotCsv
+data FileError = 
+      File404 | 
+      MinioError String | 
+      CsvFormatError | 
+      NotCsv | 
+      EmptyFileDetected
 
 instance Show FileError where
   show File404 = "file_404"
   show (MinioError e) = e
   show CsvFormatError = "csv_format_error"
   show NotCsv = "not_csv"
+  show EmptyFileDetected = "csv_is_empty"
 
 data Location = Location
   { locationLatitude :: Double,
@@ -120,10 +126,8 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
       phoneXsE <- assignPhonesToSurvey hasql minioConn $ head surveyPhonesFileIdent
 
       case phoneXsE of 
-        Left e@File404 -> pure $ Right (undefined, [asError @T.Text (toS (show e))])
-        Left e@CsvFormatError -> pure $ Right (undefined, [asError @T.Text (toS (show e))])
-        Left e@NotCsv -> pure $ Right (undefined, [asError @T.Text (toS (show e))])
         Left (MinioError e) -> pure $ Left $ File e
+        Left error -> pure $ Right (undefined, [asError @T.Text (toS (show error))])
         Right phoneRecordXs -> do
           let survey = 
                 def { 
@@ -244,7 +248,12 @@ assignPhonesToSurvey hasql minio fileIdent = do
                     Conduit..| 
                     Conduit.sinkSystemTempFile
                     (toS name <> "_" <> tm <> "." <> toS ext)
-            let mkRecords bytes = 
-                  msum $ flip map delimiters $ \del -> 
-                    decodeWith @PhoneRecord defaultDecodeOptions { decDelimiter = fromIntegral (ord del)} NoHeader bytes     
-            liftIO $ fmap (first (const CsvFormatError) . mkRecords) $ BL.readFile path
+            let mkRecords bytes =
+                  first (const CsvFormatError) $
+                    msum $ flip map delimiters $ \del ->
+                      decodeWith @PhoneRecord defaultDecodeOptions { decDelimiter = fromIntegral (ord del)} NoHeader bytes
+            let analyseForEmpty xs
+                  | not (V.null xs) = Right xs
+                  | otherwise = Left EmptyFileDetected
+            let nonEmpty (PhoneRecord _ _ phone) = not $ T.null phone
+            liftIO $ fmap ((analyseForEmpty . V.filter nonEmpty) <=< mkRecords) $ BL.readFile path
