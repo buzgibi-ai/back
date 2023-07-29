@@ -113,19 +113,21 @@ deriveToSchemaFieldLabelModifier ''Location [|modify (Proxy @Location)|]
 deriveToSchemaFieldLabelModifier ''Survey [|modify (Proxy @Survey)|]
 
 controller :: AuthenticatedUser -> Survey -> KatipControllerM (Response ())
-controller _ Survey {surveySurvey} | T.length surveySurvey == 0 = return $ Error $ asError @T.Text "empty survey"
+controller _ Survey {surveySurvey} 
+  | T.length surveySurvey == 0 = return $ Warnings () [asError @T.Text "empty_survey"]
+  | T.length surveySurvey > 5 = return $ Warnings () [asError @T.Text "survey_truncated_to_180"]
 controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentScore, surveyPhonesFileIdent,  surveyLocation = Location {..}} = do
   $(logTM) DebugS (logStr ("survey ---> " <> show survey))
   barkm <- fmap (^. katipEnv . bark) ask
   manager <- fmap (^. katipEnv . httpReqManager) ask
-  resp <- fmap (join .  maybeToRight BarkCredentials404) $ 
+  resp <- fmap (join .  maybeToRight BarkCredentials404) $
     for barkm $ \bark -> do 
       hasql <- fmap (^. katipEnv . hasqlDbPool) ask
       Minio {..} <- fmap (^. katipEnv . minio) ask
 
       phoneXsE <- assignPhonesToSurvey hasql minioConn $ head surveyPhonesFileIdent
 
-      case phoneXsE of 
+      case phoneXsE of
         Left (MinioError e) -> pure $ Left $ File e
         Left error -> pure $ Right (undefined, [asError @T.Text (toS (show error))])
         Right phoneRecordXs -> do
@@ -172,7 +174,7 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                           mkBark (Bark.responseIdent resp) Survey.BarkSent
                     Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
                 Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
-          let truncatedTo30 = if V.length phoneRecordXs > 30 then [asError @T.Text "truncated_to_30"] else mempty     
+          let truncatedTo30 = if V.length phoneRecordXs > 30 then [asError @T.Text "truncated_to_30"] else mempty
           return $ maybeToRight InsertionFail $ fmap (, truncatedTo30) identm
   return $ withErrorExt resp $ const ()
 
