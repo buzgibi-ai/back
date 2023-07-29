@@ -27,7 +27,7 @@ data Page = PageHome | PageAuth
 instance Default Page where
   def = PageHome
 
-data Menu = MenuHome | MenuSignUp | MenuSignIn
+data Menu = MenuHome | MenuSignUp | MenuSignIn | MenuHistory | MenuMakeSurvey
   deriving stock (Generic)
   deriving (Enum)
 
