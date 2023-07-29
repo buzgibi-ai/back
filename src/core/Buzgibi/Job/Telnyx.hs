@@ -118,6 +118,6 @@ makeCall TelnyxCfg {..} = forever $ do
         for_ errXs $ \e -> logger ErrorS $ logStr $ $location <> " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)
         transaction pool logger $ statement insertAppCall callXs
         surveyId <- transaction pool logger $ statement invalidatePhones errXs
-        transaction pool logger $ statement checkAfterInvalidate surveyId
+        for_ surveyId $ transaction pool logger . statement checkAfterInvalidate
 
       whenLeft decodeRes $ \e -> logger CriticalS $ logStr $ $location <> " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)

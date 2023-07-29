@@ -464,18 +464,29 @@ instance ParamsShow CallStatus where
 
 insertAppCall :: HS.Statement [(Int64, T.Text, T.Text)] ()
 insertAppCall = 
-  lmap (snocT (toS (show CallMade)) . V.unzip3 . V.fromList) $ 
+  lmap (snocT (toS (show PhonesPickedForCallByTelnyx)) . V.unzip4 . V.fromList . map (snocT (toS (show CallMade)))) $ 
   [resultlessStatement|
-     insert into customer.call_telnyx_app
-     (phone_id, call_leg_id, call_control_id, call_status)
-     select
-       ident,
-       call_leg_id_value, 
-       call_control_id_value,
-       $4 :: text
-     from unnest($1 :: int8[], $2 :: text[], $3 :: text[])
-       as x(ident, call_leg_id_value, call_control_id_value)
-     on conflict (call_leg_id) do nothing|]
+     with call as (  
+       insert into customer.call_telnyx_app
+       (phone_id, call_leg_id, call_control_id, call_status)
+       select
+         ident,
+         call_leg_id_value, 
+         call_control_id_value,
+         call_made_status
+       from unnest($1 :: int8[], $2 :: text[], $3 :: text[], $4 :: text[])
+         as x(ident, call_leg_id_value, call_control_id_value, call_made_status)
+       on conflict (call_leg_id) do nothing
+       returning phone_id :: int8 as ident)
+     update customer.survey 
+     set survey_status = $5 :: text
+     where id =
+        (select 
+           distinct s.id
+         from customer.survey as s
+         inner join customer.survey_phones as p
+         on s.id = p.survey_id
+         where p.id in (select * from call))|]
 
 updateAppCall ::  HS.Statement (T.Text, T.Text) ()
 updateAppCall = 
@@ -736,16 +747,16 @@ saveReport =
     set survey_status = $3 :: text
     where id = $1 :: int8 and (select (count(*) > 0) :: bool from report)|]
 
-invalidatePhones :: HS.Statement [(Int64, T.Text)] Int64
+invalidatePhones :: HS.Statement [(Int64, T.Text)] (Maybe Int64)
 invalidatePhones =
-  lmap (snocT (toS (show Invalid)) . V.unzip . V.fromList)
-  [singletonStatement|
-      with invalid as 
+  lmap (V.unzip3 . V.fromList . map (snocT (toS (show Invalid))))
+  [maybeStatement|
+      with invalid as
         (insert into customer.call_telnyx_app
          (phone_id, invalid, call_status)
-         select ident, reason, $3 :: text
-         from unnest($1 :: int8[], $2 :: text[]) 
-           as phones(ident, reason))
+         select ident, reason, invalid_status
+         from unnest($1 :: int8[], $2 :: text[], $3 :: text[]) 
+           as phones(ident, reason, invalid_status))
       select
         distinct s.id :: int8
       from customer.survey as s
