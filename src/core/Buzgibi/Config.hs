@@ -74,7 +74,6 @@ import Data.Aeson.TH.Extended
 import Data.String.Conv
 import Data.Swagger (ToSchema)
 import qualified Data.Text as T
-import Data.Time.Clock
 import Data.Yaml
 import GHC.Generics
 import TH.Mk
@@ -93,7 +92,7 @@ data Swagger = Swagger {swaggerHost :: String, swaggerPort :: Maybe Int}
 
 data HasqlSettings = HasqlSettings
   { hasqlSettingsPoolN :: !Int,
-    hasqlSettingsTm :: !NominalDiffTime,
+    hasqlSettingsTm :: !Double,
     hasqlSettingsResPerStripe :: !Int
   }
   deriving (Show)

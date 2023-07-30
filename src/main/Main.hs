@@ -61,6 +61,7 @@ import qualified Text.Read.Lex as L
 import Crypto.JOSE.JWK (genJWK, KeyMaterialGenParam( RSAGenParam ))
 import Control.Monad.IO.Class
 
+
 data PrintCfg = Y | N deriving stock (Generic)
 
 instance Show PrintCfg where
@@ -182,14 +183,14 @@ main = do
           (x ^. database . stext . textbs)
 
   hasqlpool <-
-    Pool.createPool
-      ( HasqlConn.acquire (mkRawConn (cfg ^. db))
-          >>= either (throwIO . ErrorCall . maybe "hasql connection error" (^. from textbs . from stext)) pure
+    Pool.newPool $
+      Pool.defaultPoolConfig
+      (do connRes <- HasqlConn.acquire (mkRawConn (cfg ^. db))
+          case connRes of Left e -> error $ show e; Right conn -> pure conn
       )
       HasqlConn.release
-      (cfg ^. hasql . poolN)
-      (cfg ^. hasql . tm)
-      (cfg ^. hasql . resPerStripe)
+      (cfg^.hasql.tm)
+      (cfg^.hasql.resPerStripe)
 
   std <-
     mkHandleScribeWithFormatter
@@ -225,9 +226,10 @@ main = do
   minioEnv <-
     flip Minio.mkMinioConn manager $
       Minio.setCreds
-        ( Minio.Credentials
-            (cfg ^. Buzgibi.Config.minio . accessKey)
-            (cfg ^. Buzgibi.Config.minio . secretKey)
+        ( Minio.CredentialValue
+            (fromString (cfg^.Buzgibi.Config.minio.accessKey.from stext))
+            (fromString (cfg^.Buzgibi.Config.minio.secretKey.from stext))
+            Nothing
         )
         (fromString (cfg ^. Buzgibi.Config.minio . host <> ":" <> cfg ^. Buzgibi.Config.minio . port))
 
