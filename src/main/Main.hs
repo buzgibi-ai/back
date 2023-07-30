@@ -60,6 +60,7 @@ import Text.ParserCombinators.ReadPrec (pfail)
 import qualified Text.Read.Lex as L
 import Crypto.JOSE.JWK (genJWK, KeyMaterialGenParam( RSAGenParam ))
 import Control.Monad.IO.Class
+import qualified Data.Map.Strict as Map
 
 
 data PrintCfg = Y | N deriving stock (Generic)
@@ -206,14 +207,15 @@ main = do
 
   mapM_ (`hSetEncoding` utf8) [stdout, stderr, fileHdl]
 
+  let mkNm = Namespace [("<" ++ $(gitCommit) ++ ">") ^. stext]
+  init_env <- initLogEnv mkNm (cfg ^. katip . Buzgibi.Config.env . isoEnv . stext . coerced)
+
   file <-
     mkHandleScribe
       (ColorLog True)
       fileHdl
       (permitItem (cfg ^. katip . severity . from stringify))
       (cfg ^. katip . verbosity . from stringify)
-  let mkNm = Namespace [("<" ++ $(gitCommit) ++ ">") ^. stext]
-  init_env <- initLogEnv mkNm (cfg ^. katip . Buzgibi.Config.env . isoEnv . stext . coerced)
 
   manager <-
     Http.newTlsManagerWith
@@ -251,9 +253,16 @@ main = do
         registerScribe "stdout" std defaultScribeSettings init_env >>=
           registerScribe "file" file defaultScribeSettings >>=
             registerScribe "minio" minioScribe defaultScribeSettings >>=
-              registerScribe "telegram" telegramScribe defaultScribeSettings { _scribeBufferSize = 10 }
+              registerScribe "telegram" telegramScribe defaultScribeSettings
 
   unEnv <- env
+  
+  print "------ katip scribes: start ------"
+  print $ Map.keys $ unEnv^.logEnvScribes
+  print "------ katip scribes: end ------"
+
+  print "------ server is about to run --------"
+
   let appCfg =
         App.Cfg
         { cfgHost = cfg ^. swagger . host . coerced,
@@ -293,5 +302,6 @@ main = do
             katipEnvWebhook = cfg^.webhook
          }
 
+  let shutdownMsg = print "------ server is shut down --------"
   let runApp le = runKatipContextT le (mempty @LogContexts) mempty $ App.run appCfg
-  bracket env closeScribes $ void . (\x -> evalRWST (App.runAppMonad x) katipEnv def) . runApp
+  bracket env (flip (>>) shutdownMsg . closeScribes) $ void . (\x -> evalRWST (App.runAppMonad x) katipEnv def) . runApp
