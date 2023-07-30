@@ -16,6 +16,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Buzgibi.Api.Controller.User.MakeSurvey (controller, Survey, PhoneRecord (..)) where
 
@@ -60,6 +61,8 @@ import Data.Csv (FromRecord, ToRecord, decodeWith, HasHeader (NoHeader), DecodeO
 import Data.Char (ord)
 import qualified Data.Vector as V
 import Data.Monoid (All (..))
+import qualified Text.RE.PCRE.Text as RE
+import BuildInfo (location)
 
 data Error = BarkCredentials404 | InsertionFail | File String
 
@@ -115,7 +118,7 @@ deriveToSchemaFieldLabelModifier ''Survey [|modify (Proxy @Survey)|]
 controller :: AuthenticatedUser -> Survey -> KatipControllerM (Response ())
 controller _ Survey {surveySurvey} 
   | T.length surveySurvey == 0 = return $ Warnings () [asError @T.Text "empty_survey"]
-  | T.length surveySurvey > 5 = return $ Warnings () [asError @T.Text "survey_truncated_to_180"]
+  | T.length surveySurvey > 180 = return $ Warnings () [asError @T.Text "survey_truncated_to_180"]
 controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentScore, surveyPhonesFileIdent,  surveyLocation = Location {..}} = do
   $(logTM) DebugS (logStr ("survey ---> " <> show survey))
   barkm <- fmap (^. katipEnv . bark) ask
@@ -145,35 +148,39 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
           identm <- transactionM hasql $ statement Survey.insert survey
           for_ identm $ \survey_ident -> 
             Concurrent.fork $ do
-              let phoneXs = V.take 30 $ flip fmap phoneRecordXs $ \PhoneRecord {..} -> phoneRecordPhone
+              let validateNumber number = RE.matched $ number RE.?=~ [RE.re|^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$|]
+                  phoneXs = V.take 30 $ flip fmap phoneRecordXs $ \PhoneRecord {..} -> 
+                    (phoneRecordPhone, validateNumber phoneRecordPhone)
               -- parse file and assign phones to survey
-              transactionM hasql $ statement Survey.insertPhones (survey_ident, phoneXs)
+              isPhonesOk <- transactionM hasql $ statement Survey.insertPhones (survey_ident, phoneXs)
 
-              webhook <- fmap (^. katipEnv . webhook) ask
-
-              resp <- liftIO $ 
-                Request.make
-                  (bark^.url) manager 
-                  [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
-                  HTTP.methodPost $ 
-                  Left (Just (mkReq webhook (bark^.version) surveySurvey))
-              let mkBark ident st = 
-                    Survey.Bark {
-                      Survey.barkReq = toJSON $ mkReq webhook (bark^.version) surveySurvey,
-                      Survey.barkStatus = st,
-                      Survey.barkIdent = ident,
-                      Survey.barkSurveyId = survey_ident
-                    }
-              case resp of
-                Right (resp, _) -> do 
-                  let bark_resp = eitherDecodeStrict @Bark.Response resp
-                  case bark_resp of 
-                    Right resp -> 
-                      transactionM hasql $ 
-                        statement Survey.insertBark $
-                          mkBark (Bark.responseIdent resp) Survey.BarkSent
-                    Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
-                Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
+              if isPhonesOk 
+              then do
+                     webhook <- fmap (^. katipEnv . webhook) ask
+                     resp <- liftIO $ 
+                       Request.make
+                        (bark^.url) manager 
+                        [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
+                        HTTP.methodPost $ 
+                        Left (Just (mkReq webhook (bark^.version) surveySurvey))
+                     let mkBark ident st = 
+                            Survey.Bark {
+                              Survey.barkReq = toJSON $ mkReq webhook (bark^.version) surveySurvey,
+                              Survey.barkStatus = st,
+                              Survey.barkIdent = ident,
+                              Survey.barkSurveyId = survey_ident
+                            }
+                     case resp of
+                       Right (resp, _) -> do 
+                         let bark_resp = eitherDecodeStrict @Bark.Response resp
+                         case bark_resp of 
+                           Right resp -> 
+                            transactionM hasql $ 
+                              statement Survey.insertBark $
+                                mkBark (Bark.responseIdent resp) Survey.BarkSent
+                           Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
+                       Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
+              else  $(logTM) InfoS $ logStr @String $ $location <> " all phones are invalid. skip"
           let truncatedTo30 = if V.length phoneRecordXs > 30 then [asError @T.Text "truncated_to_30"] else mempty
           return $ maybeToRight InsertionFail $ fmap (, truncatedTo30) identm
   return $ withErrorExt resp $ const ()

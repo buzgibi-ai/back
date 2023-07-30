@@ -196,6 +196,7 @@ library:
     - cassava
     - xlsx
     - conduit-extra
+    - regex-with-pcre
 
   source-dirs:
     - src/core

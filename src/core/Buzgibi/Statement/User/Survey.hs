@@ -339,12 +339,26 @@ getPhoneMeta =
     on sf.phones_id = f.id
     where sf.survey_id = $1 :: int8|]
 
-insertPhones :: HS.Statement (Int64, V.Vector T.Text) ()
+insertPhones :: HS.Statement (Int64, V.Vector (T.Text, Bool)) Bool
 insertPhones =
-  [resultlessStatement|
-    insert into customer.survey_phones
-    (survey_id, phone)
-    select $1 :: int8, phone :: text from unnest($2 :: text[]) phone|]
+  lmap (\(x, y) -> snocT (toS (show Fail)) $ consT x $ V.unzip y) $
+  [singletonStatement|
+    with phones as (
+      insert into customer.survey_phones
+      (survey_id, phone, is_valid_number)
+      select $1 :: int8, phone :: text, is_valid_number :: bool
+      from unnest($2 :: text[], $3 :: bool[]) 
+        x(phone, is_valid_number)
+      returning is_valid_number as valid)
+    update customer.survey
+    set survey_status = 
+         case
+           when (select count(case when valid then 0 end) = count(*) from phones)
+           then $4 :: text
+           else survey_status
+         end
+    where id = $1 :: int8
+    returning (select count(case when valid then 1 end) > 0 from phones) :: bool|]
 
 getVoiceObject :: HS.Statement T.Text (Maybe (T.Text, T.Text, T.Text, [T.Text]))
 getVoiceObject = 
@@ -448,7 +462,7 @@ getPhonesToCall =
     on s.id = sp.survey_id
     inner join foreign_api.telnyx_app as t
     on t.survey_id = s.id
-    where s.survey_status = $1 :: text
+    where s.survey_status = $1 :: text and sp.is_valid_number
     group by t.id, t.telnyx_ident, vsl.share_link_url|]
 
 data CallStatus = Invalid | CallMade | Hangup | Answered | Recorded
@@ -683,15 +697,22 @@ getSurveyForReport =
           u.id :: int8 as user_id,
           array_agg(jsonb_build_object(
             'phone', sp.phone,
-            'result', coalesce(
-              cta.invalid, 
-              trim(both '"' from cta.call_hangup_cause)))) :: jsonb[] as v
+            'result', 
+              case 
+                when not sp.is_valid_number
+                then 'phone is invalid'
+                else            
+                  coalesce(
+                    cta.invalid, 
+                    trim(both '"' from cta.call_hangup_cause))
+              end      
+          )) :: jsonb[] as v
         from auth.user as u
         inner join customer.survey as s
         on u.id = s.user_id
         inner join customer.survey_phones as sp
         on s.id = sp.survey_id
-        inner join customer.call_telnyx_app as cta 
+        left join customer.call_telnyx_app as cta 
         on cta.phone_id= sp.id
         where s.survey_status = $1 :: text and
               (select report_id 
