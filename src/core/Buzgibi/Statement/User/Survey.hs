@@ -315,7 +315,7 @@ getHistory =
          on sf.report_id = f.id
          where p.user_id = $1 :: int8
          group by f.id, e.survey, e.created, e.survey_status
-         order by f.id desc),
+         order by e.created desc),
       total as (select count(*) from tbl),
       history as (select * from tbl offset (($2 :: int4 - 1) * 10) limit 10)
     select 
