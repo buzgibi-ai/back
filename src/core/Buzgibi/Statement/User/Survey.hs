@@ -353,12 +353,12 @@ insertPhones =
     update customer.survey
     set survey_status = 
          case
-           when (select count(case when valid then 0 end) = count(*) from phones)
-           then $4 :: text
-           else survey_status
+           when (select bool_or(valid) from phones)
+           then survey_status
+           else $4 :: text
          end
     where id = $1 :: int8
-    returning (select count(case when valid then 1 end) > 0 from phones) :: bool|]
+    returning (select bool_or(valid) from phones) :: bool|]
 
 getVoiceObject :: HS.Statement T.Text (Maybe (T.Text, T.Text, T.Text, [T.Text]))
 getVoiceObject = 
