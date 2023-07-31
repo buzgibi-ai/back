@@ -1,1 +1,1 @@
-alter table foreign_api.bark add column duration float8;
+alter table foreign_api.bark add column duration decimal(10,2);
