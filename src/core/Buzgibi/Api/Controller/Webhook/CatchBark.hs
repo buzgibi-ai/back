@@ -84,7 +84,8 @@ controller payload = do
            minio_res <- for file_id $ \([ident], duration) -> do
              Minio {..} <- lift $ fmap (^. katipEnv . minio) ask 
              lift $ transactionM hasql $ do
-               statement Survey.insertVoiceBark (Bark.responseIdent resp, Survey.BarkProcessed, coerce ident, Survey.ProcessedByBark, toS duration)
+               let durationf = read @Double $ toS duration
+               statement Survey.insertVoiceBark (Bark.responseIdent resp, Survey.BarkProcessed, coerce ident, Survey.ProcessedByBark, durationf)
                res <- makeSharableLink minioConn $ Bark.responseIdent resp
                when (isLeft res) $ throwError $ QueryError mempty mempty $ ClientError (Just (fromLeft' res))
            E.except minio_res
