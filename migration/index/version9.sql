@@ -1,0 +1,1 @@
+alter table foreign_api.bark add column duration float8;

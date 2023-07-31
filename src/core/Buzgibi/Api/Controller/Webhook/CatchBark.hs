@@ -43,6 +43,9 @@ import qualified Network.Minio as Minio
 import Control.Monad.Error.Class (throwError)
 import Hasql.Session (QueryError (..), CommandError (..))
 import Data.String (fromString)
+import System.Process (readProcess)
+import BuildInfo (location)
+import Data.String.Conv (toS)
 
 data Error = 
      OutputIsMissing | 
@@ -78,10 +81,10 @@ controller payload = do
            user <- fmap AuthenticatedUser $ E.except $ maybeToRight UserMissing $ usere
 
            file_id <- commitToMinio user file mime "bark" exts $ Bark.responseIdent resp
-           minio_res <- for file_id $ \[ident] -> do
+           minio_res <- for file_id $ \([ident], duration) -> do
              Minio {..} <- lift $ fmap (^. katipEnv . minio) ask 
              lift $ transactionM hasql $ do
-               statement Survey.insertVoiceBark (Bark.responseIdent resp, Survey.BarkProcessed, coerce ident, Survey.ProcessedByBark)
+               statement Survey.insertVoiceBark (Bark.responseIdent resp, Survey.BarkProcessed, coerce ident, Survey.ProcessedByBark, toS duration)
                res <- makeSharableLink minioConn $ Bark.responseIdent resp
                when (isLeft res) $ throwError $ QueryError mempty mempty $ ClientError (Just (fromLeft' res))
            E.except minio_res
@@ -96,7 +99,9 @@ commitToMinio user (file, _) mime bucket extXs name
       tmp <- liftIO getTemporaryDirectory
       let filePath = tmp </> T.unpack (mkHash file)
       liftIO $ B.writeFile filePath file
-      lift $ fmap (first (MinioError . show) . join . Right . toEither) $ 
+      duration <- liftIO $ readProcess "buzgibi-audio-file-duration" [filePath] mempty
+      $(logTM) InfoS $ logStr $ $location <> " bark file " <> file <> " is " <> toS duration <> "s in length"
+      lift $ fmap (bimap (MinioError . show) (,duration) . join . Right . toEither) $ 
         File.Upload.controller user bucket $ 
           Files [File name (mime^.from textbs) filePath extXs]
   | otherwise = error $ "not supported mime type: " <> show mime

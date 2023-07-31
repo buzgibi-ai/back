@@ -42,6 +42,7 @@ RUN . /home/nix/.nix-profile/etc/profile.d/nix.sh && \
      --verbose --command \ 
      "./scripts/api-generator.sh ./openapi/sendgrid-openapiv3.yaml SendGrid sendgrid . && \
      ./scripts/api-generator.sh ./openapi/bark-openapiv3.yaml Bark bark . && \
+      g++ -o ./bin/buzgibi-audio-file-duration caudio/AudioFile.h caudio/duration.cpp && \
       stack install --system-ghc --fast -j12 --test"
 
 FROM base as main
@@ -52,10 +53,11 @@ ARG env_yaml
 ENV MUTE_500 ${mute_500}
 ENV YAML_ENV ${env_yaml}
 
-
 EXPOSE 12000/tcp
 
 WORKDIR /server
+
+ENV PATH="${PATH}:/server/bin"
 
 COPY --from=server-build --chown=nix:nix /build/bin /server/bin
 COPY --from=server-build --chown=nix:nix /build/deploy /server/deploy

@@ -25,7 +25,7 @@ gitCommit :: ExpQ
 gitCommit = lift $ unsafePerformIO $ (head . lines) `fmap` readProcess "git" ["log", "-1", "--format=%h"] mempty
 
 gitTag :: ExpQ
-gitTag = lift $ unsafePerformIO $ fromMaybe "-" . listToMaybe . lines <$> readProcess "git" ["tag", "--list", "--sort=-creatordate"] ""
+gitTag = lift $ unsafePerformIO $ fromMaybe "-" . listToMaybe . lines <$> readProcess "git" ["tag", "--list", "--sort=-creatordate"] mempty
 
 location :: ExpQ
 location = [|fromString $((LitE . StringL . loc_module) `fmap` qLocation)|]

@@ -107,7 +107,7 @@ controller payload@Payload {..} = do
               
                let fileTitle = surveyTitle <> "_" <> recordCallLegId
                file_id <- commitToMinio user file mime "telnyx" [ext] fileTitle
-               for file_id $ \[ident] -> lift $ do
+               for file_id $ \([ident], _) -> lift $ do
                   transactionM hasql $ statement User.Survey.insertVoiceTelnyx (recordCallLegId, coerce ident)
                   transactionM hasql $ statement User.Survey.checkAfterWebhook recordConnectionId
              when (isLeft res) $ $(logTM) ErrorS (logStr @String ($location <> " (record case) --> record case has failed, error: " <> show res))
