@@ -263,7 +263,7 @@ updateBark =
     set bark_status = $2 :: text, modified = now() 
     where bark_ident = $1 :: text|]
 
-insertVoiceBark :: HS.Statement (T.Text, BarkStatus, Int64, Status) ()
+insertVoiceBark :: HS.Statement (T.Text, BarkStatus, Int64, Status, T.Text) ()
 insertVoiceBark =
   lmap (\x -> x & _2 %~ (T.pack . show) & _4 %~ (T.pack . show)) $ 
   [resultlessStatement|
@@ -279,7 +279,8 @@ insertVoiceBark =
       bark as 
       (update foreign_api.bark
        set bark_status = $2 :: text, 
-           modified = now() 
+           modified = now(),
+           duration = trunc(cast ($5 :: text as decimal), 2)
        where bark_ident = $1 :: text
        returning id :: int8 as ident),
       survey_bark as 
