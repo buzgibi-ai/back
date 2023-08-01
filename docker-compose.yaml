@@ -37,6 +37,7 @@ services:
       - ${HOME}/env.yaml:/server/env.yaml
       - ${HOME}/config.yaml:/server/deploy/config.yaml
       - ${PWD}/deploy/init.sh:/server/deploy/init.sh
+      - ${HOME}/jwk:/server/deploy/jwk
     networks:
       buzgibi:
          ipv4_address: 192.168.22.6

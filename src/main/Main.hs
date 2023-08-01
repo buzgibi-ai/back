@@ -58,10 +58,12 @@ import System.FilePath.Posix
 import System.IO
 import Text.ParserCombinators.ReadPrec (pfail)
 import qualified Text.Read.Lex as L
-import Crypto.JOSE.JWK (genJWK, KeyMaterialGenParam( RSAGenParam ))
+import Crypto.JOSE.JWK (JWK)
 import Control.Monad.IO.Class
 import qualified Data.Map.Strict as Map
-
+import qualified Data.ByteString.Lazy as B
+import Data.Either.Combinators (whenLeft)
+import Data.Aeson (eitherDecode')
 
 data PrintCfg = Y | N deriving stock (Generic)
 
@@ -87,7 +89,7 @@ data Cmd w = Cmd
     localhost :: w ::: Maybe String <?> "override db host if needed, used along with port",
     localport :: w ::: Maybe Int <?> "override db port if needed",
     pathToKatip :: w ::: Maybe FilePath <?> "path to katip log",
-    pathToJwk :: w ::: Maybe FilePath <?> "path to jwk",
+    pathToJwk :: w ::: FilePath <?> "path to jwk",
     minioHost :: w ::: Maybe String <?> "minio host",
     minioPort :: w ::: Maybe String <?> "minio port",
     swaggerHost :: w ::: Maybe String <?> "swagger host",
@@ -283,25 +285,32 @@ main = do
 
   let s@Buzgibi.Config.SendGrid {..} = cfg ^. Buzgibi.Config.sendGrid
 
-  jwk <- liftIO $ genJWK (RSAGenParam (4096 `div` 8))
+  jwke <- liftIO $ fmap (eitherDecode' @JWK) $ B.readFile pathToJwk
 
-  let katipMinio = Minio minioEnv (cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix)
-  let katipEnv = 
-        KatipEnv 
-         { katipEnvTerminal = term,
-           katipEnvHasqlDbPool = hasqlpool,
-            katipEnvHttpReqManager = manager,
-            katipEnvApiKeys = (cfg ^. service . coerced),
-            katipEnvMinio = katipMinio,
-            katipEnvSendGrid = fmap ((s,) . SendGrid.configure sendGridUrl) sendGridApiKey,
-            katipEnvCaptchaKey = envKeys >>= envKeysCaptchaKey,
-            katipEnvJwk = jwk,
-            katipEnvGithub = envKeys >>= envKeysGithub,
-            katipEnvBark = envKeys >>= envKeysBark,
-            katipEnvTelnyx = envKeys >>= envKeysTelnyx,
-            katipEnvWebhook = cfg^.webhook
-         }
+  jwkRes <- for jwke $ \jwk -> do
 
-  let shutdownMsg = print "------ server is shut down --------"
-  let runApp le = runKatipContextT le (mempty @LogContexts) mempty $ App.run appCfg
-  bracket env (flip (>>) shutdownMsg . closeScribes) $ void . (\x -> evalRWST (App.runAppMonad x) katipEnv def) . runApp
+    print "--------- jwk ------------"
+    print jwk
+
+    let katipMinio = Minio minioEnv (cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix)
+    let katipEnv = 
+          KatipEnv 
+          { katipEnvTerminal = term,
+            katipEnvHasqlDbPool = hasqlpool,
+              katipEnvHttpReqManager = manager,
+              katipEnvApiKeys = (cfg ^. service . coerced),
+              katipEnvMinio = katipMinio,
+              katipEnvSendGrid = fmap ((s,) . SendGrid.configure sendGridUrl) sendGridApiKey,
+              katipEnvCaptchaKey = envKeys >>= envKeysCaptchaKey,
+              katipEnvJwk = jwk,
+              katipEnvGithub = envKeys >>= envKeysGithub,
+              katipEnvBark = envKeys >>= envKeysBark,
+              katipEnvTelnyx = envKeys >>= envKeysTelnyx,
+              katipEnvWebhook = cfg^.webhook
+          }
+
+    let shutdownMsg = print "------ server is shut down --------"
+    let runApp le = runKatipContextT le (mempty @LogContexts) mempty $ App.run appCfg
+    bracket env (flip (>>) shutdownMsg . closeScribes) $ void . (\x -> evalRWST (App.runAppMonad x) katipEnv def) . runApp
+
+  whenLeft jwkRes $ print . ((<>) "jwk decode error")

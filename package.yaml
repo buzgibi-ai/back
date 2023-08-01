@@ -225,6 +225,9 @@ executables:
       - http-client-tls
       - filepath
       - jose
+      - bytestring
+      - either
+      - aeson
 
 tests:
   tasty:

@@ -13,7 +13,7 @@ echo 'launch server..'
     "$PWD/bin/buzgibi \
         --cfg_path deploy/config.yaml \
         --path_to_katip deploy \
-        --path_to_jwk deploy \
+        --path_to_jwk deploy/jwk \
         --print_cfg y \
         --env_path $env_file \
         --mute500 $mute500"
