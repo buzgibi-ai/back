@@ -21,28 +21,28 @@ import GHC.Generics (Generic)
 import TH.Mk
 
 data Page = PageHome | PageAuth
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving (Enum)
 
 instance Default Page where
   def = PageHome
 
 data Menu = MenuHome | MenuSignUp | MenuSignIn | MenuHistory | MenuMakeSurvey
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving (Enum)
 
 instance Default Menu where
   def = MenuSignUp
 
 data Resource = ResourceUser | ResourceStub
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving (Enum)
 
 instance Default Resource where
   def = ResourceUser
 
 data Endpoints = EndpointsMakeSurvey | EndpointsHistory
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving (Enum)
 
 instance Default Endpoints where

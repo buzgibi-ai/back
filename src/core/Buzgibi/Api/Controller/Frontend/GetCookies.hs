@@ -13,7 +13,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Buzgibi.Api.Controller.Frontend.GetCookies (controller, cookieTitle, Cookie) where
+module Buzgibi.Api.Controller.Frontend.GetCookies (controller, cookieTitle, Cookie, SameSiteOption) where
 
 import Buzgibi.Transport.Response (Response (..))
 import Control.Monad.IO.Class
@@ -40,8 +40,7 @@ data SameSiteOption
   = Lax
   | Strict
   | None
-  deriving stock (Generic)
-  deriving (Show, Eq)
+  deriving stock (Generic, Show, Eq)
 
 mkToSchemaAndJSON ''SameSiteOption
 
@@ -65,7 +64,7 @@ data Cookie = Cookie
     -- | The "same site" policy of the cookie, i.e. whether it should be sent with cross-site requests. Default value: @Nothing@
     cookieSameSite :: !(Maybe SameSiteOption)
   }
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving
     (ToJSON, FromJSON)
     via WithOptions

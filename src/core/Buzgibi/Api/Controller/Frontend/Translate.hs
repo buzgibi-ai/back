@@ -60,7 +60,7 @@ instance Default Lang where
   def = English
 
 data Map k v = Map {mapKey :: !k, mapValue :: !v}
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving
     (FromJSON, ToJSON)
     via WithOptions
@@ -95,7 +95,7 @@ data Translation = Translation
     translationResource :: ![Map Enum.Resource [Map T.Text T.Text]],
     translationEndpoints :: ![Map Enum.Endpoints [Map T.Text T.Text]]
   }
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving
     (FromJSON, ToJSON)
     via WithOptions

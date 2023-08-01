@@ -27,7 +27,7 @@ import GHC.Generics hiding (Meta)
 import Katip.Controller
 
 data Meta = Meta {description :: !T.Text, robot :: !(Maybe T.Text)}
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving
     (ToJSON, FromJSON)
     via WithOptions

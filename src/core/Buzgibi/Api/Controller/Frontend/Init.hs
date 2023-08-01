@@ -14,7 +14,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Buzgibi.Api.Controller.Frontend.Init (controller, Init) where
+module Buzgibi.Api.Controller.Frontend.Init (controller, Init, Env, JWTStatus) where
 
 import Buzgibi.Api.Controller.Frontend.GetCookies (cookieTitle)
 import Buzgibi.Api.Controller.Utils (ContentError (..), getContent, withError)
@@ -63,7 +63,7 @@ data Env = Env
     envLogLevel :: !T.Text,
     envIsTest :: !Bool 
   }
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving
     (ToJSON, FromJSON)
     via WithOptions
@@ -81,7 +81,7 @@ deriveToSchemaFieldLabelModifier
     |]
 
 data JWTStatus = Valid | Invalid | Skip
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving (Enum)
 
 instance Default JWTStatus where
@@ -99,7 +99,7 @@ data Init = Init
     env :: !(Maybe Env),
     isJwtValid :: !JWTStatus
   }
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving
     (ToJSON, FromJSON)
     via WithOptions

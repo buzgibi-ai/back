@@ -70,7 +70,7 @@ deriveToSchemaConstructorTag name modify =
     |]
 
 instance ToSchema DiffTime where
-  declareNamedSchema _ = pure $ NamedSchema (Just $ (show (typeRep @DiffTime)) ^. stext) $ toSchema (Proxy @Int)
+  declareNamedSchema _ = pure $ NamedSchema (Just $ (show (typeRep @DiffTime)) ^. stext) $ toSchema (Proxy @Double)
 
 modify :: forall a. Typeable a => Proxy a -> String -> String
 modify proxy =

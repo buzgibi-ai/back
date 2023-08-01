@@ -29,7 +29,7 @@ import Katip
 import Katip.Controller
 
 data FrontendLogRequest = FrontendLogRequest {build :: T.Text, payload :: Payload}
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving
     (ToJSON, FromJSON)
     via WithOptions
