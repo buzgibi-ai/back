@@ -17,9 +17,8 @@ import Buzgibi.Config (Email)
 import Buzgibi.Api.Frontend (FrontendApi)
 import Buzgibi.Api.Controller.Frontend.Log (FrontendLogRequest)
 import Buzgibi.Api.Controller.Frontend.Init (Init, Env, JWTStatus)
-import Buzgibi.Api.Controller.Frontend.Translate (Translation, Map (..))
+import Buzgibi.Transport.Model.Translation
 import Buzgibi.Api.Controller.Frontend.GetCookies (Cookie, SameSiteOption)
-import Buzgibi.Api.Controller.Frontend.Translate.Enum (Page, Menu, Resource, Endpoints)
 import Buzgibi.Api.Controller.Frontend.GetMeta (Meta)
 
 import Servant.API.Generic

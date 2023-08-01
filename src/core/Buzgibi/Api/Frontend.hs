@@ -8,11 +8,11 @@
 
 module Buzgibi.Api.Frontend (FrontendApi (..)) where
 
+import Buzgibi.Transport.Model.Translation (Lang, Translation)
 import Buzgibi.Api.Controller.Frontend.GetCookies (Cookie)
 import Buzgibi.Api.Controller.Frontend.GetMeta (Meta)
 import Buzgibi.Api.Controller.Frontend.Init (Init)
 import Buzgibi.Api.Controller.Frontend.Log (FrontendLogRequest)
-import Buzgibi.Api.Controller.Frontend.Translate hiding (controller)
 import Buzgibi.Transport.Model.User (AuthToken)
 import Buzgibi.Transport.Response (Response)
 import qualified Data.Text as T
