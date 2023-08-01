@@ -20,6 +20,7 @@ import Control.Lens hiding ((.=))
 import GHC.Exts
 import qualified Data.List as L
 import Data.String.Conv (toS)
+import Test.QuickCheck.Arbitrary
 
 -- | Injects field 'a' into 'b' with tag 's'. It has
 -- special instances for 'ToJSON' and 'FromJSON' for
@@ -86,3 +87,6 @@ instance (KnownSymbol s, ToSchema a, ToSchema b) => ToSchema (WithField s a b) w
         return $ NamedSchema (fmap (namePrefix <>) n) $ s
             & properties %~ (fromList [(field, Inline indexSchema)] <>)
             & required %~ ([field] <>)
+
+instance (Arbitrary a, Arbitrary b) => Arbitrary (WithField s a b) where 
+  arbitrary = WithField <$> arbitrary <*> arbitrary

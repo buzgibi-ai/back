@@ -61,7 +61,7 @@ mkToSchemaAndJSON name = do
   x <- deriveJSON' name
   y <- deriveToSchema name
   return $ x ++ y 
-
+ 
 mkToSchemaAndDefJSON :: Name -> Q [Dec]
 mkToSchemaAndDefJSON name = do
   x <-

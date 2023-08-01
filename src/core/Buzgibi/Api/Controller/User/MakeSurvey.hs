@@ -18,7 +18,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Buzgibi.Api.Controller.User.MakeSurvey (controller, Survey, PhoneRecord (..)) where
+module Buzgibi.Api.Controller.User.MakeSurvey (controller, Survey, PhoneRecord (..), Location (..)) where
 
 import qualified Buzgibi.Transport.Model.Bark as Bark
 import qualified Buzgibi.Statement.User.Survey as Survey

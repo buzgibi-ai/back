@@ -37,7 +37,7 @@ mkParamSchemaEnum ''AuthType [|isoAuthType . jsonb|]
 mkFromHttpApiDataEnum ''AuthType [|from stext . from isoAuthType . to Right|]
 
 newtype AuthToken = AuthToken Text
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving anyclass (ToParamSchema)
   deriving newtype (ToJSON, FromJSON)
 
@@ -51,7 +51,7 @@ instance ToSchema AuthToken where
         toSchema (Proxy @Text)
 
 data Credentials = Credentials {email :: Text, password :: Text}
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
   deriving
     (ToJSON, FromJSON)
     via WithOptions

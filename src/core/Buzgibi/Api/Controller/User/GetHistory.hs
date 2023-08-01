@@ -15,7 +15,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module Buzgibi.Api.Controller.User.GetHistory (controller, History) where
+module Buzgibi.Api.Controller.User.GetHistory (controller, History, Status (..), HistoryItem (..)) where
 
 import Buzgibi.Auth (AuthenticatedUser (..))
 import Buzgibi.Transport.Response
@@ -39,7 +39,7 @@ import Data.Aeson.WithField
 import Data.Bifunctor (first)
 
 data Status = InProcess | Done | Fail
-  deriving stock (Generic)
+  deriving stock (Generic, Show)
 
 mkToSchemaAndJSON ''Status
 
@@ -50,7 +50,7 @@ data HistoryItem =
         historyItemName :: !T.Text,
         historyItemTimestamp :: !UTCTime
      }
-     deriving stock (Generic)
+     deriving stock (Generic, Show)
      deriving
        (ToJSON, FromJSON)
        via WithOptions
@@ -66,7 +66,7 @@ data History =
         historyPerPage :: !Int32,
         historyItems :: ![WithField "status" Status HistoryItem]
      }
-     deriving stock (Generic)
+     deriving stock (Generic, Show)
      deriving
        (ToJSON, FromJSON)
        via WithOptions
