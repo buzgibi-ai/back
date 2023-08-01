@@ -35,7 +35,7 @@ import Control.DeepSeq (NFData)
 import Data.Text.Extended ()
 
 data Page = PageHome | PageAuth
-  deriving stock (Generic, Show)
+  deriving stock (Generic, Show, Eq, Ord)
   deriving (Enum)
 
 instance NFData Page
@@ -44,7 +44,7 @@ instance Default Page where
   def = PageHome
 
 data Menu = MenuHome | MenuSignUp | MenuSignIn | MenuHistory | MenuMakeSurvey
-  deriving stock (Generic, Show)
+  deriving stock (Generic, Show, Eq, Ord)
   deriving (Enum)
 
 instance NFData Menu
@@ -53,7 +53,7 @@ instance Default Menu where
   def = MenuSignUp
 
 data Resource = ResourceUser | ResourceStub
-  deriving stock (Generic, Show)
+  deriving stock (Generic, Show, Eq, Ord)
   deriving (Enum)
 
 instance NFData Resource
@@ -62,7 +62,7 @@ instance Default Resource where
   def = ResourceUser
 
 data Endpoints = EndpointsMakeSurvey | EndpointsHistory
-  deriving stock (Generic, Show)
+  deriving stock (Generic, Show, Eq, Ord)
   deriving (Enum)
 
 instance NFData Endpoints
@@ -83,7 +83,7 @@ mkToSchemaAndJSON ''Endpoints
 mkEnumConvertor ''Endpoints
 
 data Lang = English | Turkish
-  deriving stock (Generic)
+  deriving stock (Generic, Eq, Ord)
   deriving (Enum)
 
 instance NFData Lang
@@ -96,7 +96,7 @@ instance Default Lang where
   def = English
 
 data Map k v = Map {mapKey :: !k, mapValue :: !v}
-  deriving stock (Generic, Show)
+  deriving stock (Generic, Show, Eq, Ord)
   deriving
     (FromJSON, ToJSON)
     via WithOptions
@@ -134,7 +134,7 @@ data Translation = Translation
     translationResource :: ![Map Resource [Map T.Text T.Text]],
     translationEndpoints :: ![Map Endpoints [Map T.Text T.Text]]
   }
-  deriving stock (Generic, Show)
+  deriving stock (Generic, Show, Eq, Ord)
   deriving
     (FromJSON, ToJSON)
     via WithOptions

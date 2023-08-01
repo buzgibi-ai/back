@@ -19,7 +19,7 @@ module Katip.Controller
     KatipState (..),
     KatipLoggerIO,
     KatipLoggerLocIO,
-    State,
+    State (..),
     Minio (..),
 
     -- * lens
@@ -43,7 +43,8 @@ module Katip.Controller
 
    -- * State
    initState,
-   updateState,
+   stateToMap,
+   getState,
 
     -- * run
     runKatipController,
@@ -60,7 +61,7 @@ where
 
 import Buzgibi.Config (SendGrid)
 import Buzgibi.EnvKeys
-import Buzgibi.Transport.Model.Translation (Translation)
+import Buzgibi.Transport.Model.Translation (Translation, Lang(..))
 import Control.DeepSeq
 import Control.Lens
 import Control.Monad.Base (MonadBase)
@@ -87,6 +88,7 @@ import qualified Network.Minio as Minio
 import "sendgrid" OpenAPI.Common as SendGrid
 import Servant.Server (Handler)
 import Servant.Server.Internal.ServerError
+import qualified Data.Map.Strict as Map
 
 type KatipLoggerIO = Severity -> LogStr -> IO ()
 
@@ -114,9 +116,20 @@ newtype KatipLogger = KatipWriter [String]
   deriving newtype (Semigroup)
   deriving newtype (NFData)
 
-newtype KatipState = KatipState Int
-  deriving newtype (Default)
+newtype KatipState = KatipState { translations :: Map.Map Lang Translation }
   deriving newtype (NFData)
+
+instance Default KatipState where
+  def = KatipState Map.empty
+
+initState :: KatipState
+initState = KatipState $ Map.empty
+
+getState :: KatipState -> Map.Map Lang Translation
+getState (KatipState x) = x
+
+stateToMap :: [(Lang, Translation)] -> Map.Map Lang Translation
+stateToMap old = let new = Map.fromList $ force old in new
 
 data Config = Config
   { configNm :: !Namespace,
@@ -128,13 +141,7 @@ data Config = Config
 instance MonadTime Handler where
   currentTime = liftIO getCurrentTime
 
-newtype State = State { translation :: Translation }
-
-initState :: State
-initState = State def
-
-updateState :: Translation -> State -> State
-updateState old (State _) = let new = force old in State new
+newtype State = State (Map.Map Lang Translation)
 
 newtype KatipControllerWriter = KatipControllerWriter [String]
   deriving newtype (Monoid)
@@ -181,5 +188,7 @@ instance KatipContext KatipControllerM where
   getKatipNamespace = KatipControllerM $ asks configNm
   localKatipNamespace f (KatipControllerM m) = KatipControllerM (local (over nm f) m)
 
-runKatipController :: Config -> State -> KatipControllerM a -> Handler a
-runKatipController cfg st app = fmap fst (RWS.evalRWST (unwrap app) cfg st)
+runKatipController :: Config -> State -> KatipControllerM a -> Handler (a, State)
+runKatipController cfg st app = do 
+  (resp, st, _) <- RWS.runRWST (unwrap app) cfg st
+  pure (resp, st)

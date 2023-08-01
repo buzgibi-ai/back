@@ -69,6 +69,8 @@ import qualified Katip.Wai as Katip.Wai
 import Control.Monad.IO.Unlift (MonadUnliftIO (withRunInIO))
 import Data.Maybe (fromMaybe)
 import qualified Network.Minio as Minio
+import Control.Concurrent.MVar.Lifted
+import qualified Control.Monad.State.Class as S
 
 data Cfg = Cfg
   { cfgHost :: !String,
@@ -89,6 +91,7 @@ data Cfg = Cfg
 
 run :: Cfg -> KatipContextT AppM ()
 run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
+
   logger <- katipAddNamespace (Namespace ["application"]) askLoggerIO
 
   version_e <- liftIO getVersion
@@ -107,11 +110,18 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   let withSwagger :: Proxy a -> Proxy (a :<|> SwaggerSchemaUI "swagger" "swagger.json")
       withSwagger _ = Proxy
 
+  stateRef <- fmap getState S.get >>= newMVar
+
   let server =
         hoistServerWithContext
           (withSwagger api)
           (Proxy @'[CookieSettings, JWTSettings])
-          (runKatipController cfg initState)
+          (\controller -> do
+              (resp, State new) <- withMVar stateRef $ \ref -> 
+                runKatipController cfg (State ref) controller
+              modifyMVar_ stateRef $ \old -> 
+                pure $ if old /= new then new else old
+              return resp)
           ( toServant Controller.controller
               :<|> swaggerSchemaUIServerT
                 (swaggerHttpApi cfgHost cfgSwaggerPort ver)
