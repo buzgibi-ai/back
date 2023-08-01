@@ -24,6 +24,7 @@ module Buzgibi.Config
     Personalization (..),
     SendGrid (..),
     Email (..),
+    StdoutFormat (..),
     db,
     pass,
     port,
@@ -42,6 +43,7 @@ module Buzgibi.Config
     path,
     verbosity,
     severity,
+    stdoutFormat,
     env,
     service,
     accessKey,
@@ -103,11 +105,18 @@ mkEnumConvertor ''Env
 
 instance FromJSON Env where parseJSON = withText "Scaffold.Config:Env" (pure . toEnv . toS)
 
+data StdoutFormat = Json | Bracket deriving (Show, Eq)
+
+mkEnumConvertor ''StdoutFormat
+
+instance FromJSON StdoutFormat where parseJSON = withText "Scaffold.Config:StdoutFormat" (pure . toStdoutFormat . toS)
+
 data Katip = Katip
   { katipPath :: !FilePath,
     katipSeverity :: !String,
     katipVerbosity :: !String,
-    katipEnv :: !Env
+    katipEnv :: !Env,
+    katipStdoutFormat :: !StdoutFormat
   }
   deriving (Show)
 

@@ -22,6 +22,7 @@ configKatip:
   katipSeverity: DebugS
   katipVerbosity: V3
   katipEnv: dev
+  katipStdoutFormat: json
 
 configService:
   serviceApiKeys:

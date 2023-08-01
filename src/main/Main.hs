@@ -197,7 +197,9 @@ main = do
 
   std <-
     mkHandleScribeWithFormatter
-      jsonFormat
+      (if cfg^.katip.stdoutFormat == Json 
+       then jsonFormat 
+       else bracketFormat)
       ColorIfTerminal
       stdout
       (permitItem (cfg ^. katip . severity . from stringify))
