@@ -189,8 +189,7 @@ library:
     - http-conduit
     - sendgrid
     - github
-    - quickcheck-instances 
-    - bark
+    - quickcheck-instances
     - unliftio-core
     - katip-wai
     - cassava
