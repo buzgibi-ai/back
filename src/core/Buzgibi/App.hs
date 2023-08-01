@@ -111,7 +111,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
         hoistServerWithContext
           (withSwagger api)
           (Proxy @'[CookieSettings, JWTSettings])
-          (runKatipController cfg (KatipControllerState 0))
+          (runKatipController cfg initState)
           ( toServant Controller.controller
               :<|> swaggerSchemaUIServerT
                 (swaggerHttpApi cfgHost cfgSwaggerPort ver)
