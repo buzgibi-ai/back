@@ -8,7 +8,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE BangPatterns #-}
 
 module Katip.Scribes.Telegram (mkScribe) where
 
@@ -34,15 +33,14 @@ data Body = Body { chat_id :: String, text :: String, parse_mode :: String }
   deriving ToJSON
 
 mkScribe :: HTTP.Manager -> Telegram -> PermitFunc -> Verbosity -> IO Scribe
-mkScribe manager Telegram {..} _ verbosity = do
+mkScribe manager Telegram {..} permitF verbosity = do
   let finalize = return ()
   let bot = fromMaybe undefined telegramBot
   let url = telegramHost <> bot <> "/sendMessage"
   let split xs source | BL.length source < 4096 = source : xs
       split xs old = let (x, new) = BL.splitAt 4096 old in split (x : xs) new
   lock <- newMVar ()
-  let logger manager lock !item = do 
-        _ <- error "sdfv"
+  let logger manager lock item = do
         withMVar lock $ const $ do
           let msg = encodePretty (itemJson verbosity item) ^. from textbsl . from stext
           when (telegramEnv == Dev) $ do
@@ -54,4 +52,4 @@ mkScribe manager Telegram {..} _ verbosity = do
                       parse_mode = "markdown" 
                     }
               Request.make url manager mempty HTTP.methodPost $ Left $ Just body
-  return $ Scribe (logger manager lock) finalize (const (pure True))
+  return $ Scribe (logger manager lock) finalize permitF
