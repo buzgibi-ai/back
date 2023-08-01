@@ -33,6 +33,7 @@ import qualified Buzgibi.Api.Controller.User.GetProfile as User.GetProfile
 import qualified Buzgibi.Api.Controller.User.MakeSurvey  as User.MakeSurvey
 import qualified Buzgibi.Api.Controller.Webhook.CatchBark as Webhook.CatchBark
 import qualified Buzgibi.Api.Controller.Webhook.CatchTelnyx as Webhook.CatchTelnyx
+import qualified Buzgibi.Api.Controller.Webhook.CatchGit as Webhook.CatchGit 
 import qualified Buzgibi.Auth as Auth
 import Katip
 import Katip.Controller hiding (webhook)
@@ -193,6 +194,11 @@ webhook =
           . katipAddNamespace
             (Namespace ["webhook", "telnyx"])
           . Webhook.CatchTelnyx.controller
+    , _webhookApiGit = 
+        flip logExceptionM ErrorS
+          . katipAddNamespace
+            (Namespace ["webhook", "git"])
+          . Webhook.CatchGit.controller
     }
 
 captcha :: ReCaptchaApi (AsServerT KatipControllerM)

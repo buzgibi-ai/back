@@ -23,5 +23,10 @@ data WebhookApi route = WebhookApi
         :- "telnyx"
         :> ReqBody '[JSON] Payload
         :> Post '[JSON] ()
+  , _webhookApiGit ::
+      route
+        :- "git"
+        :> ReqBody '[JSON] Payload
+        :> Post '[JSON] ()      
   }
   deriving stock (Generic)
