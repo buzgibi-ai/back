@@ -196,6 +196,7 @@ library:
     - xlsx
     - conduit-extra
     - regex-with-pcre
+    - stm-chans
 
   source-dirs:
     - src/core

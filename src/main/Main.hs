@@ -292,7 +292,7 @@ main = do
   jwkRes <- for jwke $ \jwk -> do
 
     print "--------- jwk ------------"
-    print jwk
+    putStrLn $ (take 200 (show jwk)) <> ".... }"
 
     let katipMinio = Minio minioEnv (cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix)
     let katipEnv = 
