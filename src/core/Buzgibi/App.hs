@@ -145,8 +145,9 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   let multipartOpts =
         (defaultMultipartOptions (Proxy @Tmp))
           { generalOptions = 
-              clearMaxRequestNumFiles 
-                defaultParseRequestBodyOptions
+              clearMaxRequestNumFiles $ 
+                setMaxRequestKeyLength 100 
+                  defaultParseRequestBodyOptions
           }
   let mkCtx = multipartOpts :. formatters :. defaultJWTSettings (configKatipEnv ^. jwk) :. defaultCookieSettings :. EmptyContext
 
