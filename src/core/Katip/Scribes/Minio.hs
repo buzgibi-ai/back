@@ -20,6 +20,7 @@ import BuildInfo (location)
 import Data.Either.Combinators (whenLeft)
 import Data.Foldable (for_)
 import Data.Conduit.Combinators (sourceLazy)
+import Control.Concurrent (threadDelay)
 
 mkScribe :: MinioConn -> Text -> PermitFunc -> Verbosity -> IO Scribe
 mkScribe conn bucket permitF verbosity = do
@@ -31,6 +32,7 @@ mkScribe conn bucket permitF verbosity = do
         atomically $ logsQueue `writeTMQueue` msg
 
   worker <- async $ forever $ do
+      threadDelay (10 ^ 6)
       msgm <- atomically $ readTMQueue logsQueue
       for_ msgm $ \msg -> do
         resp <- runMinioWith conn $ do

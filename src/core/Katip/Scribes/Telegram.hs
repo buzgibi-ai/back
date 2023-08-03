@@ -26,6 +26,7 @@ import Data.Foldable (for_)
 import qualified Network.HTTP.Types as HTTP
 import GHC.Generics (Generic)
 import Data.Aeson (ToJSON)
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMQueue
 import Control.Concurrent.Async
@@ -58,6 +59,7 @@ mkScribe manager Telegram {..} permitF verbosity = do
   logsQueue <- newTMQueueIO
 
   worker <- async $ forever $ do
+      threadDelay (2 * 10 ^ 6)
       msgm <- atomically $ readTMQueue logsQueue
       for_ msgm $ \msg ->
         for_ ((reverse . split []) (toS msg)) $ \chunk -> do

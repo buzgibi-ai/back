@@ -243,7 +243,7 @@ main = do
     Scribes.Telegram.mkScribe
       manager
       (cfg ^. Buzgibi.Config.telegram & bot %~ (flip (<|>) (join $ fmap envKeysTelegramBot envKeys)))
-      (permitItem (cfg ^. katip . severity . from stringify))
+      (permitItem WarningS)
       (cfg ^. katip . verbosity . from stringify)
 
   minioScribe <-
