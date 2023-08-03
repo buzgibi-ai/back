@@ -44,7 +44,7 @@ module Katip.Controller
    -- * State
    initState,
    stateToMap,
-   getState,
+   getKatipState,
 
     -- * run
     runKatipController,
@@ -125,8 +125,8 @@ instance Default KatipState where
 initState :: KatipState
 initState = KatipState $ Map.empty
 
-getState :: KatipState -> Map.Map Lang Translation
-getState (KatipState x) = x
+getKatipState :: KatipState -> Map.Map Lang Translation
+getKatipState (KatipState x) = x
 
 stateToMap :: [(Lang, Translation)] -> Map.Map Lang Translation
 stateToMap old = let new = Map.fromList $ force old in new
@@ -141,7 +141,7 @@ data Config = Config
 instance MonadTime Handler where
   currentTime = liftIO getCurrentTime
 
-newtype State = State (Map.Map Lang Translation)
+newtype State = State { getState :: Map.Map Lang Translation }
 
 newtype KatipControllerWriter = KatipControllerWriter [String]
   deriving newtype (Monoid)
