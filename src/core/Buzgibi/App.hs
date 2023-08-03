@@ -116,12 +116,10 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
         hoistServerWithContext
           (withSwagger api)
           (Proxy @'[CookieSettings, JWTSettings])
-          (\controller -> do
-              (resp, State new) <- withMVar stateRef $ \ref -> 
-                runKatipController cfg (State ref) controller
-              modifyMVar_ stateRef $ \old -> 
-                pure $ if old /= new then new else old
-              return resp)
+          (\cntrl -> do
+              modifyMVar stateRef $ \old -> do
+                (resp, State new) <- runKatipController cfg (State old) cntrl
+                pure (if old /= new then new else old, resp))
           ( toServant Controller.controller
               :<|> swaggerSchemaUIServerT
                 (swaggerHttpApi cfgHost cfgSwaggerPort ver)
@@ -136,7 +134,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
           & Warp.setPort cfgServerPort
           & Warp.setOnException (logUncaughtException excep)
           & Warp.setOnExceptionResponse (\e -> mk500Response e (coerce cfgServerError) mute500)
-          & Warp.setServerName ("scaffold api server, revision " <> $gitCommit)
+          & Warp.setServerName ("buzgibi api server, revision " <> $gitCommit)
           & Warp.setLogger (logRequest req_logger)
   let multipartOpts =
         (defaultMultipartOptions (Proxy @Tmp))
