@@ -112,7 +112,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
 
   stateRef <- fmap getState S.get >>= newMVar
 
-  let server =
+  let hoistedServer =
         hoistServerWithContext
           (withSwagger api)
           (Proxy @'[CookieSettings, JWTSettings])
@@ -143,12 +143,13 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
           { generalOptions = clearMaxRequestNumFiles defaultParseRequestBodyOptions
           }
   let mkCtx = formatters :. defaultJWTSettings (configKatipEnv ^. jwk) :. defaultCookieSettings :. EmptyContext
-  let runServer = serveWithContext (withSwagger api) mkCtx server
 
   mware_logger <- katipAddNamespace (Namespace ["middleware"]) askLoggerWithLocIO
   serverAsync <- liftIO $ async $ Warp.runSettings settings $ do 
     let toIO = runKatipContextT logEnv () ns
-    middleware cfgCors mware_logger $ Katip.Wai.runApplication toIO $ mkApplication runServer    
+    middleware cfgCors mware_logger $ 
+      Katip.Wai.runApplication toIO $ 
+        mkApplication $ serveWithContext (withSwagger api) mkCtx hoistedServer
   
   telnyx_logger <- katipAddNamespace (Namespace ["telnyx"]) askLoggerIO
   let telnyxEnv =
