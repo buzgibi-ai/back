@@ -54,10 +54,12 @@ configServerError: true
 configSendGrid:
   sendGridUrl: "https://api.sendgrid.com/v3"
   sendGridApiKey:
-  sendGridSenderIdentity: s.iakovlev@baranseli.co.uk
+  sendGridSenderIdentity: admin@buzgibi.app
   sendGridPersons:
-    - email: fclaw007@gmail.com
+    - email: sclaw@buzgibi.app
       personalization: Sergey Yakovlev
+    - email: koray@buzgibi.app
+      personalization: Koray Vatan
 
 configJobFrequency: 100
 configWebhook: https://api.buzgibi.app
