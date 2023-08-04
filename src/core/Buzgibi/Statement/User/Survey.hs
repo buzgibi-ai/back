@@ -49,7 +49,8 @@ module Buzgibi.Statement.User.Survey
     updateAppCall,
     insertHangupCall,
     checkAfterInvalidate,
-    checkAfterWebhook
+    checkAfterWebhook,
+    failTelnyxApp
   ) where
 
 
@@ -431,6 +432,15 @@ insertTelnyxApp =
     insert into foreign_api.telnyx_app 
     (survey_id, telnyx_ident, application_name)
     select ident, $3 :: text, $2 :: text from survey|]
+
+failTelnyxApp :: HS.Statement [Int64] ()
+failTelnyxApp = 
+  lmap (\xs -> (V.fromList xs, toS (show Fail)))
+  [resultlessStatement|
+    update customer.survey
+    set survey_status = $2 :: text
+    from unnest($1 :: int8[]) as ident
+    where ident = id|]
 
 data PhoneToCall = PhoneToCall { phoneToCallIdent :: Int64, phoneToCallPhone :: T.Text }
      deriving stock (Generic)
