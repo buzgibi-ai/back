@@ -90,4 +90,5 @@ mkHistory _ = Right $ History 0 0 []
 mkStatus :: Survey.Status -> Status
 mkStatus Survey.SurveyProcessed = Done
 mkStatus Survey.Fail = Fail
+mkStatus (Survey.TelnyxAppFailure _) = Fail
 mkStatus _ = InProcess

@@ -84,7 +84,8 @@ data Status =
      TranscriptionsDoneOpenAI |
      SentimentalAnalysisDoneOpenAI |
      SurveyProcessed | 
-     Fail
+     Fail |
+     TelnyxAppFailure T.Text
   deriving Generic
 
 instance Show Status where
@@ -97,6 +98,7 @@ instance Show Status where
     show SentimentalAnalysisDoneOpenAI = "sentimental analysis is finished"
     show SurveyProcessed = "processed"
     show Fail = "fail"
+    show (TelnyxAppFailure s) = "telnyx:" <> toS s
 
 instance ParamsShow Status where
     render = show
@@ -117,7 +119,10 @@ instance FromJSON Status where
       "processed" -> pure SurveyProcessed
       "fail" -> pure Fail
       "phones picked for calling" -> pure PhonesPickedForCallByTelnyx
-      str -> fail $ toS str <> " doesn't fall into Status type"
+      str -> 
+        if T.isPrefixOf "telnyx:" str
+        then pure $ maybe undefined TelnyxAppFailure $ T.stripPrefix "telnyx:" str
+        else fail $ toS str <> " doesn't fall into Status type"
 
 mkArbitrary ''Status
 
@@ -433,13 +438,14 @@ insertTelnyxApp =
     (survey_id, telnyx_ident, application_name)
     select ident, $3 :: text, $2 :: text from survey|]
 
-failTelnyxApp :: HS.Statement [Int64] ()
+failTelnyxApp :: HS.Statement [(Int64, T.Text)] ()
 failTelnyxApp = 
-  lmap (\xs -> (V.fromList xs, toS (show Fail)))
+  lmap (V.unzip . V.fromList . map (second (toS . show . TelnyxAppFailure)))
   [resultlessStatement|
     update customer.survey
-    set survey_status = $2 :: text
-    from unnest($1 :: int8[]) as ident
+    set survey_status = failure
+    from unnest($1 :: int8[], $2 :: text[]) 
+      as x(ident, failure)
     where ident = id|]
 
 data PhoneToCall = PhoneToCall { phoneToCallIdent :: Int64, phoneToCallPhone :: T.Text }

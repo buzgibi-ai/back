@@ -44,7 +44,6 @@ import Data.Aeson (eitherDecode, encode)
 import Data.Traversable (for)
 import Data.Either.Combinators (whenLeft)
 import Data.Tuple.Extended (consT)
-import Control.Lens
 
 data TelnyxCfg =
      TelnyxCfg 
@@ -86,7 +85,7 @@ makeApp TelnyxCfg {..} = forever $ do
 
     let (errXs, appXs) = partitionEithers resp
     for_ errXs $ \(ident, e) -> logger ErrorS $ logStr $ $location <> " app for " <> show ident <> " hasn't been created, error --> " <> toS e
-    transaction pool logger $ statement failTelnyxApp $ errXs^..traverse._1
+    transaction pool logger $ statement failTelnyxApp $ errXs
     
     logger InfoS $ logStr $ $location <> "apps for the following surveys " <> show appXs <> " are about to be added"
     for_ appXs $ transaction pool logger . statement insertTelnyxApp
