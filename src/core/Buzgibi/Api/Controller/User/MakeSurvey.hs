@@ -63,6 +63,7 @@ import qualified Data.Vector as V
 import Data.Monoid (All (..))
 import qualified Text.RE.PCRE.Text as RE
 import BuildInfo (location)
+import System.Random (randomRIO)
 
 data Error = BarkCredentials404 | InsertionFail | File String
 
@@ -157,15 +158,17 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
               if isPhonesOk 
               then do
                      webhook <- fmap (^. katipEnv . webhook) ask
-                     resp <- liftIO $ 
+                     idx <- liftIO $ randomRIO (0, 2)
+                     let voice = voices !! idx
+                     resp <- liftIO $ do
                        Request.make
                         (bark^.url) manager 
                         [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
                         HTTP.methodPost $ 
-                        Left (Just (mkReq webhook (bark^.version) surveySurvey))
+                        Left (Just (mkReq webhook (bark^.version) voice surveySurvey))
                      let mkBark ident st = 
                             Survey.Bark {
-                              Survey.barkReq = toJSON $ mkReq webhook (bark^.version) surveySurvey,
+                              Survey.barkReq = toJSON $ mkReq webhook (bark^.version) voice surveySurvey,
                               Survey.barkStatus = st,
                               Survey.barkIdent = ident,
                               Survey.barkSurveyId = survey_ident
@@ -185,6 +188,17 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
           return $ maybeToRight InsertionFail $ fmap (, truncatedTo30) identm
   return $ withErrorExt resp $ const ()
 
+
+data VoiceModel =
+     VoiceModel 
+     {
+       voiceModelTextTemp :: Double,
+       voiceModelWaveformTemp :: Double,
+       voiceModelPrompt :: T.Text
+     }
+
+voices = fmap (VoiceModel 0.7 0.4) ["en_speaker_3", "en_speaker_1", "en_speaker_5"]
+
 data Input = Input { inputPrompt :: T.Text }
   deriving stock (Generic)
   deriving
@@ -198,13 +212,19 @@ data BarkRequestBody =
      { barkRequestBodyVersion :: T.Text,
        barkRequestBodyInput :: Input,
        barkRequestBodyWebhook :: T.Text,
-       barkRequestBodyWebhook_events_filter :: [T.Text] 
+       barkRequestBodyWebhookEventsFilter :: [T.Text],
+       -- history choice for audio cloning, choose from the list
+       barkRequestBodyHistoryPrompt :: T.Text,
+       -- generation temperature (1.0 more diverse, 0.0 more conservative)
+       barkRequestBodyTextTemp :: Double,
+      --  generation temperature (1.0 more diverse, 0.0 more conservative)
+       barkRequestBodyWaveformTemp :: Double
      }
      deriving stock (Generic)
      deriving
      (ToJSON, FromJSON)
      via WithOptions
-          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor BarkRequestBody)]]
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor BarkRequestBody)]]
           BarkRequestBody
 
 -- {
@@ -216,8 +236,17 @@ data BarkRequestBody =
 --   "webhook": "https://buzgibi.app/foreign/webhook/bark",
 --   "webhook_events_filter": ["start", "completed"]
 -- }
-mkReq webhook version survey = BarkRequestBody version (Input survey) (webhook <> "/foreign/webhook/bark") ["start", "completed"]
-
+mkReq webhook version (VoiceModel {..}) survey = 
+  BarkRequestBody
+  { 
+    barkRequestBodyVersion = version,
+    barkRequestBodyInput = Input survey, 
+    barkRequestBodyWebhook = webhook <> "/foreign/webhook/bark",
+    barkRequestBodyWebhookEventsFilter = ["start", "completed"],
+    barkRequestBodyHistoryPrompt = voiceModelPrompt,
+    barkRequestBodyTextTemp = voiceModelTextTemp,
+    barkRequestBodyWaveformTemp = voiceModelWaveformTemp
+  }
 
 data PhoneRecord = 
      PhoneRecord 
