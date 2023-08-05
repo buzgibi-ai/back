@@ -51,7 +51,7 @@ data Telnyx =
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Telnyx)]]
           Telnyx
 
-data OpenAI = OpenAI { openAIUrl :: !T.Text, openAIKey :: !T.Text }
+data OpenAI = OpenAI { openAIUrl :: !T.Text, openAIKey :: !T.Text, openAIClarifyingPrefix :: !T.Text }
   deriving stock (Generic)
   deriving stock (Show)
   deriving
@@ -80,3 +80,4 @@ data EnvKeys = EnvKeys
 makeFields ''EnvKeys
 makeFields ''Github
 makeFields ''Bark
+makeFields ''OpenAI

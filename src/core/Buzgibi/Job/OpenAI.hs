@@ -27,7 +27,7 @@ import qualified Network.HTTP.Client as HTTP
 import qualified Hasql.Connection as Hasql
 import Buzgibi.Api.CallApi
 import Buzgibi.Transport.Model.OpenAI 
-import Buzgibi.EnvKeys (OpenAI (..))
+import Buzgibi.EnvKeys (OpenAI (..), clarifyingPrefix)
 import Buzgibi.Job.Utils (withElapsedTime)
 import Buzgibi.Api.CallApi.Instance () 
 import Data.Pool (Pool)
@@ -49,6 +49,7 @@ import Data.Bifunctor (first, bimap, second)
 import Control.Monad (join)
 import BuildInfo (location)
 import Data.Either.Combinators (whenLeft)
+import Control.Lens ((^.))
 
 data OpenAICfg =
      OpenAICfg 
@@ -95,7 +96,7 @@ getTranscription OpenAICfg {..} = forever $ do
 
         let (es, ys) = partitionEithers yse
         mkErrorMsg "getTranscription" logger survIdent es
-        transaction pool logger $ statement insertTranscription (survIdent, map (second mkTranscriptionOk) ys <> map (second mkTranscriptionFailure) es)
+        transaction pool logger $ statement insertTranscription (survIdent, map (second (mkTranscriptionOk (openaiCfg^.clarifyingPrefix))) ys <> map (second mkTranscriptionFailure) es)
       whenLeft res $ \error ->  
         logger CriticalS $ logStr $ $location <> ": phone parse failed for survey " <> show survIdent <> ", error: " <> error
 

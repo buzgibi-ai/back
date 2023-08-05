@@ -678,8 +678,8 @@ instance ParamsShow TranscriptionText where
 
 mkArbitrary ''TranscriptionText
 
-mkTranscriptionOk :: T.Text -> TranscriptionText
-mkTranscriptionOk ok = TranscriptionText (Just ok) Nothing
+mkTranscriptionOk :: T.Text -> T.Text -> TranscriptionText
+mkTranscriptionOk prefix ok = TranscriptionText (Just (prefix <> ": " <> ok)) Nothing
 
 mkTranscriptionFailure :: T.Text -> TranscriptionText
 mkTranscriptionFailure err = TranscriptionText Nothing (Just err)
