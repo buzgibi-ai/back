@@ -38,6 +38,8 @@ module Buzgibi.Statement.User.Survey
     getSurveysForTranscription,
     OpenAITranscription (..),
     insertTranscription,
+    mkTranscriptionOk,
+    mkTranscriptionFailure,
     OpenAISA (..),
     getSurveysForSA,
     insertSA,
@@ -67,7 +69,7 @@ import Data.Maybe
 import Database.Transaction (ParamsShow (..))
 import qualified Hasql.Statement as HS
 import Test.QuickCheck.Extended ()
-import Data.Aeson.Types (Value, FromJSON (parseJSON), ToJSON)
+import Data.Aeson.Types (Value, FromJSON (parseJSON), ToJSON (toJSON))
 import Data.Aeson (withText)
 import Data.Bifunctor (second, first)
 import qualified Data.Vector as V
@@ -658,17 +660,50 @@ getSurveysForSA =
      where s.survey_status = $1 :: text
      group by s.id|]
 
-insertTranscription :: HS.Statement (Int64, [(Int64, T.Text)]) ()
+
+data TranscriptionText = 
+     TranscriptionText 
+     { transcriptionTextResult :: Maybe T.Text,
+       transcriptionTextError :: Maybe T.Text
+     }
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[OmitNothingFields 'True, FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor TranscriptionText)]]
+          TranscriptionText
+
+instance ParamsShow TranscriptionText where
+  render = show . toJSON  
+
+mkArbitrary ''TranscriptionText
+
+mkTranscriptionOk :: T.Text -> TranscriptionText
+mkTranscriptionOk ok = TranscriptionText (Just ok) Nothing
+
+mkTranscriptionFailure :: T.Text -> TranscriptionText
+mkTranscriptionFailure err = TranscriptionText Nothing (Just err)
+
+insertTranscription :: HS.Statement (Int64, [(Int64, TranscriptionText)]) ()
 insertTranscription = 
-  lmap (\(x, y) -> snocT (toS (show TranscriptionsDoneOpenAI)) $ consT x $ V.unzip $ V.fromList y) $
+  lmap (\(x, y) -> 
+    snocT (toS (show TranscriptionsDoneOpenAI)) $ 
+      consT x $ 
+        V.unzip $ 
+          V.fromList $ 
+            map (second toJSON) y) $
   [resultlessStatement|
     with
       transcrip as (
         insert into customer.phone_transcription
-        (survey_id, phone_id, transcription)
-        select $1 :: int8, phone_id, res
-        from unnest( $2 :: int8[], $3 :: text[]) 
-        as x(phone_id, res)
+        (survey_id, phone_id, transcription, error)
+        select 
+          $1 :: int8, 
+          phone_id,
+          result ->> 'result',
+          result ->> 'error'
+        from unnest( $2 :: int8[], $3 :: jsonb[]) 
+        as x(phone_id, result)
         returning 1 :: int4)
     update customer.survey 
     set survey_status = $4 :: text

@@ -17,6 +17,8 @@ import Buzgibi.Statement.User.Survey
        (getSurveysForTranscription, 
         getSurveysForSA, 
         insertTranscription,
+        mkTranscriptionOk,
+        mkTranscriptionFailure,
         insertSA,
         OpenAITranscription (..), 
         OpenAISA (..)
@@ -43,7 +45,7 @@ import Control.Monad.IO.Class
 import Conduit (runConduit, sinkSystemTempFile, (.|))
 import Data.String.Conv (toS)
 import Network.HTTP.Client.MultipartFormData (partBS, partFileSource)
-import Data.Bifunctor (first, bimap)
+import Data.Bifunctor (first, bimap, second)
 import Control.Monad (join)
 import BuildInfo (location)
 import Data.Either.Combinators (whenLeft)
@@ -93,7 +95,7 @@ getTranscription OpenAICfg {..} = forever $ do
 
         let (es, ys) = partitionEithers yse
         mkErrorMsg "getTranscription" logger survIdent es
-        transaction pool logger $ statement insertTranscription (survIdent, ys)
+        transaction pool logger $ statement insertTranscription (survIdent, map (second mkTranscriptionOk) ys <> map (second mkTranscriptionFailure) es)
       whenLeft res $ \error ->  
         logger CriticalS $ logStr $ $location <> ": phone parse failed for survey " <> show survIdent <> ", error: " <> error
 

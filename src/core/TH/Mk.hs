@@ -49,7 +49,7 @@ getConstructorPat (NormalC c _) = c
 getConstructorPat _ = error "data not supported"
 
 mkArbitrary :: Name -> Q [Dec]
-mkArbitrary name = 
+mkArbitrary name =
   [d|
     instance Arbitrary $(conT (mkName (nameBase name))) where
       arbitrary = genericArbitrary
