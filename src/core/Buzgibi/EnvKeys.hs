@@ -27,7 +27,15 @@ data Github = Github {githubKey :: !T.Text, githubRepos :: ![T.Text], githubTran
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Github)]]
           Github
 
-data Bark = Bark { barkKey :: !T.Text, barkVersion :: !T.Text, barkUrl :: !T.Text }
+data Bark = 
+     Bark 
+     { 
+       barkKey :: !T.Text, 
+       barkVersion :: !T.Text, 
+       barkUrl :: !T.Text,
+       barkTextTemp :: !Double,
+       barkWaveformTemp :: !Double
+     }
   deriving stock (Generic)
   deriving stock (Show)
   deriving

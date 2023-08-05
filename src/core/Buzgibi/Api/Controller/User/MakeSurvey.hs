@@ -27,6 +27,7 @@ import Buzgibi.Auth (AuthenticatedUser (..))
 import Buzgibi.Transport.Id (Id (..))
 import Buzgibi.Transport.Response
 import Buzgibi.Transport.Model.File
+import Buzgibi.EnvKeys (url, version, key, textTemp, waveformTemp)
 import Data.Aeson (FromJSON, ToJSON (toJSON), eitherDecodeStrict)
 import Data.Aeson.Generic.DerivingVia
 import Data.Proxy (Proxy (..))
@@ -46,7 +47,6 @@ import Data.Foldable (for_)
 import Control.Monad (join, msum, (<=<))
 import qualified Request as Request (make)
 import qualified Network.HTTP.Types as HTTP
-import Buzgibi.EnvKeys (url, version, key)
 import Control.Monad.IO.Class (liftIO)
 import Control.Lens.Iso.Extended (textbs)
 import Katip
@@ -159,7 +159,7 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
               then do
                      webhook <- fmap (^. katipEnv . webhook) ask
                      idx <- liftIO $ randomRIO (0, 2)
-                     let voice = voices !! idx
+                     let voice = voices (bark^.textTemp) (bark^.waveformTemp) !! idx
                      resp <- liftIO $ do
                        Request.make
                         (bark^.url) manager 
@@ -197,7 +197,7 @@ data VoiceModel =
        voiceModelPrompt :: T.Text
      }
 
-voices = fmap (VoiceModel 0.7 0.4) ["en_speaker_3", "en_speaker_1", "en_speaker_5"]
+voices x y = fmap (VoiceModel x y) ["en_speaker_3", "en_speaker_1", "en_speaker_5"]
 
 data Input = Input { inputPrompt :: T.Text }
   deriving stock (Generic)
