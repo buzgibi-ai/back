@@ -179,7 +179,6 @@ library:
     - servant-auth-server
     - servant-auth-swagger
     - stm
-    - SafeSemaphore
     - threads
     - http-api-data
     - servant-websockets
