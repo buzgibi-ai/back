@@ -657,7 +657,8 @@ getSurveysForSA =
      from customer.survey as s
      inner join customer.phone_transcription as pt
      on s.id = pt.survey_id
-     where s.survey_status = $1 :: text
+     where s.survey_status = $1 :: text 
+     and pt.transcription is not null
      group by s.id|]
 
 
@@ -781,7 +782,8 @@ getSurveyForReport =
             'result', coalesce(
               psa.result,
               cta.invalid, 
-              trim(both '"' from cta.call_hangup_cause)))) :: jsonb[] as v
+              trim(both '"' from cta.call_hangup_cause),
+              pt.error))) :: jsonb[] as v
         from auth.user as u
         inner join customer.survey as s
         on u.id = s.user_id
@@ -789,6 +791,8 @@ getSurveyForReport =
         on s.id = sp.survey_id
         inner join customer.call_telnyx_app as cta 
         on cta.phone_id= sp.id
+        left join customer.phone_transcription as pt
+        on pt.survey_id = s.id
         left join customer.phone_sentiment_analysis as psa
         on psa.phone_id = sp.id
         where s.survey_status = $2 :: text and
