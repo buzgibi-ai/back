@@ -18,7 +18,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Buzgibi.Api.Controller.User.MakeSurvey (controller, Survey, PhoneRecord (..), Location (..)) where
+module Buzgibi.Api.Controller.User.Survey.Make (controller, Survey, PhoneRecord (..), Location (..)) where
 
 import qualified Buzgibi.Transport.Model.Bark as Bark
 import qualified Buzgibi.Statement.User.Survey as Survey
@@ -139,7 +139,7 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                 def { 
                   Survey.surveyUserId = coerce user,
                   Survey.surveySurvey = surveySurvey,
-                  Survey.surveyStatus = Survey.Received,
+                  Survey.surveyStatus = Survey.Draft,
                   Survey.surveyLatitude = locationLatitude,
                   Survey.surveyLongitude = locationLongitude,
                   Survey.surveyCategory = surveyCategory,

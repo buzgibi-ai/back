@@ -30,10 +30,12 @@ import qualified Buzgibi.Api.Controller.ReCaptcha.Verify as ReCaptcha.Verify
 import qualified Buzgibi.Api.Controller.SendGrid.SendMail as SendGrid.Send
 import qualified Buzgibi.Api.Controller.User.GetHistory as User.GetHistory
 import qualified Buzgibi.Api.Controller.User.GetProfile as User.GetProfile
-import qualified Buzgibi.Api.Controller.User.MakeSurvey  as User.MakeSurvey
+import qualified Buzgibi.Api.Controller.User.Survey.Make as User.Survey.Make
+import qualified Buzgibi.Api.Controller.User.Survey.Edit as User.Survey.Edit
+import qualified Buzgibi.Api.Controller.User.Survey.Submit as User.Survey.Submit
 import qualified Buzgibi.Api.Controller.Webhook.CatchBark as Webhook.CatchBark
 import qualified Buzgibi.Api.Controller.Webhook.CatchTelnyx as Webhook.CatchTelnyx
-import qualified Buzgibi.Api.Controller.Webhook.CatchGit as Webhook.CatchGit 
+import qualified Buzgibi.Api.Controller.Webhook.CatchGit as Webhook.CatchGit
 import qualified Buzgibi.Auth as Auth
 import Katip
 import Katip.Controller hiding (webhook)
@@ -150,18 +152,30 @@ user =
             $ katipAddNamespace
               (Namespace ["user", "profile", "get"])
             $ User.GetProfile.controller ident,
-      _userApiMakeEnquiry = \auth enquiry ->
+      _userApiMakeSurvey = \auth survey ->
         auth `Auth.withAuth` \ident ->
           flip logExceptionM ErrorS
             $ katipAddNamespace
               (Namespace ["user", "survey ", "make"])
-            $ User.MakeSurvey.controller ident enquiry,
+            $ User.Survey.Make.controller ident survey,
       _userApiGetEnquiryHistory = \auth page ->
         auth `Auth.withAuth` \ident ->
           flip logExceptionM ErrorS
             $ katipAddNamespace
               (Namespace ["user", "survey", "history"])
-            $ User.GetHistory.controller ident page
+            $ User.GetHistory.controller ident page,
+      _userApiEditSurvey = \auth surveyIdent edit ->
+        auth `Auth.withAuth` \ident ->
+          flip logExceptionM ErrorS
+            $ katipAddNamespace
+              (Namespace ["user", "survey", "edit"])
+            $ User.Survey.Edit.controller ident surveyIdent edit,
+      _userApiSubmitSurvey = \auth submit ->
+         auth `Auth.withAuth` \ident ->
+          flip logExceptionM ErrorS
+            $ katipAddNamespace
+              (Namespace ["user", "survey", "submit"])
+            $ User.Survey.Submit.controller ident submit
     }
 
 _foreign :: ForeignApi (AsServerT KatipControllerM)

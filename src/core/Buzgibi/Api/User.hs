@@ -8,14 +8,17 @@
 
 module Buzgibi.Api.User (AuthApi (..), UserApi (..)) where
 
-import Buzgibi.Api.Controller.User.MakeSurvey (Survey)
+import Buzgibi.Api.Controller.User.Survey.Make (Survey)
 import Buzgibi.Api.Controller.User.GetHistory (History)
+import Buzgibi.Api.Controller.User.Survey.Edit (EditSurvey)
+import Buzgibi.Api.Controller.User.Survey.Submit (SubmitWSurvey)
 import Buzgibi.Auth (AuthenticatedUser, JWT)
 import Buzgibi.Transport.Model.User
 import Buzgibi.Transport.Response (Response)
 import Servant.API.Extended
 import Servant.API.Generic (Generic)
 import qualified Servant.Auth.Server as SA
+import Data.Int (Int64)
 
 data AuthApi route = AuthApi
   { _authApiLogin ::
@@ -43,12 +46,26 @@ data UserApi route = UserApi
         :- "profile"
           :> SA.Auth '[JWT] AuthenticatedUser
           :> Get '[JSON] (Response ()),
-    _userApiMakeEnquiry ::
+    _userApiMakeSurvey ::
       route
         :- "survey"
           :> SA.Auth '[JWT] AuthenticatedUser
           :> ReqBody '[JSON] Survey
+          :> Put '[JSON] (Response ()),
+    _userApiEditSurvey ::
+      route
+        :- "survey"
+          :> SA.Auth '[JWT] AuthenticatedUser
+          :> Capture "survey" Int64
+          :> ReqBody '[JSON] EditSurvey
           :> Post '[JSON] (Response ()),
+    _userApiSubmitSurvey ::
+      route
+        :- "survey"
+          :> "submit"
+          :> SA.Auth '[JWT] AuthenticatedUser
+          :> ReqBody '[JSON] SubmitWSurvey
+          :> Post '[JSON] (Response ()),          
     _userApiGetEnquiryHistory ::
       route
         :- "survey"
