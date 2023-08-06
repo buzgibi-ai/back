@@ -8,7 +8,7 @@ module Buzgibi.Api.Http.Test (spec_api) where
 import Data.Proxy
 import Buzgibi.Api.File
 import Buzgibi.Api.User (AuthApi, UserApi)
-import Buzgibi.Api.Controller.User.MakeSurvey (Survey, Location)
+import Buzgibi.Api.Controller.User.Survey.Make (Survey, Location)
 import Buzgibi.Api.Controller.User.GetHistory (History, Status, HistoryItem)
 import Buzgibi.Transport.Model.User (Credentials, AuthToken)
 import Buzgibi.Api.Foreign (SendGridApi, WebhookApi)
@@ -20,6 +20,8 @@ import Buzgibi.Api.Controller.Frontend.Init (Init, Env, JWTStatus)
 import Buzgibi.Transport.Model.Translation
 import Buzgibi.Api.Controller.Frontend.GetCookies (Cookie, SameSiteOption)
 import Buzgibi.Api.Controller.Frontend.GetMeta (Meta)
+import Buzgibi.Api.Controller.User.Survey.Edit (EditSurvey)
+import Buzgibi.Api.Controller.User.Survey.Submit (SubmitSurvey)
 
 import Servant.API.Generic
 import Servant.Swagger.Test
@@ -52,7 +54,8 @@ mkArbitrary ''Translation
 mkArbitrary ''SameSiteOption
 mkArbitrary ''Meta
 mkArbitrary ''Cookie
-
+mkArbitrary ''EditSurvey
+mkArbitrary ''SubmitSurvey
 
 
 spec_api :: Spec

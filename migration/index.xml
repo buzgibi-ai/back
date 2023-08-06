@@ -9,5 +9,6 @@
     <include file="./changelog/index/version7.sql" />
     <include file="./changelog/index/version8.sql" />
     <include file="./changelog/index/version9.sql" />
-     <include file="./changelog/index/version10.sql" />
+    <include file="./changelog/index/version10.sql" />
+    <include file="./changelog/index/version11.sql" />
 </databaseChangeLog>

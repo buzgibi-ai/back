@@ -28,7 +28,7 @@ import Buzgibi.Transport.Id (Id (..))
 import Buzgibi.Transport.Response
 import Buzgibi.Transport.Model.File
 import Buzgibi.EnvKeys (url, version, key, textTemp, waveformTemp)
-import Data.Aeson (FromJSON, ToJSON (toJSON), eitherDecodeStrict)
+import Data.Aeson (FromJSON, ToJSON (toJSON), eitherDecodeStrict, eitherDecode', encode)
 import Data.Aeson.Generic.DerivingVia
 import Data.Proxy (Proxy (..))
 import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier, modify)
@@ -38,7 +38,7 @@ import Database.Transaction
 import Katip.Controller
 import Control.Lens
 import Data.Default.Class
-import Data.Either.Combinators (maybeToRight)
+import Data.Either.Combinators (maybeToRight, rightToMaybe)
 import Buzgibi.Api.Controller.Utils (withErrorExt)
 import Data.Traversable (for)
 import Data.Coerce (coerce)
@@ -146,8 +146,9 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                   Survey.surveyAssessmentScore = surveyAssessmentScore,
                   Survey.surveyPhones = head surveyPhonesFileIdent
                 }
-          identm <- transactionM hasql $ statement Survey.insert survey
-          for_ identm $ \survey_ident -> 
+          identm <- fmap (join . fmap (rightToMaybe . eitherDecode' @Survey.InsertSurveyKeys . encode)) $ 
+            transactionM hasql $ statement Survey.insert survey
+          for_ identm $ \(Survey.InsertSurveyKeys survey_ident survey_draft_ident) -> 
             Concurrent.fork $ do
               let validateNumber number = RE.matched $ number RE.?=~ [RE.re|^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$|]
                   phoneXs = V.take 30 $ flip fmap phoneRecordXs $ \PhoneRecord {..} -> 
@@ -171,7 +172,7 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                               Survey.barkReq = toJSON $ mkReq webhook (bark^.version) voice surveySurvey,
                               Survey.barkStatus = st,
                               Survey.barkIdent = ident,
-                              Survey.barkSurveyId = survey_ident
+                              Survey.barkSurveyDraftId = survey_draft_ident
                             }
                      case resp of
                        Right (resp, _) -> do 

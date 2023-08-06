@@ -11,7 +11,7 @@ module Buzgibi.Api.User (AuthApi (..), UserApi (..)) where
 import Buzgibi.Api.Controller.User.Survey.Make (Survey)
 import Buzgibi.Api.Controller.User.GetHistory (History)
 import Buzgibi.Api.Controller.User.Survey.Edit (EditSurvey)
-import Buzgibi.Api.Controller.User.Survey.Submit (SubmitWSurvey)
+import Buzgibi.Api.Controller.User.Survey.Submit (SubmitSurvey)
 import Buzgibi.Auth (AuthenticatedUser, JWT)
 import Buzgibi.Transport.Model.User
 import Buzgibi.Transport.Response (Response)
@@ -64,7 +64,7 @@ data UserApi route = UserApi
         :- "survey"
           :> "submit"
           :> SA.Auth '[JWT] AuthenticatedUser
-          :> ReqBody '[JSON] SubmitWSurvey
+          :> ReqBody '[JSON] SubmitSurvey
           :> Post '[JSON] (Response ()),          
     _userApiGetEnquiryHistory ::
       route

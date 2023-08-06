@@ -18,7 +18,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Buzgibi.Api.Controller.User.Survey.Submit (controller, SubmitWSurvey) where
+module Buzgibi.Api.Controller.User.Survey.Submit (controller, SubmitSurvey) where
 
 import Buzgibi.Auth (AuthenticatedUser (..))
 import Buzgibi.Transport.Response
@@ -30,8 +30,8 @@ import GHC.Generics (Generic)
 import Katip.Controller
 import Data.Int (Int64)
 
-data SubmitWSurvey = 
-     SubmitWSurvey 
+data SubmitSurvey = 
+     SubmitSurvey 
      { submitSurveyIdent :: Int64 
      }
      deriving stock (Generic)
@@ -39,10 +39,10 @@ data SubmitWSurvey =
      deriving
         (ToJSON, FromJSON)
         via WithOptions
-          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor SubmitWSurvey)]]
-          SubmitWSurvey
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor SubmitSurvey)]]
+          SubmitSurvey
 
-deriveToSchemaFieldLabelModifier ''SubmitWSurvey [|modify (Proxy @SubmitWSurvey)|]
+deriveToSchemaFieldLabelModifier ''SubmitSurvey [|modify (Proxy @SubmitSurvey)|]
 
-controller :: AuthenticatedUser -> SubmitWSurvey -> KatipControllerM (Response ())
+controller :: AuthenticatedUser -> SubmitSurvey -> KatipControllerM (Response ())
 controller _ _ = undefined

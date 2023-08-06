@@ -6,7 +6,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Data.Aeson.WithField (WithField (..)) where
+module Data.Aeson.WithField (WithField (..), getFirst) where
 
 import Control.DeepSeq
 import GHC.Generics
@@ -90,3 +90,6 @@ instance (KnownSymbol s, ToSchema a, ToSchema b) => ToSchema (WithField s a b) w
 
 instance (Arbitrary a, Arbitrary b) => Arbitrary (WithField s a b) where 
   arbitrary = WithField <$> arbitrary <*> arbitrary
+
+getFirst :: WithField (s :: Symbol) a b -> a
+getFirst (WithField x _) = x

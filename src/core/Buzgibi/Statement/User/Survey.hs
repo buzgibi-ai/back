@@ -13,6 +13,7 @@
 
 module Buzgibi.Statement.User.Survey
   ( insert, 
+    InsertSurveyKeys (..),
     getHistory, 
     Survey (..), 
     Status (..), 
@@ -79,8 +80,7 @@ import Data.Aeson.Generic.DerivingVia
 
 data Status = 
      Draft | 
-     Received | 
-     ProcessedByBark | 
+     Submit |
      PickedByTelnyx |
      PhonesPickedForCallByTelnyx |
      ProcessedByTelnyx |
@@ -93,8 +93,7 @@ data Status =
 
 instance Show Status where
     show Draft = "draft"
-    show Received = "received"
-    show ProcessedByBark = "processed by bark" 
+    show Submit = "submit"
     show PickedByTelnyx = "telnyx app is created"
     show ProcessedByTelnyx = "processed by telnyx"
     show PhonesPickedForCallByTelnyx = "phones picked for calling"
@@ -108,15 +107,14 @@ instance ParamsShow Status where
     render = show
 
 instance Default Status where
-    def = Received
+    def = Draft
 
 
 instance FromJSON Status where
   parseJSON = 
     withText "Status" $ \case
       "draft" -> pure Draft
-      "received" -> pure Received
-      "processed by bark" -> pure ProcessedByBark
+      "submit" -> pure Submit
       "telnyx app is created" -> pure PickedByTelnyx
       "processed by telnyx" -> pure ProcessedByTelnyx
       "transcriptions are finished" -> pure TranscriptionsDoneOpenAI
@@ -188,7 +186,20 @@ encodeSurvey = fromMaybe (error "cannot encode Survey") . mkEncoderSurvey
 instance ParamsShow Survey where
   render = render . encodeSurvey
  
-insert :: HS.Statement Survey (Maybe Int64)
+
+data InsertSurveyKeys = 
+     InsertSurveyKeys 
+     { insertSurveyKeysSurvey :: Int64, 
+       insertSurveyKeysDraft :: Int64 
+     }
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor InsertSurveyKeys)]]
+          InsertSurveyKeys
+
+insert :: HS.Statement Survey (Maybe Value)
 insert =
   lmap (\x -> 
     encodeSurvey x 
@@ -196,13 +207,19 @@ insert =
     & _6 %~ (T.pack . show) 
     & _7 %~ (T.pack . show)) $
   [maybeStatement|
-    with 
+    with
+      survey_draft as (
+        insert into customer.survey_draft 
+        (survey) 
+        values 
+        ($2 :: text) 
+        returning id),
       survey as (
         insert into customer.survey
-        (user_id, survey, survey_status, latitude, longitude, category, survey_type)
+        (user_id, survey_draft_id, survey_status, latitude, longitude, category, survey_type)
         select
           id :: int8,
-          $2 :: text,
+          (select id from survey_draft) :: int8,
           $3 :: text, 
           $4 :: float8, 
           $5 :: float8,
@@ -214,7 +231,11 @@ insert =
     insert into customer.survey_files 
     (survey_id, phones_id)
     select ident, $8 :: int8 from survey
-    returning (select ident from survey) :: int8|]
+    returning (
+      jsonb_build_object(
+        'survey', (select ident from survey),
+        'draft', (select id from survey_draft)
+      )) :: jsonb|]
 
 data BarkStatus = BarkSent | BarkStart | BarkProcessed | BarkFail
     deriving Generic
@@ -235,7 +256,7 @@ data NewBark =
      { barkReq :: Value
      , barkStatus :: BarkStatus
      , barkIdent :: T.Text
-     , barkSurveyId :: Int64
+     , barkSurveyDraftId :: Int64
      }
     deriving Generic
     deriving Show
@@ -262,9 +283,8 @@ insertBark =
            bark_ident = foreign_api.bark.bark_ident 
            returning id :: int8 as ident)
       insert into customer.survey_bark
-      (survey_id, bark_id)
-      select $4 :: int8, ident :: int8 from bark
-      on conflict on constraint survey_bark__survey_bark_uq do nothing|]
+      (survey_draft_id, bark_id)
+      select $4 :: int8, ident :: int8 from bark|]
 
 updateBark :: HS.Statement (T.Text, BarkStatus) ()
 updateBark = 
@@ -274,37 +294,21 @@ updateBark =
     set bark_status = $2 :: text, modified = now() 
     where bark_ident = $1 :: text|]
 
-insertVoiceBark :: HS.Statement (T.Text, BarkStatus, Int64, Status, Double) ()
+insertVoiceBark :: HS.Statement (T.Text, BarkStatus, Int64, Double) ()
 insertVoiceBark =
-  lmap (\x -> x & _2 %~ (T.pack . show) & _4 %~ (T.pack . show)) $ 
+  lmap (\x -> x & _2 %~ (T.pack . show)) $ 
   [resultlessStatement|
     with
-      survey_id as (
-        select s.id :: int8
-        from customer.survey as s
-        inner join customer.survey_bark as sb
-        on s.id = sb.survey_id
-        inner join foreign_api.bark as b
-        on sb.bark_id = b.id 
-        where b.bark_ident = $1 :: text),
       bark as 
       (update foreign_api.bark
        set bark_status = $2 :: text, 
            modified = now(),
-           duration = trunc(cast ($5 :: float8 as decimal(10, 2)), 2)
+           duration = trunc(cast ($4 :: float8 as decimal(10, 2)), 2)
        where bark_ident = $1 :: text
-       returning id :: int8 as ident),
-      survey_bark as 
-      (update customer.survey_bark
+       returning id :: int8 as ident)
+      update customer.survey_bark
        set voice_id = $3 :: int8
-       where bark_id = (select ident from bark)
-       returning 1 :: int8 as ident),
-      survey as
-      (update customer.survey
-       set survey_status = $4 :: text
-       where id = (select id :: int8 from survey_id)
-       returning 1 :: int8 as ident)
-      select ident :: int8 from survey_bark union select ident :: int8 from survey|]
+       where bark_id = (select ident from bark)|]
 
 getHistory :: HS.Statement (Int64, Int32) (Maybe ([Value], Int32))
 getHistory =
@@ -313,22 +317,38 @@ getHistory =
     with 
       tbl as 
         (select
-           distinct on (s.id, f.id, s.survey, s.created, s.survey_status)
+           distinct on (s.id, f.id, sd.survey, s.created, s.survey_status, sbf.hash, sbf.bucket, sd.id)
            s.id :: int8 as survey_ident,
            f.id :: int8? as report_ident,
-           s.survey :: text as title,
+           sd.survey :: text as title,
            s.created :: timestamptz,
-           s.survey_status :: text as status
+           s.survey_status :: text as status,
+           sbf.hash :: text,
+           sbf.bucket :: text,
+           sd.id
          from customer.profile as p
          inner join customer.survey as s
          on p.id = s.user_id 
+         inner join customer.survey_draft as sd
+         on sd.survey_id = s.id
+         left join (
+          select
+            sb.survey_draft_id,
+            f.hash,
+            f.bucket
+          from customer.survey_bark as sb
+          left join storage.file as f
+          on sb.voice_id = f.id 
+         ) as sbf
+         on sbf.survey_draft_id = sd.id
          left join customer.survey_files as sf
          on s.id = sf.survey_id
          left join storage.file as f
          on sf.report_id = f.id
          where p.user_id = $1 :: int8
-         group by s.id, f.id, s.survey, s.created, s.survey_status
-         order by s.created desc),
+         group by s.id, f.id, sd.survey, s.created, s.survey_status, sbf.hash, sbf.bucket, sd.id
+         order by s.created desc, sd.id desc
+         limit 1),
       total as (select count(*) from tbl),
       history as (select * from tbl offset (($2 :: int4 - 1) * 10) limit 10)
     select 
@@ -338,7 +358,11 @@ getHistory =
           'reportident', report_ident, 
           'name', title,
           'timestamp', created,
-          'status', status)) :: jsonb[], 
+          'status', status,
+          'bark', jsonb_build_object(
+            'hash', hash,
+            'bucket', bucket
+          ))) :: jsonb[],
       (select * from total) :: int4 as cnt 
     from history group by cnt|]
 
@@ -381,14 +405,16 @@ getVoiceObject =
     select
       f.hash :: text,
       f.bucket :: text,
-      s.survey :: text,
+      sd.survey :: text,
       array(select trim(both '"' from cast(el as text)) 
             from json_array_elements(f.exts) as el) :: text[]
     from foreign_api.bark as b
     inner join customer.survey_bark as sb
     on b.id = sb.bark_id
+    inner join customer.survey_draft as sd
+    on sb.survey_draft_id = sd.id
     inner join customer.survey as s
-    on s.id = sb.survey_id
+    on s.id = sd.survey_id
     inner join storage.file as f
     on sb.voice_id = f.id
     where b.bark_ident = $1 :: text|]
@@ -411,15 +437,17 @@ getUserByBarkIdent =
     on au.id = cp.user_id
     left join customer.survey as cs
     on cp.id = cs.user_id
+    inner join customer.survey_draft as sd
+    on cs.id = sd.survey_id
     left join customer.survey_bark as sb
-    on cs.id = sb.survey_id
+    on sd.id = sb.survey_draft_id
     inner join foreign_api.bark as b
     on b.id = sb.bark_id
     where b.bark_ident = $1 :: text|]
 
 getSurveyForTelnyxApp :: HS.Statement () [(Int64, T.Text)]
 getSurveyForTelnyxApp = 
-  dimap (const (toS (show ProcessedByBark))) V.toList $ 
+  dimap (const (toS (show Submit))) V.toList $ 
   [vectorStatement|
     select 
       s.id :: int8,
@@ -463,23 +491,26 @@ data PhoneToCall = PhoneToCall { phoneToCallIdent :: Int64, phoneToCallPhone :: 
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor PhoneToCall)]]
           PhoneToCall
 
-getPhonesToCall :: HS.Statement () [(Int64, T.Text, T.Text, [Value])]
+getPhonesToCall :: HS.Statement () [(Int64, T.Text, T.Text, [Value], Int64)]
 getPhonesToCall =
   dimap 
     (const (toS (show PickedByTelnyx))) 
     (V.toList . fmap (\x -> x & _4 %~ V.toList)) $
   [vectorStatement|
     select
-      distinct on (t.id, t.telnyx_ident, vsl.share_link_url)
+      distinct on (t.id, t.telnyx_ident, vsl.share_link_url, sd.id)
       t.id :: int8,
       t.telnyx_ident :: text,
       vsl.share_link_url :: text,
       array_agg(jsonb_build_object( 
        'phone', sp.phone,
-       'ident', sp.id)) :: jsonb[]
+       'ident', sp.id)) :: jsonb[],
+      sd.id :: int8
     from customer.survey as s
+    inner join customer.survey_draft as sd
+    on sd.survey_id = s.id
     inner join customer.survey_bark as b
-    on s.id = b.survey_id
+    on sd.id = b.survey_draft_id
     inner join customer.voice_share_link as vsl
     on b.bark_id = vsl.bark_id
     inner join customer.survey_phones as sp
@@ -487,7 +518,9 @@ getPhonesToCall =
     inner join foreign_api.telnyx_app as t
     on t.survey_id = s.id
     where s.survey_status = $1 :: text and sp.is_valid_number
-    group by t.id, t.telnyx_ident, vsl.share_link_url|]
+    group by t.id, t.telnyx_ident, vsl.share_link_url, sd.id
+    order by sd.id desc
+    limit 1|]
 
 data CallStatus = Invalid | CallMade | Hangup | Answered | Recorded
      deriving Generic
