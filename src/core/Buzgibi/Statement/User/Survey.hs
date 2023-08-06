@@ -317,7 +317,7 @@ getHistory =
     with 
       tbl as 
         (select
-           distinct on (s.id, f.id, sd.survey, s.created, s.survey_status, sbf.hash, sbf.bucket, sd.id)
+           distinct on (s.id, f.id, sd.survey, s.created, s.survey_status, sbf.hash, sbf.bucket)
            s.id :: int8 as survey_ident,
            f.id :: int8? as report_ident,
            sd.survey :: text as title,
@@ -325,7 +325,7 @@ getHistory =
            s.survey_status :: text as status,
            sbf.hash :: text,
            sbf.bucket :: text,
-           sd.id
+           max(sd.id)
          from customer.profile as p
          inner join customer.survey as s
          on p.id = s.user_id 
@@ -346,9 +346,8 @@ getHistory =
          left join storage.file as f
          on sf.report_id = f.id
          where p.user_id = $1 :: int8
-         group by s.id, f.id, sd.survey, s.created, s.survey_status, sbf.hash, sbf.bucket, sd.id
-         order by s.created desc, sd.id desc
-         limit 1),
+         group by s.id, f.id, sd.survey, s.created, s.survey_status, sbf.hash, sbf.bucket
+         order by s.created desc),
       total as (select count(*) from tbl),
       history as (select * from tbl offset (($2 :: int4 - 1) * 10) limit 10)
     select 
@@ -359,10 +358,15 @@ getHistory =
           'name', title,
           'timestamp', created,
           'status', status,
-          'bark', jsonb_build_object(
-            'hash', hash,
-            'bucket', bucket
-          ))) :: jsonb[],
+          'bark', 
+            case
+              when hash is not null and bucket is not null 
+              then jsonb_build_object(
+                    'hash', hash,
+                    'bucket', bucket)
+              else null
+            end        
+        )) :: jsonb[],
       (select * from total) :: int4 as cnt 
     from history group by cnt|]
 
@@ -498,14 +502,14 @@ getPhonesToCall =
     (V.toList . fmap (\x -> x & _4 %~ V.toList)) $
   [vectorStatement|
     select
-      distinct on (t.id, t.telnyx_ident, vsl.share_link_url, sd.id)
+      distinct on (t.id, t.telnyx_ident, vsl.share_link_url)
       t.id :: int8,
       t.telnyx_ident :: text,
       vsl.share_link_url :: text,
       array_agg(jsonb_build_object( 
        'phone', sp.phone,
        'ident', sp.id)) :: jsonb[],
-      sd.id :: int8
+      max(sd.id) :: int8
     from customer.survey as s
     inner join customer.survey_draft as sd
     on sd.survey_id = s.id
@@ -518,9 +522,7 @@ getPhonesToCall =
     inner join foreign_api.telnyx_app as t
     on t.survey_id = s.id
     where s.survey_status = $1 :: text and sp.is_valid_number
-    group by t.id, t.telnyx_ident, vsl.share_link_url, sd.id
-    order by sd.id desc
-    limit 1|]
+    group by t.id, t.telnyx_ident, vsl.share_link_url|]
 
 data CallStatus = Invalid | CallMade | Hangup | Answered | Recorded
      deriving Generic
