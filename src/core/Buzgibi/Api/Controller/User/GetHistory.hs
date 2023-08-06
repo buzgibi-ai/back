@@ -38,7 +38,7 @@ import TH.Mk (mkToSchemaAndJSON)
 import Data.Aeson.WithField
 import Data.Bifunctor (first)
 
-data Status = InProcess | Done | Fail
+data Status = InProcess | Done | Fail | Draft
   deriving stock (Generic, Show)
 
 mkToSchemaAndJSON ''Status
@@ -46,7 +46,8 @@ mkToSchemaAndJSON ''Status
 data HistoryItem = 
      HistoryItem
      { 
-        historyItemIdent :: !(Maybe Int64),
+        historyItemSurveyIdent :: !Int64,
+        historyItemReportIdent :: !(Maybe Int64),
         historyItemName :: !T.Text,
         historyItemTimestamp :: !UTCTime
      }
@@ -91,4 +92,5 @@ mkStatus :: Survey.Status -> Status
 mkStatus Survey.SurveyProcessed = Done
 mkStatus Survey.Fail = Fail
 mkStatus (Survey.TelnyxAppFailure _) = Fail
+mkStatus Survey.Draft = Draft
 mkStatus _ = InProcess

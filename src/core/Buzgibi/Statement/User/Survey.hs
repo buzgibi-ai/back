@@ -78,6 +78,7 @@ import Data.Tuple.Extended (snocT, consT)
 import Data.Aeson.Generic.DerivingVia
 
 data Status = 
+     Draft | 
      Received | 
      ProcessedByBark | 
      PickedByTelnyx |
@@ -91,6 +92,7 @@ data Status =
   deriving Generic
 
 instance Show Status where
+    show Draft = "draft"
     show Received = "received"
     show ProcessedByBark = "processed by bark" 
     show PickedByTelnyx = "telnyx app is created"
@@ -111,7 +113,8 @@ instance Default Status where
 
 instance FromJSON Status where
   parseJSON = 
-    withText "Status" $ \case 
+    withText "Status" $ \case
+      "draft" -> pure Draft
       "received" -> pure Received
       "processed by bark" -> pure ProcessedByBark
       "telnyx app is created" -> pure PickedByTelnyx
@@ -310,28 +313,30 @@ getHistory =
     with 
       tbl as 
         (select
-           distinct on (f.id, e.survey, e.created, e.survey_status)
-           f.id :: int8? as ident,
-           e.survey :: text as title,
-           e.created :: timestamptz,
-           e.survey_status :: text as status
+           distinct on (s.id, f.id, s.survey, s.created, s.survey_status)
+           s.id :: int8 as survey_ident,
+           f.id :: int8? as report_ident,
+           s.survey :: text as title,
+           s.created :: timestamptz,
+           s.survey_status :: text as status
          from customer.profile as p
-         inner join customer.survey as e
-         on p.id = e.user_id 
+         inner join customer.survey as s
+         on p.id = s.user_id 
          left join customer.survey_files as sf
-         on e.id = sf.survey_id
+         on s.id = sf.survey_id
          left join storage.file as f
          on sf.report_id = f.id
          where p.user_id = $1 :: int8
-         group by f.id, e.survey, e.created, e.survey_status
-         order by e.created desc),
+         group by s.id, f.id, s.survey, s.created, s.survey_status
+         order by s.created desc),
       total as (select count(*) from tbl),
       history as (select * from tbl offset (($2 :: int4 - 1) * 10) limit 10)
     select 
       array_agg(
         jsonb_build_object(
-          'ident', ident, 
-          'name', title, 
+          'surveyident', survey_ident,
+          'reportident', report_ident, 
+          'name', title,
           'timestamp', created,
           'status', status)) :: jsonb[], 
       (select * from total) :: int4 as cnt 
