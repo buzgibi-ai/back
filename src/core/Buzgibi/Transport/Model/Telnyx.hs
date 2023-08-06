@@ -36,7 +36,11 @@ module Buzgibi.Transport.Model.Telnyx
         RecordingStartResponse,
         Channels (..),
         Format (..),
-        HangupCause (..)
+        HangupCause (..),
+        MachineDetection (..),
+        MachineDetectionResult (..),
+        HangupRequest (..),
+        HangupResponse
        ) where
 
 import Database.Transaction (ParamsShow (..))
@@ -104,7 +108,10 @@ data CallRequest =
       callRequestConnectionId :: !T.Text,
       -- The URL of a file to be played back to the callee when the call is answered. 
       -- The URL can point to either a WAV or MP3 file. media_name and audio_url cannot be used together in one request.
-      callRequestAudioUrl :: !T.Text
+      callRequestAudioUrl :: !T.Text,
+       -- When a call is answered, Telnyx runs real-time detection to determine 
+       -- if it was picked up by a human or a machine and sends an call.machine.detection.ended webhook with the analysis result
+      callRequestAnsweringMachineDetection :: !T.Text
      }
      deriving stock (Generic)
      deriving
@@ -145,7 +152,12 @@ instance ParamsShow CallResponse where
   render = render . encodeCallResponse
 
 
-data EventType = CallAnswered | CallHangup | CallRecordingSaved | CallInitiated
+data EventType = 
+     CallAnswered | 
+     CallHangup | 
+     CallRecordingSaved | 
+     CallInitiated | 
+     CallMachineDetectionEnded
      deriving stock (Generic, Show)
      deriving
      (ToJSON, FromJSON)
@@ -207,7 +219,12 @@ mkArbitrary ''HangupCause
 instance ParamsShow HangupCause where
     render = toS . encode
 
-data CallPayload = HangupWrapper Hangup | AnsweredWrapper Answered | RecordWrapper Record | Skip EventType
+data CallPayload = 
+     HangupWrapper Hangup | 
+     AnsweredWrapper Answered | 
+     RecordWrapper Record | 
+     Skip EventType |
+     MachineDetectionWrapper MachineDetection 
 
 data Hangup =
      Hangup
@@ -247,32 +264,38 @@ data Record =
           '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor Record)]]
           Record
 
-mkEncoder ''Hangup
-mkArbitrary ''Hangup
+data MachineDetectionResult = Human | Machine | NotSure
+    deriving stock (Generic, Show, Eq, Ord)
+    deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[ConstructorTagModifier '[CamelTo2 "_"]]
+          MachineDetectionResult
 
-mkEncoder ''Answered
-mkArbitrary ''Answered
+data MachineDetection =
+     MachineDetection
+     { machineDetectionCallLegId :: T.Text,
+       machineDetectionResult :: MachineDetectionResult,
+       machineDetectionConnectionId :: T.Text,
+       machineDetectionCallControlId :: T.Text,
+       machineDetectionClientState :: Maybe T.Text
+     }
+     deriving stock (Generic, Show)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor MachineDetection)]]
+          MachineDetection
 
-mkEncoder ''Record
-mkArbitrary ''Record
+data HangupRequest = HangupRequest { hangupRequestClientState :: Maybe T.Text } 
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor HangupRequest)]]
+          HangupRequest
 
-encodeHangup :: Hangup -> (T.Text, T.Text, HangupCause)
-encodeHangup = fromMaybe (error "cannot encode Hangup") . mkEncoderHangup
-
-encodeAnswered :: Answered -> (T.Text, T.Text)
-encodeAnswered = fromMaybe (error "cannot encode Answered") . mkEncoderAnswered
-
-encodeRecord :: Record -> (T.Text, T.Text, Payload)
-encodeRecord = fromMaybe (error "cannot encode Record") . mkEncoderRecord
-
-instance ParamsShow Hangup where
-  render = render . encodeHangup
-
-instance ParamsShow Answered where
-  render = render . encodeAnswered
-
-instance ParamsShow Record where
-  render = render . encodeRecord
+data HangupResponse
 
 data Format = MP3 | WAV
      deriving stock (Generic)
@@ -309,3 +332,30 @@ instance FromJSON RecordingStartResponse where
     withObject "RecordingStartResponse" $ \o -> do
       d <- o .: "data"
       fmap RecordingStartResponse $ d .: "result"
+
+mkEncoder ''Hangup
+mkArbitrary ''Hangup
+
+mkEncoder ''Answered
+mkArbitrary ''Answered
+
+mkEncoder ''Record
+mkArbitrary ''Record
+
+encodeHangup :: Hangup -> (T.Text, T.Text, HangupCause)
+encodeHangup = fromMaybe (error "cannot encode Hangup") . mkEncoderHangup
+
+encodeAnswered :: Answered -> (T.Text, T.Text)
+encodeAnswered = fromMaybe (error "cannot encode Answered") . mkEncoderAnswered
+
+encodeRecord :: Record -> (T.Text, T.Text, Payload)
+encodeRecord = fromMaybe (error "cannot encode Record") . mkEncoderRecord
+
+instance ParamsShow Hangup where
+  render = render . encodeHangup
+
+instance ParamsShow Answered where
+  render = render . encodeAnswered
+
+instance ParamsShow Record where
+  render = render . encodeRecord

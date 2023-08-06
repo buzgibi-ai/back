@@ -536,7 +536,8 @@ insertHangupCall =
     update customer.call_telnyx_app
     set call_status = $3 :: text,
         call_hangup_cause = $2 :: text 
-    where call_leg_id = $1 :: text|]
+    where call_leg_id = $1 :: text 
+    and call_hangup_cause is null|]
 
 checkAfterWebhook ::  HS.Statement T.Text ()
 checkAfterWebhook =
@@ -589,7 +590,8 @@ insertVoiceTelnyx =
      update customer.call_telnyx_app
      set call_status = $3 :: text,
          voice_id = $2 :: int8 
-     where call_leg_id = $1 :: text|]
+     where call_leg_id = $1 :: text 
+     and call_hangup_cause is null|]
 
 data OpenAITranscription = 
      OpenAITranscription 

@@ -102,7 +102,7 @@ makeCall TelnyxCfg {..} = forever $ do
       let phonese = sequence $ map (eitherDecode @PhoneToCall . encode) phonesJson
       decodeRes <- for phonese $ \phones -> do 
         resp <- Async.forConcurrently phones $ \PhoneToCall {..} -> do
-        
+
           let request =
                 CallRequest
                 {
@@ -110,7 +110,8 @@ makeCall TelnyxCfg {..} = forever $ do
                   callRequestFrom = telnyxPhone telnyxCfg,
                   callRequestFromDisplayName = mempty,
                   callRequestConnectionId = telnyxIdent,
-                  callRequestAudioUrl = link
+                  callRequestAudioUrl = link,
+                  callRequestAnsweringMachineDetection = "detect"
                 }
           callApi @"calls" @CallRequest @CallResponseData 
             (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (phoneToCallIdent,)) $ 

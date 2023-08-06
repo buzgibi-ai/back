@@ -8,6 +8,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Buzgibi.Api.Controller.Webhook.CatchTelnyx (controller) where
 
@@ -23,7 +24,7 @@ import Katip
 import Buzgibi.Transport.Payload (Payload (..))
 import Data.Aeson (encode, eitherDecode, decode)
 import Data.Traversable (for)
-import Control.Monad (when, join)
+import Control.Monad (when, join, void)
 import Data.Either (isLeft)
 import Database.Transaction
 import Control.Lens
@@ -43,10 +44,12 @@ import BuildInfo (location)
 import Data.String.Conv
 import Network.Mime (defaultMimeLookup)
 
+
 data UrlError = NetworkFailure B.ByteString | UserMissing
   deriving Show
 
 type instance Api "calls/{call_control_id}/actions/record_start" RecordingStartRequest RecordingStartResponse = ()
+type instance Api "calls/{call_control_id}/actions/hangup" HangupRequest () = ()
 
 controller :: Payload -> KatipControllerM ()
 controller payload@Payload {..} = do
@@ -57,6 +60,7 @@ controller payload@Payload {..} = do
           CallAnswered -> fmap AnsweredWrapper $ eitherDecode @Answered $ encode webhookPayload
           CallHangup -> fmap HangupWrapper $ eitherDecode @Hangup $ encode webhookPayload
           CallRecordingSaved -> fmap RecordWrapper $ eitherDecode @Record $ encode webhookPayload
+          CallMachineDetectionEnded -> fmap MachineDetectionWrapper $ eitherDecode @MachineDetection $ encode webhookPayload
           _ -> Right $ Skip webhookEventType
   res :: Either String () 
     <- for parseRes $ \case
@@ -75,8 +79,7 @@ controller payload@Payload {..} = do
            telnyxApiCfg <- fmap (ApiCfg (fromMaybe undefined (env^.telnyx)) (env^.httpReqManager)) askLoggerIO
            let request = RecordingStartRequest { recordingStartRequestFormat = MP3,  recordingStartRequestChannels = Single }
            let queryParam = [("{call_control_id}", answeredCallControlId)]
-           callRes <- liftIO $ callApi @("calls/{call_control_id}/actions/record_start") @RecordingStartRequest @RecordingStartResponse 
-                         telnyxApiCfg (Left request) methodPost queryParam Left (const (Right ()))
+           callRes <- liftIO $ callApi @("calls/{call_control_id}/actions/record_start") @RecordingStartRequest @RecordingStartResponse telnyxApiCfg (Left request) methodPost queryParam Left (const (Right ()))
 
            hasql <- fmap (^. katipEnv . hasqlDbPool) ask              
            res <- for callRes $ const $ transactionM hasql $ 
@@ -85,7 +88,7 @@ controller payload@Payload {..} = do
                  encodeAnswered answered
 
            when (isLeft res) $ $(logTM) ErrorS (logStr @String ($location <> " (answer case) --> answered case has failed, error: " <> show res))    
-
+         
          RecordWrapper record@Record {recordConnectionId, recordCallLegId, recordRecordingUrls=Payload {..}} -> do
            
            let getRecordingUrls = 
@@ -115,4 +118,19 @@ controller payload@Payload {..} = do
            whenLeft res $ const $ $(logTM) ErrorS $ logStr $ $location <> " (record case) ---> url broken " <> show getPayload
 
            $(logTM) InfoS $ logStr $ $location <> " (record case) ---> record received " <> show record
+
+         MachineDetectionWrapper MachineDetection {machineDetectionResult = Human} -> 
+           $(logTM) InfoS $ logStr @String $ $location <> " (machine detection case) --> human. proceed with the call."
+         MachineDetectionWrapper machine@MachineDetection {..} -> do
+           $(logTM) InfoS $ logStr @String $ $location <> " (machine detection case) --> machine is detected." <> show machine
+           hasql <- fmap (^. katipEnv . hasqlDbPool) ask
+           transactionM hasql $ do 
+             statement User.Survey.insertHangupCall (machineDetectionCallLegId, (toS . show) machineDetectionResult)
+             statement User.Survey.checkAfterWebhook machineDetectionConnectionId
+           env <- fmap (^. katipEnv) ask  
+           telnyxApiCfg <- fmap (ApiCfg (fromMaybe undefined (env^.telnyx)) (env^.httpReqManager)) askLoggerIO  
+           let request = HangupRequest machineDetectionClientState
+           let queryParam = [("{call_control_id}", machineDetectionCallControlId)]
+           void $ liftIO $ callApi @("calls/{call_control_id}/actions/hangup") @HangupRequest @() telnyxApiCfg (Left request) methodPost queryParam Left (const (Right ()))
+
   when (isLeft res) $ $(logTM) CriticalS $ logStr $ $location <> " ---> parse error: " <> show res
