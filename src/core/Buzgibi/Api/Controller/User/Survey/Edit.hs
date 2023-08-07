@@ -69,7 +69,7 @@ controller :: AuthenticatedUser -> Int64 -> EditSurvey -> KatipControllerM (Resp
 controller _ _ EditSurvey {..}
   | T.length editSurveySurvey == 0 = return $ Warnings () [asError @T.Text "empty_survey"]
   | T.length editSurveySurvey > 180 = return $ Warnings () [asError @T.Text "survey_truncated_to_180"]
-controller _ surveyIdent value@EditSurvey {..} = do 
+controller AuthenticatedUser {..} surveyIdent value@EditSurvey {..} = do 
   $(logTM) DebugS $ logStr @String $ $location <> " edit survey ---> key: " <> show surveyIdent <> ", value: " <> show value
   barkm <- fmap (^. katipEnv . bark) ask
   resp <- fmap (maybeToRight BarkCredentials404) $ 
@@ -78,7 +78,7 @@ controller _ surveyIdent value@EditSurvey {..} = do
       manager <- fmap (^. katipEnv . httpReqManager) ask
       webhook <- fmap (^. katipEnv . webhook) ask
       transactionM hasql $ do 
-        draftIdentm <- statement Survey.insertDraft (surveyIdent, editSurveySurvey)
+        draftIdentm <- statement Survey.insertDraft (ident, surveyIdent, editSurveySurvey)
         for_ draftIdentm $ \draftIdent -> do 
           idx <- liftIO $ randomRIO (0, 2)
           let voice = voices (bark^.textTemp) (bark^.waveformTemp) !! idx

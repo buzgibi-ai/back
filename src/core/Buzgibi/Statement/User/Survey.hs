@@ -54,7 +54,8 @@ module Buzgibi.Statement.User.Survey
     checkAfterInvalidate,
     checkAfterWebhook,
     failTelnyxApp,
-    insertDraft
+    insertDraft,
+    submit
   ) where
 
 
@@ -237,19 +238,39 @@ insert =
         'draft', (select ident from draft)
       )) :: jsonb|]
 
-insertDraft :: HS.Statement (Int64, T.Text) (Maybe Int64)
+insertDraft :: HS.Statement (Int64, Int64, T.Text) (Maybe Int64)
 insertDraft =
   lmap (snocT (toS (show Draft)))
   [maybeStatement|
     with survey as (
-      select id 
-      from customer.survey 
-      where id  = $1 :: int8 
-      and survey_status = $3 :: text)
+      select s.id 
+       from auth.user as u
+       inner join customer.profile as p
+       on u.id = p.user_id
+       inner join customer.survey as s
+       on s.user_id = p.id
+       where u.id = $1 :: int8 
+       and s.id = $2 :: int8
+       and survey_status = $4 :: text)
     insert into customer.survey_draft
     (survey, survey_id) 
-    values ($2 :: text, (select id from survey))
+    values ($3 :: text, (select id from survey))
     returning id :: int8|]
+
+submit :: HS.Statement (Int64, Int64) ()
+submit = 
+  lmap (snocT (toS (show Submit)))
+  [resultlessStatement|
+    update customer.survey
+    set survey_status = $3 :: text
+    where id = 
+      (select s.id
+       from auth.user as u
+       inner join customer.profile as p
+       on u.id = p.user_id
+       inner join customer.survey as s
+       on s.user_id = p.id
+       where u.id = $1 :: int8 and s.id = $2 :: int8)|]
 
 data BarkStatus = BarkSent | BarkStart | BarkProcessed | BarkFail
     deriving Generic

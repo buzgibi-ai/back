@@ -104,6 +104,7 @@ explainTests =
        "checkAfterInvalidate" =>> Buzgibi.Statement.User.Survey.checkAfterInvalidate,
        "checkAfterWebhook" =>> Buzgibi.Statement.User.Survey.checkAfterWebhook,
        "failTelnyxApp" =>> Buzgibi.Statement.User.Survey.failTelnyxApp,
-       "insertDraft" =>> Buzgibi.Statement.User.Survey.insertDraft
+       "insertDraft" =>> Buzgibi.Statement.User.Survey.insertDraft,
+       "submit" =>> Buzgibi.Statement.User.Survey.submit
      ]
   ]
