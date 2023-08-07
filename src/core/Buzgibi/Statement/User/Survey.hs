@@ -53,7 +53,8 @@ module Buzgibi.Statement.User.Survey
     insertHangupCall,
     checkAfterInvalidate,
     checkAfterWebhook,
-    failTelnyxApp
+    failTelnyxApp,
+    insertDraft
   ) where
 
 
@@ -203,23 +204,16 @@ insert :: HS.Statement Survey (Maybe Value)
 insert =
   lmap (\x -> 
     encodeSurvey x 
-    & _3 %~ (T.pack . show) 
+    & _3 %~ (T.pack . show)
     & _6 %~ (T.pack . show) 
     & _7 %~ (T.pack . show)) $
   [maybeStatement|
     with
-      survey_draft as (
-        insert into customer.survey_draft 
-        (survey) 
-        values 
-        ($2 :: text) 
-        returning id),
       survey as (
         insert into customer.survey
-        (user_id, survey_draft_id, survey_status, latitude, longitude, category, survey_type)
+        (user_id, survey_status, latitude, longitude, category, survey_type)
         select
           id :: int8,
-          (select id from survey_draft) :: int8,
           $3 :: text, 
           $4 :: float8, 
           $5 :: float8,
@@ -227,6 +221,12 @@ insert =
           $7 :: text
         from customer.profile
         where user_id = $1 :: int8
+        returning id :: int8 as ident),
+      draft as (
+        insert into customer.survey_draft 
+        (survey, survey_id) 
+        values 
+        ($2 :: text, (select ident from survey)) 
         returning id :: int8 as ident)
     insert into customer.survey_files 
     (survey_id, phones_id)
@@ -234,8 +234,22 @@ insert =
     returning (
       jsonb_build_object(
         'survey', (select ident from survey),
-        'draft', (select id from survey_draft)
+        'draft', (select ident from draft)
       )) :: jsonb|]
+
+insertDraft :: HS.Statement (Int64, T.Text) (Maybe Int64)
+insertDraft =
+  lmap (snocT (toS (show Draft)))
+  [maybeStatement|
+    with survey as (
+      select id 
+      from customer.survey 
+      where id  = $1 :: int8 
+      and survey_status = $3 :: text)
+    insert into customer.survey_draft
+    (survey, survey_id) 
+    values ($2 :: text, (select id from survey))
+    returning id :: int8|]
 
 data BarkStatus = BarkSent | BarkStart | BarkProcessed | BarkFail
     deriving Generic
@@ -314,42 +328,46 @@ getHistory :: HS.Statement (Int64, Int32) (Maybe ([Value], Int32))
 getHistory =
   rmap (fmap (first V.toList)) $
   [maybeStatement|
-    with 
-      tbl as 
-        (select
-           distinct on (s.id, f.id, sd.survey, s.created, s.survey_status, sbf.hash, sbf.bucket)
+    with tbl as 
+      (select
+         t.*,
+         s.created,
+         sbf.hash,
+         sbf.bucket,
+         (select survey from customer.survey_draft where id = t.draft_ident) as title
+       from (
+         select
            s.id :: int8 as survey_ident,
-           f.id :: int8? as report_ident,
-           sd.survey :: text as title,
-           s.created :: timestamptz,
+           f.id :: int8 as report_ident,
            s.survey_status :: text as status,
-           sbf.hash :: text,
-           sbf.bucket :: text,
-           max(sd.id)
+           max(sd.id) as draft_ident
          from customer.profile as p
          inner join customer.survey as s
          on p.id = s.user_id 
          inner join customer.survey_draft as sd
          on sd.survey_id = s.id
-         left join (
-          select
-            sb.survey_draft_id,
-            f.hash,
-            f.bucket
-          from customer.survey_bark as sb
-          left join storage.file as f
-          on sb.voice_id = f.id 
-         ) as sbf
-         on sbf.survey_draft_id = sd.id
          left join customer.survey_files as sf
          on s.id = sf.survey_id
          left join storage.file as f
          on sf.report_id = f.id
          where p.user_id = $1 :: int8
-         group by s.id, f.id, sd.survey, s.created, s.survey_status, sbf.hash, sbf.bucket
-         order by s.created desc),
-      total as (select count(*) from tbl),
-      history as (select * from tbl offset (($2 :: int4 - 1) * 10) limit 10)
+         group by s.id, f.id, s.survey_status
+       ) as t
+       inner join customer.survey as s
+       on t.survey_ident = s.id
+       left join (
+         select
+           sb.survey_draft_id,
+           f.hash,
+           f.bucket
+         from customer.survey_bark as sb
+         left join storage.file as f
+         on sb.voice_id = f.id 
+       ) as sbf
+       on sbf.survey_draft_id = t.draft_ident
+       order by s.created desc),
+    total as (select count(*) from tbl),
+    history as (select * from tbl offset (($2 :: int4 - 1) * 10) limit 10)
     select 
       array_agg(
         jsonb_build_object(

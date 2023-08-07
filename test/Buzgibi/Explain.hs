@@ -103,6 +103,7 @@ explainTests =
        "insertHangupCall" =>> Buzgibi.Statement.User.Survey.insertHangupCall,
        "checkAfterInvalidate" =>> Buzgibi.Statement.User.Survey.checkAfterInvalidate,
        "checkAfterWebhook" =>> Buzgibi.Statement.User.Survey.checkAfterWebhook,
-       "failTelnyxApp" =>> Buzgibi.Statement.User.Survey.failTelnyxApp
+       "failTelnyxApp" =>> Buzgibi.Statement.User.Survey.failTelnyxApp,
+       "insertDraft" =>> Buzgibi.Statement.User.Survey.insertDraft
      ]
   ]

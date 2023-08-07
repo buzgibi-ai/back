@@ -18,7 +18,14 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Buzgibi.Api.Controller.User.Survey.Make (controller, Survey, PhoneRecord (..), Location (..)) where
+module Buzgibi.Api.Controller.User.Survey.Make 
+       ( controller, 
+         Survey, 
+         PhoneRecord (..), 
+         Location (..), 
+         voices,
+         mkBarkRequest
+       ) where
 
 import qualified Buzgibi.Transport.Model.Bark as Bark
 import qualified Buzgibi.Statement.User.Survey as Survey
@@ -166,10 +173,10 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                         (bark^.url) manager 
                         [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
                         HTTP.methodPost $ 
-                        Left (Just (mkReq webhook (bark^.version) voice surveySurvey))
-                     let mkBark ident st = 
+                        Left (Just (mkBarkRequest webhook (bark^.version) voice surveySurvey))
+                     let mkBarkRecord ident st = 
                             Survey.Bark {
-                              Survey.barkReq = toJSON $ mkReq webhook (bark^.version) voice surveySurvey,
+                              Survey.barkReq = toJSON $ mkBarkRequest webhook (bark^.version) voice surveySurvey,
                               Survey.barkStatus = st,
                               Survey.barkIdent = ident,
                               Survey.barkSurveyDraftId = survey_draft_ident
@@ -181,14 +188,13 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                            Right resp -> 
                             transactionM hasql $ 
                               statement Survey.insertBark $
-                                mkBark (Bark.responseIdent resp) Survey.BarkSent
+                                mkBarkRecord (Bark.responseIdent resp) Survey.BarkSent
                            Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
                        Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
               else  $(logTM) InfoS $ logStr @String $ $location <> " all phones are invalid. skip"
           let truncatedTo30 = if V.length phoneRecordXs > 30 then [asError @T.Text "truncated_to_30"] else mempty
           return $ maybeToRight InsertionFail $ fmap (, truncatedTo30) identm
   return $ withErrorExt resp $ const ()
-
 
 data VoiceModel =
      VoiceModel 
@@ -198,6 +204,7 @@ data VoiceModel =
        voiceModelPrompt :: T.Text
      }
 
+voices :: Double -> Double -> [VoiceModel]
 voices x y = fmap (VoiceModel x y) ["en_speaker_3", "en_speaker_1", "en_speaker_5"]
 
 data Input = Input { inputPrompt :: T.Text }
@@ -237,7 +244,8 @@ data BarkRequestBody =
 --   "webhook": "https://buzgibi.app/foreign/webhook/bark",
 --   "webhook_events_filter": ["start", "completed"]
 -- }
-mkReq webhook version (VoiceModel {..}) survey = 
+mkBarkRequest :: T.Text -> T.Text -> VoiceModel -> T.Text -> BarkRequestBody
+mkBarkRequest webhook version (VoiceModel {..}) survey = 
   BarkRequestBody
   { 
     barkRequestBodyVersion = version,
