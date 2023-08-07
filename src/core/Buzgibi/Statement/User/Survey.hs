@@ -353,8 +353,7 @@ getHistory =
       (select
          t.*,
          s.created,
-         sbf.hash,
-         sbf.bucket,
+         sbf.id as voice_ident,
          (select survey from customer.survey_draft where id = t.draft_ident) as title
        from (
          select
@@ -377,10 +376,7 @@ getHistory =
        inner join customer.survey as s
        on t.survey_ident = s.id
        left join (
-         select
-           sb.survey_draft_id,
-           f.hash,
-           f.bucket
+         select sb.survey_draft_id, f.id
          from customer.survey_bark as sb
          left join storage.file as f
          on sb.voice_id = f.id 
@@ -399,10 +395,8 @@ getHistory =
           'status', status,
           'bark', 
             case
-              when hash is not null and bucket is not null 
-              then jsonb_build_object(
-                    'hash', hash,
-                    'bucket', bucket)
+              when voice_ident is not null
+              then jsonb_build_object('voice', voice_ident)
               else null
             end        
         )) :: jsonb[],
