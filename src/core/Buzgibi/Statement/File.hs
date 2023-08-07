@@ -81,22 +81,47 @@ getMetaForReport =
   dimap (\x -> x & _1 %~ coerce & _2 %~ coerce) (fmap mkTpl) $
     [maybeStatement|
       select
-       f.hash :: text, 
-       f.title :: text,
-       f.mime :: text, 
-       f.bucket :: text,
-       array(select trim(both '"' from cast(el as text)) 
-            from json_array_elements(exts) as el) :: text[]
-      from customer.profile as p
+        coalesce(report.hash, voice.hash) :: text as hash, 
+        coalesce(report.title, voice.title) :: text as title,
+        coalesce(report.mime, voice.mime) :: text as mime, 
+        coalesce(report.bucket, voice.bucket) :: text as bucket,
+        array(select trim(both '"' from cast(el as text)) 
+            from json_array_elements(coalesce(report.exts, voice.exts)) as el) :: text[] as ext
+      from auth.user as u      
+      inner join customer.profile as p
+      on u.id = p.user_id
       inner join customer.survey as ce
       on p.id = ce.user_id
-      inner join customer.survey_files as sf
-      on ce.id = sf.survey_id
-      inner join storage.file as f
-      on sf.report_id = f.id
-      where p.user_id = $1 :: int8 
-            and f.id = $2 :: int8
-            and not is_deleted|]
+      left join (
+        select 
+          sf.survey_id,
+          f.hash :: text, 
+          f.title :: text,
+          f.mime :: text, 
+          f.bucket :: text,
+          f.id :: int8,
+          f.exts
+        from customer.survey_files as sf
+        left join storage.file as f
+        on sf.report_id = f.id) as report
+      on report.survey_id = ce.id
+      left join (
+        select
+          sd.survey_id,
+          f.hash :: text, 
+          f.title :: text,
+          f.mime :: text, 
+          f.bucket :: text,
+          f.exts,
+          f.id :: int8
+        from customer.survey_draft as sd
+        left join customer.survey_bark as sb
+        on sd.id = sb.survey_draft_id
+        left join storage.file as f
+        on sb.voice_id = f.id
+      ) as voice
+      on voice.survey_id = ce.id
+      where u.id = $1 :: int8 and (report.id = $2 :: int8 or voice.id = $2 :: int8)|]
   where mkTpl x = x & _1 %~ coerce & _2 %~ coerce & _3 %~ coerce & _4 %~ coerce & _5 %~ V.toList @T.Text
 
 getMeta :: HS.Statement (Id "file") (Maybe (Hash, Name, Mime, Bucket, [T.Text]))
