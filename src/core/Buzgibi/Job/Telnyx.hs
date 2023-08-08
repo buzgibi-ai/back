@@ -71,7 +71,7 @@ makeApp TelnyxCfg {..} = forever $ do
       let url = webhook <> "/foreign/webhook/telnyx"
       let request =
             AppRequest 
-            { appRequestApplicationName = title,
+            { appRequestApplicationName = title <> "_" <> telnyxApppostfix telnyxCfg,
               appRequestWebhookEventUrl = url,
               appRequestOutbound = 
               Outbound {

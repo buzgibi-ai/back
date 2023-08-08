@@ -49,7 +49,8 @@ data Telnyx =
      { telnyxUrl :: !T.Text, 
        telnyxKey :: !T.Text, 
        telnyxPhone :: !T.Text, 
-       telnyxOutbound :: !T.Text
+       telnyxOutbound :: !T.Text,
+       telnyxApppostfix :: !T.Text
      } 
   deriving stock (Generic)
   deriving stock (Show)
