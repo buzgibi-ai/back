@@ -38,6 +38,7 @@ import qualified Data.Text as T
 import Network.Mime (defaultMimeLookup)
 import Data.Coerce (coerce)
 import Data.Conduit.Combinators (sourceLazy)
+import Data.Maybe (fromMaybe)
 
 data SurveyCfg =
      SurveyCfg 
@@ -81,7 +82,7 @@ makeFile !idx sheet (x:xs) =
           & cellValueAt (idx, 1) ?~ 
             CellText (surveyForReportItemPhone x)
           & cellValueAt (idx, 2) ?~ 
-            CellText (surveyForReportItemResult x)
+            CellText (fromMaybe "no result or error" (surveyForReportItemResult x))
   in makeFile (idx + 1) newSheet xs
 
 commitToMinio ident prefix xlsx = do

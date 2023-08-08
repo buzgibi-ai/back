@@ -812,7 +812,7 @@ insertSA =
 data SurveyForReportItem =
      SurveyForReportItem
      { surveyForReportItemPhone :: T.Text,
-       surveyForReportItemResult :: T.Text
+       surveyForReportItemResult :: Maybe T.Text
      }
      deriving stock (Generic, Show)
      deriving
@@ -828,21 +828,18 @@ getSurveyForReport =
     with 
       failure_report as (
         select
-          distinct on (s.id, u.id)
+          distinct on (s.id, u.id, sp.id)
           s.id :: int8 as survey_id,
           u.id :: int8 as user_id,
-          array_agg(jsonb_build_object(
-            'phone', sp.phone,
-            'result', 
-              case 
-                when not sp.is_valid_number
-                then 'phone is invalid'
-                else            
-                  coalesce(
-                    cta.invalid, 
-                    trim(both '"' from cta.call_hangup_cause))
-              end      
-          )) :: jsonb[] as v
+          sp.id as phone_id,
+          sp.phone,
+          case 
+            when not sp.is_valid_number then 
+              'phone is invalid'
+            when cta.invalid is not null then 
+              cta.invalid
+            else trim(both '"' from cta.call_hangup_cause)
+          end as result
         from auth.user as u
         inner join customer.survey as s
         on u.id = s.user_id
@@ -853,47 +850,57 @@ getSurveyForReport =
         where s.survey_status = $1 :: text and
               (select report_id 
                from customer.survey_files 
-               where survey_id = s.id) is null
-        group by u.id, s.id),
+               where survey_id = s.id) is null),
       success_report as (
         select
-          distinct on (s.id, u.id)
+          distinct on (s.id, u.id, sp.id)
           s.id :: int8 as survey_id,
           u.id :: int8 as user_id,
-          array_agg(jsonb_build_object(
-            'phone', sp.phone,
-            'result', coalesce(
-              psa.result,
-              cta.invalid, 
-              trim(both '"' from cta.call_hangup_cause),
-              pt.error))) :: jsonb[] as v
+          sp.id as phone_id,
+          sp.phone,
+          case 
+            when psa.result is not null then 
+              psa.result
+            when cta.invalid is not null then 
+              psa.result
+            when cta.call_hangup_cause is not null then 
+              trim(both '"' from cta.call_hangup_cause)
+            else pt.error
+          end as result
         from auth.user as u
         inner join customer.survey as s
         on u.id = s.user_id
         inner join customer.survey_phones as sp
         on s.id = sp.survey_id
         inner join customer.call_telnyx_app as cta 
-        on cta.phone_id= sp.id
+        on cta.phone_id = sp.id
         left join customer.phone_transcription as pt
         on pt.survey_id = s.id
         left join customer.phone_sentiment_analysis as psa
         on psa.phone_id = sp.id
         where s.survey_status = $2 :: text and
               (select report_id 
-               from customer.survey_files 
-               where survey_id = s.id) is null
-        group by u.id, s.id)
-    select 
+               from customer.survey_files
+               where survey_id = s.id) is null)
+     select 
        survey_id :: int8, 
        user_id :: int8, 
-       v :: jsonb[] 
+       array_agg(jsonb_build_object(
+         'phone', phone,
+         'reslut', result
+       )) :: jsonb[] 
      from failure_report
+     group by survey_id, user_id
      union 
      select 
        survey_id :: int8, 
        user_id :: int8, 
-       v :: jsonb[] 
-     from success_report|]
+       array_agg(jsonb_build_object(
+         'phone', phone,
+         'reslut', result
+       )) :: jsonb[] 
+     from success_report
+     group by survey_id, user_id|]
 
 saveReport :: HS.Statement (Int64, Int64) ()
 saveReport =
