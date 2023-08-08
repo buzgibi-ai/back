@@ -812,7 +812,7 @@ insertSA =
 data SurveyForReportItem =
      SurveyForReportItem
      { surveyForReportItemPhone :: T.Text,
-       surveyForReportItemResult :: Maybe T.Text
+       surveyForReportItemResult :: T.Text
      }
      deriving stock (Generic, Show)
      deriving
@@ -887,7 +887,7 @@ getSurveyForReport =
        user_id :: int8, 
        array_agg(jsonb_build_object(
          'phone', phone,
-         'reslut', result
+         'result', result
        )) :: jsonb[] 
      from failure_report
      group by survey_id, user_id
@@ -897,8 +897,8 @@ getSurveyForReport =
        user_id :: int8, 
        array_agg(jsonb_build_object(
          'phone', phone,
-         'reslut', result
-       )) :: jsonb[] 
+         'result', result
+       )) :: jsonb[]
      from success_report
      group by survey_id, user_id|]
 

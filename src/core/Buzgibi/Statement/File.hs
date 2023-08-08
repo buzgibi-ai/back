@@ -119,6 +119,7 @@ getMetaForReport =
         on sd.id = sb.survey_draft_id
         left join storage.file as f
         on sb.voice_id = f.id
+        order by sd.id desc limit 1
       ) as voice
       on voice.survey_id = ce.id
       where u.id = $1 :: int8 and (report.id = $2 :: int8 or voice.id = $2 :: int8)|]
