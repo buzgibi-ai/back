@@ -65,10 +65,10 @@ data EditSurvey = EditSurvey { editSurveySurvey :: T.Text }
 
 deriveToSchemaFieldLabelModifier ''EditSurvey [|modify (Proxy @EditSurvey)|]
 
-controller :: AuthenticatedUser -> Int64 -> EditSurvey -> KatipControllerM (Response ())
+controller :: AuthenticatedUser -> Int64 -> EditSurvey -> KatipControllerM (Response Bool)
 controller _ _ EditSurvey {..}
-  | T.length editSurveySurvey == 0 = return $ Warnings () [asError @T.Text "empty_survey"]
-  | T.length editSurveySurvey > 180 = return $ Warnings () [asError @T.Text "survey_truncated_to_180"]
+  | T.length editSurveySurvey == 0 = return $ Warnings False [asError @T.Text "empty_survey"]
+  | T.length editSurveySurvey > 180 = return $ Warnings False [asError @T.Text "survey_truncated_to_180"]
 controller AuthenticatedUser {..} surveyIdent value@EditSurvey {..} = do 
   $(logTM) DebugS $ logStr @String $ $location <> " edit survey ---> key: " <> show surveyIdent <> ", value: " <> show value
   barkm <- fmap (^. katipEnv . bark) ask
@@ -89,7 +89,7 @@ controller AuthenticatedUser {..} surveyIdent value@EditSurvey {..} = do
               HTTP.methodPost $ 
               Left (Just (mkBarkRequest webhook (bark^.version) voice editSurveySurvey))
           case resp of
-            Right (resp, _) -> do 
+            Right (resp, _) -> do
               let bark_resp = eitherDecodeStrict @Bark.Response resp
               let mkBarkRecord ident st = 
                     Survey.Bark {
@@ -104,4 +104,4 @@ controller AuthenticatedUser {..} surveyIdent value@EditSurvey {..} = do
                     mkBarkRecord (Bark.responseIdent resp) Survey.BarkSent
                 Left err -> error $ "bark response resulted in error: " <> show err
             Left err -> error $ "bark response resulted in error: " <> show err
-  return $ withError resp $ const ()
+  return $ withError resp $ const True

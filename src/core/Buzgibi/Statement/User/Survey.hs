@@ -257,10 +257,10 @@ insertDraft =
     values ($3 :: text, (select id from survey))
     returning id :: int8|]
 
-submit :: HS.Statement (Int64, Int64) ()
+submit :: HS.Statement (Int64, Int64) Bool
 submit = 
-  lmap (snocT (toS (show Submit)))
-  [resultlessStatement|
+  dimap (snocT (toS (show Submit))) (> 0)
+  [rowsAffectedStatement|
     update customer.survey
     set survey_status = $3 :: text
     where id = 

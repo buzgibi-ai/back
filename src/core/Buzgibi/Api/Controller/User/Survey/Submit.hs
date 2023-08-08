@@ -32,7 +32,6 @@ import Katip.Controller
 import Data.Int (Int64)
 import Database.Transaction
 import Control.Lens
-import Data.Functor (($>))
 
 data SubmitSurvey = 
      SubmitSurvey 
@@ -48,7 +47,7 @@ data SubmitSurvey =
 
 deriveToSchemaFieldLabelModifier ''SubmitSurvey [|modify (Proxy @SubmitSurvey)|]
 
-controller :: AuthenticatedUser -> SubmitSurvey -> KatipControllerM (Response ())
+controller :: AuthenticatedUser -> SubmitSurvey -> KatipControllerM (Response Bool)
 controller AuthenticatedUser {..} SubmitSurvey {..} = do 
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
-  transactionM hasql (statement Survey.submit (ident, submitSurveyIdent)) $> Ok ()
+  fmap Ok $ transactionM hasql $ statement Survey.submit (ident, submitSurveyIdent)

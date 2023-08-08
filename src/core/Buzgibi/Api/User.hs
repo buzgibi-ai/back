@@ -58,14 +58,14 @@ data UserApi route = UserApi
           :> SA.Auth '[JWT] AuthenticatedUser
           :> Capture "survey" Int64
           :> ReqBody '[JSON] EditSurvey
-          :> Post '[JSON] (Response ()),
+          :> Post '[JSON] (Response Bool),
     _userApiSubmitSurvey ::
       route
         :- "survey"
           :> "submit"
           :> SA.Auth '[JWT] AuthenticatedUser
           :> ReqBody '[JSON] SubmitSurvey
-          :> Post '[JSON] (Response ()),          
+          :> Post '[JSON] (Response Bool),          
     _userApiGetEnquiryHistory ::
       route
         :- "survey"
