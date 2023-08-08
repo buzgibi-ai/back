@@ -270,7 +270,11 @@ submit =
        on u.id = p.user_id
        inner join customer.survey as s
        on s.user_id = p.id
-       where u.id = $1 :: int8 and s.id = $2 :: int8)|]
+       inner join customer.survey_draft as sd
+       on s.id = sd.survey_id
+       inner join customer.survey_bark as sb
+       on sd.id = sb.survey_draft_id
+       where u.id = $1 :: int8 and s.id = $2 :: int8 and sb.voice_id is not null)|]
 
 data BarkStatus = BarkSent | BarkStart | BarkProcessed | BarkFail
     deriving Generic
