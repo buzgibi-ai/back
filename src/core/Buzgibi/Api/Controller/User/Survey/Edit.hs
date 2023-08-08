@@ -48,6 +48,7 @@ import qualified Network.HTTP.Types as HTTP
 import Control.Lens.Iso.Extended (textbs)
 import Data.Aeson (toJSON, eitherDecodeStrict)
 import Data.Foldable (for_)
+import Data.Maybe (isJust)
 
 data Error = BarkCredentials404
 
@@ -104,4 +105,5 @@ controller AuthenticatedUser {..} surveyIdent value@EditSurvey {..} = do
                     mkBarkRecord (Bark.responseIdent resp) Survey.BarkSent
                 Left err -> error $ "bark response resulted in error: " <> show err
             Left err -> error $ "bark response resulted in error: " <> show err
-  return $ withError resp $ const True
+        pure $ isJust draftIdentm    
+  return $ withError resp $ id
