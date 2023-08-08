@@ -533,33 +533,36 @@ data PhoneToCall = PhoneToCall { phoneToCallIdent :: Int64, phoneToCallPhone :: 
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor PhoneToCall)]]
           PhoneToCall
 
-getPhonesToCall :: HS.Statement () [(Int64, T.Text, T.Text, [Value], Int64)]
+getPhonesToCall :: HS.Statement () [(Int64, T.Text, T.Text, [Value])]
 getPhonesToCall =
   dimap 
     (const (toS (show PickedByTelnyx))) 
     (V.toList . fmap (\x -> x & _4 %~ V.toList)) $
   [vectorStatement|
     select
-      distinct on (t.id, t.telnyx_ident, vsl.share_link_url)
       t.id :: int8,
       t.telnyx_ident :: text,
       vsl.share_link_url :: text,
       array_agg(jsonb_build_object( 
        'phone', sp.phone,
-       'ident', sp.id)) :: jsonb[],
-      max(sd.id) :: int8
-    from customer.survey as s
-    inner join customer.survey_draft as sd
-    on sd.survey_id = s.id
-    inner join customer.survey_bark as b
-    on sd.id = b.survey_draft_id
+       'ident', sp.id)) :: jsonb[]
+    from (select
+        b.bark_id as bark_ident,
+        s.id as survey_ident,
+        s.survey_status
+      from customer.survey as s
+      inner join customer.survey_draft as sd
+      on sd.survey_id = s.id
+      inner join customer.survey_bark as b
+      on sd.id = b.survey_draft_id
+      order by sd.id desc limit 1) as tbl
     inner join customer.voice_share_link as vsl
-    on b.bark_id = vsl.bark_id
+    on tbl.bark_ident = vsl.bark_id
     inner join customer.survey_phones as sp
-    on s.id = sp.survey_id
+    on tbl.survey_ident = sp.survey_id
     inner join foreign_api.telnyx_app as t
-    on t.survey_id = s.id
-    where s.survey_status = $1 :: text and sp.is_valid_number
+    on t.survey_id = tbl.survey_ident
+    where tbl.survey_status = $1 :: text and sp.is_valid_number
     group by t.id, t.telnyx_ident, vsl.share_link_url|]
 
 data CallStatus = Invalid | CallMade | Hangup | Answered | Recorded

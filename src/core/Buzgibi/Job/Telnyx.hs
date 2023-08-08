@@ -98,7 +98,7 @@ makeCall TelnyxCfg {..} = forever $ do
 
     xs <- transaction pool logger $ statement getPhonesToCall ()
     
-    Async.forConcurrently_ xs $ \(ident, telnyxIdent, link, phonesJson, _) -> do
+    Async.forConcurrently_ xs $ \(ident, telnyxIdent, link, phonesJson) -> do
       let phonese = sequence $ map (eitherDecode @PhoneToCall . encode) phonesJson
       decodeRes <- for phonese $ \phones -> do 
         resp <- Async.forConcurrently phones $ \PhoneToCall {..} -> do
