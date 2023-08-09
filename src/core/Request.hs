@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Request (make, withError) where
+module Request (make, withError, forConcurrentlyNRetry) where
 
 import qualified Network.HTTP.Types as HTTP
 import qualified Network.HTTP.Client as HTTP
@@ -12,6 +12,9 @@ import qualified Data.ByteString as B
 import Data.Aeson (ToJSON, encode, FromJSON, eitherDecodeStrict)
 import Data.Maybe (fromMaybe)
 import Network.HTTP.Client.MultipartFormData (Part, formDataBody)
+import qualified UnliftIO.Async as Async (pooledForConcurrentlyN)
+import Control.Monad.IO.Unlift (MonadUnliftIO)
+import UnliftIO.Retry (retrying, constantDelay, limitRetries)
 
 make ::
   ToJSON a =>
@@ -59,3 +62,16 @@ withError (Right (bs, hs)) onError onOk = do
     Right res -> onOk (res, hs)
     Left error -> onError $ toS error <> ", raw bytes: " <> toS bs
 withError (Left err) onError _ = onError $ toS err
+
+forConcurrentlyNRetry 
+  :: (MonadUnliftIO m, Traversable t) 
+  => Int 
+  -> Int 
+  -> (b -> m Bool) 
+  -> t a 
+  -> (a -> m b) 
+  -> m (t b)
+forConcurrentlyNRetry threads delay shouldRetry xs go =
+  Async.pooledForConcurrentlyN threads xs $ \x ->
+    let retryPolicy = constantDelay (delay * 10 ^ 6) <> limitRetries 5
+    in retrying retryPolicy (const shouldRetry) (const (go x))

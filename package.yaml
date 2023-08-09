@@ -190,12 +190,14 @@ library:
     - github
     - quickcheck-instances
     - unliftio-core
+    - unliftio
     - katip-wai
     - cassava
     - xlsx
     - conduit-extra
     - regex-with-pcre
     - stm-chans
+    - retry
 
   source-dirs:
     - src/core
