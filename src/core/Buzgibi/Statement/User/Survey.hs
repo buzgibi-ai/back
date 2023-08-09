@@ -881,12 +881,14 @@ getSurveyForReport =
           sp.phone,
           case 
             when psa.result is not null then 
-              coalesce(psa.result, 'sentiment analysis error')
+              psa.result
             when cta.invalid is not null then 
               cta.invalid
             when cta.call_hangup_cause is not null then 
               trim(both '"' from cta.call_hangup_cause)
-            else pt.error
+            when pt.error is not null then
+              pt.error
+            else 'sentiment analysis error'
           end as result
         from auth.user as u
         inner join customer.survey as s
