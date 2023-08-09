@@ -50,7 +50,8 @@ data Telnyx =
        telnyxKey :: !T.Text, 
        telnyxPhone :: !T.Text, 
        telnyxOutbound :: !T.Text,
-       telnyxApppostfix :: !T.Text
+       telnyxApppostfix :: !T.Text,
+       telnyxMachine :: !T.Text
      } 
   deriving stock (Generic)
   deriving stock (Show)

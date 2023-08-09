@@ -111,7 +111,7 @@ makeCall TelnyxCfg {..} = forever $ do
                   callRequestFromDisplayName = mempty,
                   callRequestConnectionId = telnyxIdent,
                   callRequestAudioUrl = link,
-                  callRequestAnsweringMachineDetection = "detect"
+                  callRequestAnsweringMachineDetection = telnyxMachine telnyxCfg
                 }
           callApi @"calls" @CallRequest @CallResponseData 
             (ApiCfg telnyxCfg manager logger) (Left request) methodPost mempty (Left . (phoneToCallIdent,)) $ 
