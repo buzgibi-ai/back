@@ -55,7 +55,8 @@ module Buzgibi.Statement.User.Survey
     checkAfterWebhook,
     failTelnyxApp,
     insertDraft,
-    submit
+    submit,
+    getVoiceLinkByCallLegId
   ) where
 
 
@@ -603,7 +604,27 @@ insertAppCall =
          on s.id = p.survey_id
          where p.id in (select * from call))|]
 
-updateAppCall ::  HS.Statement (T.Text, T.Text) ()
+
+getVoiceLinkByCallLegId :: HS.Statement T.Text (Maybe T.Text)
+getVoiceLinkByCallLegId = 
+  [maybeStatement|
+    select
+      vsl.share_link_url :: text
+    from customer.call_telnyx_app as cta
+    inner join customer.survey_phones as sp
+    on cta.phone_id = sp.id
+    inner join customer.survey_draft as sd
+    on sd.survey_id = sp.survey_id
+    inner join customer.survey_bark as sb
+    on sd.id = sb.survey_draft_id
+    inner join foreign_api.bark as b
+    on sb.bark_id = b.id
+    inner join customer.voice_share_link as vsl
+    on vsl.bark_id = b.id
+    where cta.call_leg_id = $1 :: text
+    order by sd.id desc limit 1|]
+
+updateAppCall :: HS.Statement (T.Text, T.Text) ()
 updateAppCall = 
   [resultlessStatement|
      update customer.call_telnyx_app

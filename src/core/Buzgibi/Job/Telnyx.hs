@@ -110,7 +110,12 @@ makeCall TelnyxCfg {..} = forever $ do
                   callRequestFrom = telnyxPhone telnyxCfg,
                   callRequestFromDisplayName = mempty,
                   callRequestConnectionId = telnyxIdent,
-                  callRequestAudioUrl = link,
+                  -- there is a wrong place for an audio to be played back
+                  -- audio is being played prematurely and by 
+                  -- the moment a callee has picked up a phone it's finished
+                  -- The solution is to move it to `answer webhook` 
+                  -- and query https://developers.telnyx.com/openapi/callcontrol/tag/Call-Commands/#tag/Call-Commands/operation/callPlaybackStart
+                  callRequestAudioUrl = mempty,
                   callRequestAnsweringMachineDetection = telnyxMachine telnyxCfg
                 }
           callApi @"calls" @CallRequest @CallResponseData 

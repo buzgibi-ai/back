@@ -105,6 +105,7 @@ explainTests =
        "checkAfterWebhook" =>> Buzgibi.Statement.User.Survey.checkAfterWebhook,
        "failTelnyxApp" =>> Buzgibi.Statement.User.Survey.failTelnyxApp,
        "insertDraft" =>> Buzgibi.Statement.User.Survey.insertDraft,
-       "submit" =>> Buzgibi.Statement.User.Survey.submit
+       "submit" =>> Buzgibi.Statement.User.Survey.submit,
+       "getVoiceLinkByCallLegId" =>> Buzgibi.Statement.User.Survey.getVoiceLinkByCallLegId
      ]
   ]

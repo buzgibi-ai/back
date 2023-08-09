@@ -50,6 +50,7 @@ data UrlError = NetworkFailure B.ByteString | UserMissing
 
 type instance Api "calls/{call_control_id}/actions/record_start" RecordingStartRequest RecordingStartResponse = ()
 type instance Api "calls/{call_control_id}/actions/hangup" HangupRequest () = ()
+type instance Api "calls/{call_control_id}/actions/playback_start" PlaybackStartRequest PlaybackStartResponse = ()
 
 controller :: Payload -> KatipControllerM ()
 controller payload@Payload {..} = do
@@ -76,18 +77,27 @@ controller payload@Payload {..} = do
              $(logTM) DebugS $ logStr $ $location <> " (hangup case) ---> hangup received " <> show hangup
          AnsweredWrapper answered@Answered {..} -> do
            env <- fmap (^. katipEnv) ask
+           hasql <- fmap (^. katipEnv . hasqlDbPool) ask
            telnyxApiCfg <- fmap (ApiCfg (fromMaybe undefined (env^.telnyx)) (env^.httpReqManager)) askLoggerIO
-           let request = RecordingStartRequest { recordingStartRequestFormat = MP3,  recordingStartRequestChannels = Single }
-           let queryParam = [("{call_control_id}", answeredCallControlId)]
-           callRes <- liftIO $ callApi @("calls/{call_control_id}/actions/record_start") @RecordingStartRequest @RecordingStartResponse telnyxApiCfg (Left request) methodPost queryParam Left (const (Right ()))
 
-           hasql <- fmap (^. katipEnv . hasqlDbPool) ask              
-           res <- for callRes $ const $ transactionM hasql $ 
+           let msg = $location <> " ---- > voice url not found for a call " <> answeredCallControlId
+           url <- fmap (fromMaybe (error (toS msg))) $ transactionM hasql $ statement User.Survey.getVoiceLinkByCallLegId answeredCallLegId
+
+           let record_request = RecordingStartRequest { recordingStartRequestFormat = MP3,  recordingStartRequestChannels = Single }
+           let playback_request = PlaybackStartRequest { playbackStartRequestAudioUrl = url }
+           let queryParam = [("{call_control_id}", answeredCallControlId)]
+
+           playbackResp <- liftIO $ callApi @("calls/{call_control_id}/actions/playback_start") @PlaybackStartRequest @PlaybackStartResponse telnyxApiCfg (Left playback_request) methodPost queryParam Left (const (Right ()))
+           recordResp <- liftIO $ callApi @("calls/{call_control_id}/actions/record_start") @RecordingStartRequest @RecordingStartResponse telnyxApiCfg (Left record_request) methodPost queryParam Left (const (Right ()))
+          
+           let resp = sequence [playbackResp, recordResp]
+
+           res <- for resp $ const $ transactionM hasql $ 
              statement User.Survey.updateAppCall $ 
                app1 (const (toS (show User.Survey.Answered))) $ 
                  encodeAnswered answered
 
-           when (isLeft res) $ $(logTM) ErrorS (logStr @String ($location <> " (answer case) --> answered case has failed, error: " <> show res))    
+           when (isLeft resp) $ $(logTM) ErrorS (logStr @String ($location <> " (answer case) --> answered case has failed, error: " <> show res))    
          
          RecordWrapper record@Record {recordConnectionId, recordCallLegId, recordRecordingUrls=Payload {..}} -> do
            

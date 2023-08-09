@@ -40,7 +40,9 @@ module Buzgibi.Transport.Model.Telnyx
         MachineDetection (..),
         MachineDetectionResult (..),
         HangupRequest (..),
-        HangupResponse
+        HangupResponse,
+        PlaybackStartRequest (..),
+        PlaybackStartResponse
        ) where
 
 import Database.Transaction (ParamsShow (..))
@@ -157,7 +159,9 @@ data EventType =
      CallHangup | 
      CallRecordingSaved | 
      CallInitiated | 
-     CallMachineDetectionEnded
+     CallMachineDetectionEnded |
+     CallPlaybackStarted |
+     CallPlaybackEnded
      deriving stock (Generic, Show)
      deriving
      (ToJSON, FromJSON)
@@ -222,7 +226,7 @@ instance ParamsShow HangupCause where
 data CallPayload = 
      HangupWrapper Hangup | 
      AnsweredWrapper Answered | 
-     RecordWrapper Record | 
+     RecordWrapper Record |
      Skip EventType |
      MachineDetectionWrapper MachineDetection 
 
@@ -312,6 +316,25 @@ data Channels = Single | Dual
      via WithOptions
           '[ConstructorTagModifier '[UserDefined ToLower]]
           Channels
+
+data PlaybackStartRequest = 
+     PlaybackStartRequest
+     { playbackStartRequestAudioUrl :: T.Text
+     }  
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor PlaybackStartRequest)]]
+          PlaybackStartRequest
+
+data PlaybackStartResponse = PlaybackStartResponse T.Text
+
+instance FromJSON PlaybackStartResponse where
+  parseJSON = 
+    withObject "PlaybackStartResponse" $ \o -> do
+      d <- o .: "data"
+      fmap PlaybackStartResponse $ d .: "result"
 
 data RecordingStartRequest =
      RecordingStartRequest
