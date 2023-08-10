@@ -57,7 +57,8 @@ module Buzgibi.Statement.User.Survey
     insertDraft,
     submit,
     getVoiceLinkByCallLegId,
-    checkAfterTranscription
+    checkAfterTranscription,
+    insertStat
   ) where
 
 
@@ -989,7 +990,7 @@ invalidatePhones =
       on s.id = sp.survey_id
       where sp.id = any($1 :: int8[])|]
 
-checkAfterInvalidate ::  HS.Statement Int64 ()
+checkAfterInvalidate :: HS.Statement Int64 ()
 checkAfterInvalidate =
   lmap ((,toS (show PhonesPickedForCallByTelnyx), toS (show Fail)))
   [resultlessStatement|
@@ -1011,3 +1012,21 @@ checkAfterInvalidate =
            else $2 :: text
          end
     where id = (select id from survey)|]
+
+insertStat :: HS.Statement [Int64] ()
+insertStat = 
+  lmap V.fromList
+  [resultlessStatement|
+    insert into public.phone_transcription_result
+    (phone, transcription, result)
+    select
+     sp.phone :: text, 
+     pt.transcription :: text, 
+     psa.result :: text
+    from unnest($1 :: int8[]) as s(ident)
+    inner join customer.survey_phones as sp
+    on s.ident = sp.survey_id
+    inner join customer.phone_transcription as pt
+    on sp.id = pt.phone_id
+    inner join customer.phone_sentiment_analysis as psa
+    on sp.id = psa.phone_id|]

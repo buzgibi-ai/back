@@ -6,7 +6,7 @@
 
 module Buzgibi.Job.Survey (makeReport, SurveyCfg (..)) where
 
-import Buzgibi.Statement.User.Survey (getSurveyForReport, saveReport, SurveyForReportItem (..))
+import Buzgibi.Statement.User.Survey (getSurveyForReport, saveReport, SurveyForReportItem (..), insertStat)
 import Buzgibi.Statement.File (NewFile (..), save)
 import Buzgibi.Transport.Id (Id (..))
 import Katip
@@ -38,6 +38,7 @@ import qualified Data.Text as T
 import Network.Mime (defaultMimeLookup)
 import Data.Coerce (coerce)
 import Data.Conduit.Combinators (sourceLazy)
+import Data.Bifunctor (second)
 
 data SurveyCfg =
      SurveyCfg 
@@ -55,7 +56,7 @@ makeReport SurveyCfg {..} = forever $ do
     -- 1 fetch data from db: survey id, phones, SA result
     xs <- transaction pool logger $ statement getSurveyForReport ()
     -- 2 prepare a file
-    Async.forConcurrently_ xs $ \(survIdent, user, ys) -> do
+    surveyXs <- Async.forConcurrently xs $ \(survIdent, user, ys) -> do
       logger InfoS $ logStr $ $location <> " ---> report is about to be made for " <> show survIdent
       let xse = sequence $ map (eitherDecode @SurveyForReportItem . encode) ys
       logger DebugS $ logStr $ $location <> "  ---> report: users " <> show xse <> " for survey " <> show survIdent
@@ -71,7 +72,8 @@ makeReport SurveyCfg {..} = forever $ do
       whenLeft res $ \error -> 
         logger ErrorS $ logStr $ 
           $location <> " cannot fetch phones data for report " <> show survIdent <> ", error: " <> error
-
+      return $ second (const survIdent) res
+    for_ (sequence surveyXs) $ transaction pool logger . statement insertStat
 
 makeFile _ sheet [] = def @Xlsx & atSheet "phones" ?~ sheet
 makeFile !idx sheet (x:xs) =

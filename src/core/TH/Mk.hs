@@ -140,7 +140,7 @@ mkParamSchemaEnum name iso = do
   let new_xs = coerce old_xs :: [ParamSchemaEnumCon]
   [d|
     instance ToParamSchema $(conT name) where
-      toParamSchema _ =
+      toParamSchema _ = 
         mempty
           & type_
             ?~ SwaggerString
@@ -148,7 +148,7 @@ mkParamSchemaEnum name iso = do
     |]
 
 loadMigrationListTest :: IO [String]
-loadMigrationListTest = do
+loadMigrationListTest = do  
   dir <- getCurrentDirectory
   let migDir = dir </> "migration/index"
   let mkTpl file =
@@ -163,8 +163,8 @@ loadMigrationListTest = do
     content <- withFile (x ^. _2) ReadMode IOS.hGetContents
     return (read @Integer (x ^. _1), content)
 
-mkMigrationTest :: Q [Dec]
-mkMigrationTest = do
+mkMigrationTest :: Q [Dec] 
+mkMigrationTest = do 
   xs <- liftIO loadMigrationListTest
   let list = mkName "list"
   let mkSql str = LitE (StringL str)

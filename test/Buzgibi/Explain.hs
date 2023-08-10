@@ -107,6 +107,7 @@ explainTests =
        "insertDraft" =>> Buzgibi.Statement.User.Survey.insertDraft,
        "submit" =>> Buzgibi.Statement.User.Survey.submit,
        "getVoiceLinkByCallLegId" =>> Buzgibi.Statement.User.Survey.getVoiceLinkByCallLegId,
-       "checkAfterTranscription" =>> Buzgibi.Statement.User.Survey.checkAfterTranscription
+       "checkAfterTranscription" =>> Buzgibi.Statement.User.Survey.checkAfterTranscription,
+       "insertStat" =>> Buzgibi.Statement.User.Survey.insertStat
      ]
   ]
