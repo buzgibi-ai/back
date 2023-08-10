@@ -10,7 +10,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
-module Buzgibi.Api.CallApi (Api, ApiCfg (..), IsApi (..), methodPost, callApi) where
+module Buzgibi.Api.CallApi (Api, ApiCfg (..), IsApi (..), methodPost, methodGet, callApi) where
 
 import Data.Kind (Type, Constraint)
 import GHC.TypeLits (Symbol, symbolVal, KnownSymbol)
@@ -22,7 +22,7 @@ import Network.HTTP.Types.Header (ResponseHeaders)
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Request as Request
 import Network.HTTP.Client (HttpException)
-import Network.HTTP.Types (methodPost, hAuthorization, hContentType, Method)
+import Network.HTTP.Types (methodPost, methodGet, hAuthorization, hContentType, Method)
 import Control.Exception (try)
 import Data.String.Conv (toS)
 import Data.Bifunctor (first)

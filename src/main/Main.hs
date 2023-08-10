@@ -161,7 +161,6 @@ main = do
           & swagger . host %~ (`fromMaybe` swaggerHost)
           & swagger . port %~ (flip (<|>) swaggerPort)
           & serverConnection . port %~ (`fromMaybe` serverPort)
-          & Buzgibi.Config.sendGrid . apiKey %~ (flip (<|>) (join $ fmap envKeysSendgrid envKeys))
 
   for_ printCfg $
     \case
@@ -282,10 +281,9 @@ main = do
           manager = manager,
           minio = (minioEnv, cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix),
           webhook = cfg^.webhook,
-          jobFrequency = cfg^.jobFrequency
+          jobFrequency = cfg^.jobFrequency,
+          sendgridCfg = envKeys >>= envKeysSendgrid
         }
-
-  let s@Buzgibi.Config.SendGrid {..} = cfg ^. Buzgibi.Config.sendGrid
 
   jwke <- liftIO $ fmap (eitherDecode' @JWK) $ B.readFile pathToJwk
 
@@ -302,7 +300,9 @@ main = do
               katipEnvHttpReqManager = manager,
               katipEnvApiKeys = (cfg ^. service . coerced),
               katipEnvMinio = katipMinio,
-              katipEnvSendGrid = fmap ((s,) . SendGrid.configure sendGridUrl) sendGridApiKey,
+              katipEnvSendGrid = 
+                envKeys >>= envKeysSendgrid <&> \sendgrid -> 
+                  (sendgrid, SendGrid.configure (sendgrid^.url) (sendgrid^.key) ),
               katipEnvCaptchaKey = envKeys >>= envKeysCaptchaKey,
               katipEnvJwk = jwk,
               katipEnvGithub = envKeys >>= envKeysGithub,

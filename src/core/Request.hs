@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Request (make, withError, forConcurrentlyNRetry) where
+module Request (make, withError, forConcurrentlyNRetry, retry) where
 
 import qualified Network.HTTP.Types as HTTP
 import qualified Network.HTTP.Client as HTTP
@@ -75,3 +75,8 @@ forConcurrentlyNRetry threads delay shouldRetry xs go =
   Async.pooledForConcurrentlyN threads xs $ \x ->
     let retryPolicy = constantDelay (delay * 10 ^ 6) <> limitRetries 5
     in retrying retryPolicy (const shouldRetry) (const (go x))
+
+retry :: MonadUnliftIO m => Int -> (a -> m Bool) -> m a -> m a
+retry delay shouldRetry go =
+  let retryPolicy = constantDelay (delay * 10 ^ 6) <> limitRetries 5
+  in retrying retryPolicy (const shouldRetry) (const go)

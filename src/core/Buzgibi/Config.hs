@@ -21,8 +21,6 @@ module Buzgibi.Config
     Env (..),
     Cors (..),
     ServerError (..),
-    Personalization (..),
-    SendGrid (..),
     Email (..),
     StdoutFormat (..),
     db,
@@ -30,7 +28,6 @@ module Buzgibi.Config
     port,
     database,
     host,
-    apiKey,
     user,
     poolN,
     tm,
@@ -59,7 +56,6 @@ module Buzgibi.Config
     cors,
     origins,
     serverError,
-    sendGrid,
     webhook,
     jobFrequency,
 
@@ -71,7 +67,6 @@ where
 import Control.Exception
 import Control.Lens
 import Data.Aeson
-import Data.Aeson.Generic.DerivingVia
 import Data.Aeson.TH.Extended
 import Data.String.Conv
 import Data.Swagger (ToSchema)
@@ -160,23 +155,6 @@ newtype Email = Email T.Text
   deriving stock (Show)
   deriving (ToSchema)
 
-data Personalization = Personalization {personalizationEmail :: !Email, personalizationPersonalization :: !T.Text}
-  deriving stock (Generic)
-  deriving stock (Show)
-  deriving
-    (FromJSON)
-    via WithOptions
-          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Personalization)]]
-          Personalization
-
-data SendGrid = SendGrid
-  { sendGridUrl :: !T.Text,
-    sendGridApiKey :: !(Maybe T.Text),
-    sendGridPersons :: ![Personalization],
-    sendGridSenderIdentity :: !Email
-  }
-  deriving stock (Show)
-
 data Config = Config
   { configDb :: !Db,
     configSwagger :: !Swagger,
@@ -188,7 +166,6 @@ data Config = Config
     configServerConnection :: !ServerConnection,
     configCors :: !Cors,
     configServerError :: !ServerError,
-    configSendGrid :: !SendGrid,
     configJobFrequency :: !Int,
     configWebhook :: !T.Text
   }
@@ -203,8 +180,6 @@ makeFields ''Swagger
 makeFields ''Telegram
 makeFields ''ServerConnection
 makeFields ''Cors
-makeFields ''Personalization
-makeFields ''SendGrid
 
 deriveFromJSON defaultOptions ''Db
 deriveFromJSON defaultOptions ''HasqlSettings
@@ -216,7 +191,6 @@ deriveFromJSON defaultOptions ''Telegram
 deriveFromJSON defaultOptions ''ServerConnection
 deriveFromJSON defaultOptions ''Cors
 deriveFromJSON defaultOptions ''Swagger
-deriveFromJSON defaultOptions ''SendGrid
 deriveFromJSON defaultOptions ''Config
 
 -- Load program configuration from file (server.yaml), or

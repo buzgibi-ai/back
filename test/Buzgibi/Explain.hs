@@ -108,6 +108,7 @@ explainTests =
        "submit" =>> Buzgibi.Statement.User.Survey.submit,
        "getVoiceLinkByCallLegId" =>> Buzgibi.Statement.User.Survey.getVoiceLinkByCallLegId,
        "checkAfterTranscription" =>> Buzgibi.Statement.User.Survey.checkAfterTranscription,
-       "insertStat" =>> Buzgibi.Statement.User.Survey.insertStat
+       "insertStat" =>> Buzgibi.Statement.User.Survey.insertStat,
+       "getDailyPhoneStat" =>> Buzgibi.Statement.User.Survey.getDailyPhoneStat
      ]
   ]

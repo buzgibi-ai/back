@@ -58,7 +58,9 @@ module Buzgibi.Statement.User.Survey
     submit,
     getVoiceLinkByCallLegId,
     checkAfterTranscription,
-    insertStat
+    insertStat,
+    getDailyPhoneStat,
+    DailyPhoneStat (..)
   ) where
 
 
@@ -1030,3 +1032,28 @@ insertStat =
     on sp.id = pt.phone_id
     inner join customer.phone_sentiment_analysis as psa
     on sp.id = psa.phone_id|]
+
+data DailyPhoneStat = 
+     DailyPhoneStat 
+     { dailyPhoneStatPhone :: T.Text,
+       dailyPhoneStatTranscription :: T.Text, 
+       dailyPhoneStatResult :: T.Text
+     }
+     deriving stock (Generic, Show)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor DailyPhoneStat)]]
+          DailyPhoneStat   
+
+getDailyPhoneStat :: HS.Statement () [Value]
+getDailyPhoneStat =
+  rmap V.toList
+  [vectorStatement|
+    select
+      jsonb_build_object(
+        'phone', phone,
+        'transcription', transcription,
+        'result', result) :: jsonb
+    from public.phone_transcription_result
+    where cast(created_at as date) = cast(now() as date) - 1|]

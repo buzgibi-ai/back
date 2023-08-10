@@ -42,7 +42,9 @@ module Buzgibi.Transport.Model.Telnyx
         HangupRequest (..),
         HangupResponse,
         PlaybackStartRequest (..),
-        PlaybackStartResponse
+        PlaybackStartResponse,
+        BalanceResponse (..),
+        BalanceResponseWrapper (..)
        ) where
 
 import Database.Transaction (ParamsShow (..))
@@ -382,3 +384,26 @@ instance ParamsShow Answered where
 
 instance ParamsShow Record where
   render = render . encodeRecord
+
+data BalanceResponse = 
+     BalanceResponse
+     { balanceResponseAvailableCredit :: T.Text,
+       balanceResponseBalance :: T.Text,
+       balanceResponseCreditLimit :: T.Text,
+       balanceResponseCurrency :: T.Text,
+       balanceResponseRecordType :: T.Text
+     }
+     deriving stock (Generic)
+     deriving
+     (FromJSON, ToJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor BalanceResponse)]]
+          BalanceResponse 
+
+newtype BalanceResponseWrapper = BalanceResponseWrapper BalanceResponse
+
+instance FromJSON BalanceResponseWrapper where
+  parseJSON = 
+    withObject "BalanceResponseWrapper" $ \o -> do
+      _data <- o .: "data"
+      fmap BalanceResponseWrapper $ parseJSON @BalanceResponse _data

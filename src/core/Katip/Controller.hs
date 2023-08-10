@@ -59,7 +59,6 @@ module Katip.Controller
   )
 where
 
-import Buzgibi.Config (SendGrid)
 import Buzgibi.EnvKeys
 import Buzgibi.Transport.Model.Translation (Translation, Lang(..))
 import Control.DeepSeq
@@ -100,7 +99,7 @@ data KatipEnv = KatipEnv
     katipEnvHttpReqManager :: !Manager,
     katipEnvApiKeys :: ![(String, String)],
     katipEnvMinio :: !Minio,
-    katipEnvSendGrid :: !(Maybe (SendGrid, SendGrid.Configuration)),
+    katipEnvSendGrid :: !(Maybe (Sendgrid, SendGrid.Configuration)),
     katipEnvCaptchaKey :: !(Maybe T.Text),
     katipEnvJwk :: !Jose.JWK,
     katipEnvGithub :: !(Maybe Github),

@@ -25,8 +25,9 @@ import BuildInfo
 import Buzgibi.Job.Telnyx as Job.Telnyx
 import Buzgibi.Job.OpenAI as Job.OpenAI
 import Buzgibi.Job.Survey as Job.Survey
+import Buzgibi.Job.Report as Job.Report
 import Buzgibi.Api
-import Buzgibi.EnvKeys (Telnyx (..), OpenAI (..))
+import Buzgibi.EnvKeys (Telnyx (..), OpenAI (..), Sendgrid)
 import qualified Buzgibi.Api.Controller.Controller as Controller
 import Buzgibi.AppM
 import qualified Buzgibi.Config as Cfg
@@ -73,6 +74,7 @@ import Control.Concurrent.MVar.Lifted
 import qualified Control.Monad.State.Class as S
 import Data.Tuple (swap)
 import Data.Bifunctor (first)
+import Data.Time.Clock (getCurrentTime)
 
 data Cfg = Cfg
   { cfgHost :: !String,
@@ -88,7 +90,8 @@ data Cfg = Cfg
     manager :: !HTTP.Manager,
     minio :: !(Minio.MinioConn, T.Text),
     webhook :: !T.Text,
-    jobFrequency :: !Int
+    jobFrequency :: !Int,
+    sendgridCfg :: !(Maybe Sendgrid)
   }
 
 run :: Cfg -> KatipContextT AppM ()
@@ -158,7 +161,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
       Katip.Wai.runApplication toIO $ 
         mkApplication $ serveWithContext (withSwagger api) mkCtx hoistedServer
   
-  telnyx_logger <- katipAddNamespace (Namespace ["telnyx"]) askLoggerIO
+  telnyx_logger <- katipAddNamespace (Namespace ["job", "telnyx"]) askLoggerIO
   let telnyxEnv =
         Job.Telnyx.TelnyxCfg
         { logger = telnyx_logger,
@@ -171,9 +174,10 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   telnyxApp <- liftIO $ async $ Job.Telnyx.makeApp telnyxEnv
   telnyxCall <- liftIO $ async $ Job.Telnyx.makeCall telnyxEnv
 
+  openai_logger <- katipAddNamespace (Namespace ["job", "openai"]) askLoggerIO
   let openAICfg =
         Job.OpenAI.OpenAICfg
-        { logger = telnyx_logger,
+        { logger = openai_logger,
           pool = katipEnvHasqlDbPool configKatipEnv, 
           openaiCfg = fromMaybe (error "openai not set") openaiCfg,
           manager = manager,
@@ -183,17 +187,29 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   openaiTranscrip <- liftIO $ async $ Job.OpenAI.getTranscription openAICfg
   openaiSA <- liftIO $ async $ Job.OpenAI.performSentimentalAnalysis openAICfg
 
+  survey_logger <- katipAddNamespace (Namespace ["job", "survey"]) askLoggerIO
   let surveyCfg =
         Job.Survey.SurveyCfg
-        { logger = telnyx_logger,
+        { logger = survey_logger,
           pool = katipEnvHasqlDbPool configKatipEnv,
           minio = minio,
           jobFrequency = jobFrequency
         }
   survey <- liftIO $ async $ Job.Survey.makeReport surveyCfg
 
+  report_logger <- katipAddNamespace (Namespace ["job", "report"]) askLoggerIO
+  let reportCfg =
+        Job.Report.ReportCfg
+        { logger = report_logger,
+          pool = katipEnvHasqlDbPool configKatipEnv,
+          telnyxCfg = fromMaybe (error "telnyx not set") telnyxCfg,
+          manager = manager,
+          sendgridCfg = fromMaybe (error "sendgrid not set") sendgridCfg
+        }
+  report <- liftIO $ async $ getCurrentTime >>= evalStateT (Job.Report.makeDailyReport reportCfg)
+
   end <- fmap snd $ flip logExceptionM ErrorS $ liftIO $ waitAnyCatchCancel 
-    [serverAsync, telnyxApp, telnyxCall, survey, openaiTranscrip, openaiSA ]
+    [serverAsync, telnyxApp, telnyxCall, survey, openaiTranscrip, openaiSA, report]
   
   whenLeft end $ \e -> $(logTM) EmergencyS $ logStr $ "server has been terminated. error " <> show e
 

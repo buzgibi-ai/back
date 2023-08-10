@@ -70,8 +70,32 @@ data OpenAI = OpenAI { openAIUrl :: !T.Text, openAIKey :: !T.Text, openAIClarify
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor OpenAI)]]
           OpenAI
 
+data Person = Person { personEmail :: !T.Text, personPersonalization :: !T.Text }
+  deriving stock (Generic)
+  deriving stock (Show)
+  deriving
+    (FromJSON)
+    via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Person)]]
+          Person
+
+data Sendgrid = 
+     Sendgrid 
+     { sendgridUrl :: !T.Text, 
+       sendgridKey :: !T.Text, 
+       sendgridIdentity :: !T.Text,
+       sendgridPersons :: ![Person]  
+     }
+  deriving stock (Generic)
+  deriving stock (Show)
+  deriving
+    (FromJSON)
+    via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Sendgrid)]]
+          Sendgrid
+
 data EnvKeys = EnvKeys
-  { envKeysSendgrid :: !(Maybe T.Text),
+  { envKeysSendgrid :: !(Maybe Sendgrid),
     envKeysTelegramBot :: !(Maybe T.Text),
     envKeysCaptchaKey :: !(Maybe T.Text),
     envKeysGithub :: !(Maybe Github),
@@ -91,3 +115,4 @@ makeFields ''EnvKeys
 makeFields ''Github
 makeFields ''Bark
 makeFields ''OpenAI
+makeFields ''Sendgrid

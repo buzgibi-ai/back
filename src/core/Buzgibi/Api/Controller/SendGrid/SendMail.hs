@@ -15,7 +15,8 @@
 
 module Buzgibi.Api.Controller.SendGrid.SendMail (controller, SendGridSendMailRequest) where
 
-import Buzgibi.Config (Email (..), SendGrid (..), personalizationEmail)
+import Buzgibi.Config (Email (..))
+import Buzgibi.EnvKeys (Sendgrid (..), personEmail)
 import Buzgibi.Transport.Response
 import Control.Lens
 import Control.Monad (when)
@@ -48,7 +49,7 @@ import OpenAPI.Operations.POSTMailSend
     pOSTMailSendRequestBodyPersonalizationssendgridSendAt,
     pOSTMailSendRequestBodyPersonalizationssendgridSubject,
   )
-import OpenAPI.Types.FromEmailObject (mkFromEmailObject)
+import OpenAPI.Types.FromEmailObject (mkFromEmailObject, fromEmailObjectName)
 import OpenAPI.Types.ToEmailArray (mkToEmailArrayItem)
 
 data SendGridSendMailRequest = SendGridSendMailRequest
@@ -77,7 +78,7 @@ controller :: SendGridSendMailRequest -> KatipControllerM (Response ())
 controller req@SendGridSendMailRequest {..} = do
   $(logTM) InfoS $ logStr (show req)
   cfg <- fmap (^. katipEnv . sendGrid) ask
-  resp <- for cfg $ \(SendGrid {..}, sendgrid) -> do
+  resp <- for cfg $ \(Sendgrid {..}, sendgrid) -> do
     tm <- fmap (fromIntegral . systemSeconds) $ liftIO $ getSystemTime
     let reqBody =
           mkPOSTMailSendRequestBody
@@ -91,9 +92,9 @@ controller req@SendGridSendMailRequest {..} = do
                     <> body
                 )
             ]
-            (mkFromEmailObject (coerce sendGridSenderIdentity))
+            ((mkFromEmailObject (coerce sendgridIdentity)) { fromEmailObjectName = Just "admin"})
             [ ( ( mkPOSTMailSendRequestBodyPersonalizationssendgrid
-                    (map (mkToEmailArrayItem . coerce . personalizationEmail) sendGridPersons)
+                    (map (mkToEmailArrayItem . coerce . personEmail) sendgridPersons)
                 )
                   { pOSTMailSendRequestBodyPersonalizationssendgridSendAt = Just tm,
                     pOSTMailSendRequestBodyPersonalizationssendgridSubject = Just $ subject
