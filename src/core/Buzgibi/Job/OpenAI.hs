@@ -20,6 +20,7 @@ import Buzgibi.Statement.User.Survey
         mkTranscriptionOk,
         mkTranscriptionFailure,
         insertSA,
+        checkAfterTranscription,
         OpenAITranscription (..), 
         OpenAISA (..)
        )
@@ -80,7 +81,7 @@ getTranscription OpenAICfg {..} = forever $ do
     Async.forConcurrently_ xs $ \(survIdent, ys) -> do 
       let phones = sequence $ map (eitherDecode @OpenAITranscription . encode) ys
       res <- for phones $ \xs -> do
-        yse <- forConcurrentlyNRetry 3 30 retryTranscription xs $
+        yse <- forConcurrentlyNRetry 3 60 retryTranscription xs $
           \OpenAITranscription {..} -> 
             fmap (bimap (openAITranscriptionPhoneIdent,) (openAITranscriptionPhoneIdent,) . join . first (toS . show)) $ 
             Minio.runMinioWith minio $ do
@@ -100,7 +101,7 @@ getTranscription OpenAICfg {..} = forever $ do
         let (es, ys) = partitionEithers yse
         mkErrorMsg "getTranscription" logger survIdent es
         let xs = map (second (mkTranscriptionOk (openaiCfg^.clarifyingPrefix))) ys <> map (second mkTranscriptionFailure) es
-        transaction pool logger $ statement insertTranscription (survIdent, xs)
+        transaction pool logger $ statement insertTranscription (survIdent, xs) *> statement checkAfterTranscription survIdent
       whenLeft res $ \error ->  
         logger CriticalS $ logStr $ $location <> ": phone parse failed for survey " <> show survIdent <> ", error: " <> error
 

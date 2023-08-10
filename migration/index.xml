@@ -11,4 +11,5 @@
     <include file="./changelog/index/version9.sql" />
     <include file="./changelog/index/version10.sql" />
     <include file="./changelog/index/version11.sql" />
+    <include file="./changelog/index/version12.sql" />
 </databaseChangeLog>

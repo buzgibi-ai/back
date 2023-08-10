@@ -35,7 +35,7 @@ import Language.Haskell.TH.Syntax
 import Servant.API
 import System.Directory
 import System.FilePath.Posix
-import System.IO 
+import System.IO
 import qualified System.IO.Strict as IOS
 import Test.QuickCheck.Arbitrary.Generic
 import Text.Casing (quietSnake)

@@ -106,6 +106,7 @@ explainTests =
        "failTelnyxApp" =>> Buzgibi.Statement.User.Survey.failTelnyxApp,
        "insertDraft" =>> Buzgibi.Statement.User.Survey.insertDraft,
        "submit" =>> Buzgibi.Statement.User.Survey.submit,
-       "getVoiceLinkByCallLegId" =>> Buzgibi.Statement.User.Survey.getVoiceLinkByCallLegId
+       "getVoiceLinkByCallLegId" =>> Buzgibi.Statement.User.Survey.getVoiceLinkByCallLegId,
+       "checkAfterTranscription" =>> Buzgibi.Statement.User.Survey.checkAfterTranscription
      ]
   ]

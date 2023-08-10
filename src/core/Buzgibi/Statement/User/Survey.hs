@@ -56,7 +56,8 @@ module Buzgibi.Statement.User.Survey
     failTelnyxApp,
     insertDraft,
     submit,
-    getVoiceLinkByCallLegId
+    getVoiceLinkByCallLegId,
+    checkAfterTranscription
   ) where
 
 
@@ -734,7 +735,10 @@ getSurveysForTranscription =
     on sp.id = cta.phone_id
     inner join storage.file as f
     on cta.voice_id = f.id
+    left join customer.phone_transcription as pt
+    on pt.phone_id = sp.id
     where s.survey_status = $1 :: text 
+    and (pt.transcription is null or pt.error is not null) 
     group by s.id|]
 
 data OpenAISA = 
@@ -791,28 +795,58 @@ mkTranscriptionFailure err = TranscriptionText Nothing (Just err)
 
 insertTranscription :: HS.Statement (Int64, [(Int64, TranscriptionText)]) ()
 insertTranscription = 
-  lmap (\(x, y) -> 
-    snocT (toS (show TranscriptionsDoneOpenAI)) $ 
+  lmap (\(x, y) ->
       consT x $ 
         V.unzip $ 
           V.fromList $ 
             map (second toJSON) y) $
   [resultlessStatement|
-    with
-      transcrip as (
-        insert into customer.phone_transcription
-        (survey_id, phone_id, transcription, error)
-        select 
-          $1 :: int8, 
-          phone_id,
-          result ->> 'result',
-          result ->> 'error'
-        from unnest( $2 :: int8[], $3 :: jsonb[]) 
-        as x(phone_id, result)
-        returning 1 :: int4)
+    insert into customer.phone_transcription
+    (survey_id, phone_id, transcription, error, attempts)
+    select 
+      $1 :: int8, 
+      tbl.phone_id,
+      result ->> 'result',
+      result ->> 'error',
+      tbl.attempts +
+      case when result ->> 'error' is not null then 1 else 0 end 
+    from (
+     select
+       x.phone_id,
+       x.result as result,
+       coalesce(pt.attempts, 0) as attempts
+     from unnest($2 :: int8[], $3 :: jsonb[])
+     as x(phone_id, result)
+     left join customer.phone_transcription as pt
+     on pt.phone_id = x.phone_id) as tbl
+    on conflict on constraint phone_openai__phone_survey_uq
+    do update set
+    transcription = 
+      coalesce(phone_transcription.transcription, excluded.transcription),
+    error = 
+      case 
+        when excluded.transcription is not null then null
+        else excluded.error
+      end,
+    attempts = 
+      case 
+        when excluded.error is not null then 
+          phone_transcription.attempts + 1 
+        else phone_transcription.attempts 
+      end|]
+
+checkAfterTranscription :: HS.Statement Int64 ()
+checkAfterTranscription = 
+  lmap (, toS (show TranscriptionsDoneOpenAI))
+  [resultlessStatement|
     update customer.survey 
-    set survey_status = $4 :: text
-    where id = $1 :: int8 and (select (count(*) > 0) :: bool from transcrip)|]
+    set survey_status = $2 :: text
+    where id = $1 :: int8
+     and (
+       select
+         (count(pt.error) = 0) :: bool
+       from customer.phone_transcription as pt
+       where pt.survey_id = $1 :: int8)|]
 
 insertSA :: HS.Statement (Int64, [(Int64, T.Text)]) ()
 insertSA = 

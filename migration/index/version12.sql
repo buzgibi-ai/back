@@ -1,0 +1,1 @@
+alter table  customer.phone_transcription add column attempts int not null default 0;
