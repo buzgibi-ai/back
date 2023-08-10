@@ -125,7 +125,7 @@ performSentimentalAnalysis OpenAICfg {..} =
             fmap (bimap (openAISAPhoneIdent,) (openAISAPhoneIdent,)) $
               callApi @"completions" @SARequest @SAResponse 
                 (ApiCfg openaiCfg manager logger) 
-                (Left request) methodPost mempty Left $
+                (Left (Just request)) methodPost mempty Left $
                   \(SAResponse xs, _) ->
                     case xs of [] -> Left "empty choices"; (x:_) -> Right x
 

@@ -83,8 +83,8 @@ controller payload@Payload {..} = do
            let msg = $location <> " ---- > voice url not found for a call " <> answeredCallControlId
            url <- fmap (fromMaybe (error (toS msg))) $ transactionM hasql $ statement User.Survey.getVoiceLinkByCallLegId answeredCallLegId
 
-           let record_request = RecordingStartRequest { recordingStartRequestFormat = MP3,  recordingStartRequestChannels = Single }
-           let playback_request = PlaybackStartRequest { playbackStartRequestAudioUrl = url }
+           let record_request = Just $ RecordingStartRequest { recordingStartRequestFormat = MP3,  recordingStartRequestChannels = Single }
+           let playback_request = Just $ PlaybackStartRequest { playbackStartRequestAudioUrl = url }
            let queryParam = [("{call_control_id}", answeredCallControlId)]
 
            playbackResp <- liftIO $ callApi @("calls/{call_control_id}/actions/playback_start") @PlaybackStartRequest @PlaybackStartResponse telnyxApiCfg (Left playback_request) methodPost queryParam Left (const (Right ()))
@@ -139,7 +139,7 @@ controller payload@Payload {..} = do
              statement User.Survey.checkAfterWebhook machineDetectionConnectionId
            env <- fmap (^. katipEnv) ask  
            telnyxApiCfg <- fmap (ApiCfg (fromMaybe undefined (env^.telnyx)) (env^.httpReqManager)) askLoggerIO  
-           let request = HangupRequest machineDetectionClientState
+           let request = Just $ HangupRequest machineDetectionClientState
            let queryParam = [("{call_control_id}", machineDetectionCallControlId)]
            void $ liftIO $ callApi @("calls/{call_control_id}/actions/hangup") @HangupRequest @() telnyxApiCfg (Left request) methodPost queryParam Left (const (Right ()))
 

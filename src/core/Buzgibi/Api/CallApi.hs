@@ -49,7 +49,7 @@ callApi ::
   forall a b c e r cfg .
   (KnownSymbol a, Typeable a, FromJSON c, ToJSON b, Api a b c, IsApi cfg) => 
   ApiCfg cfg ->
-  Either b [Part] ->
+  Either (Maybe b) [Part] ->
   Method ->
   [(T.Text, T.Text)] ->
   (T.Text -> (Either e r)) -> 
@@ -67,6 +67,6 @@ callApi ApiCfg {..} request method queryXs onError onOk = do
   logger DebugS $ logStr @String $ $location <> ": url ----> " <> toS (show url)
 
   resp <- fmap (join . first (toS . show)) $ try @HttpException $ 
-            Request.make @b url manager [authH, contTypeH] method $ first Just request
+            Request.make @b url manager [authH, contTypeH] method request
   return $ Request.withError @c resp onError onOk
 
