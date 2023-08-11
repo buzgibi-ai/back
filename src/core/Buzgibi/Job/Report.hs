@@ -111,7 +111,11 @@ makeDailyReport ReportCfg {..} = forever $ do
           posix <- liftIO getPOSIXTime   
           let phoneSheet = makePhonesSheet 1 (def @Worksheet) xs
           let file = def @Xlsx & atSheet "phones" ?~ phoneSheet
-          let content = decodeUtf8 $ B64.encode $ BL.toStrict $ fromXlsx posix file
+          let attachments 
+                | null xs = Nothing
+                | otherwise = 
+                  let content = decodeUtf8 $ B64.encode $ BL.toStrict $ fromXlsx posix file 
+                  in Just [mkPOSTMailSendRequestBodyAttachmentssendgrid content "report.xlsx" ]
           let body = 
                 (mkPOSTMailSendRequestBody 
                 [mkPOSTMailSendRequestBodyContentsendgrid "text/plain" (decodeUtf8 (BL.toStrict (encodePretty balance)))]
@@ -125,8 +129,7 @@ makeDailyReport ReportCfg {..} = forever $ do
                   )
                 ]
                 "daily report")
-                { pOSTMailSendRequestBodyAttachments = 
-                    Just [mkPOSTMailSendRequestBodyAttachmentssendgrid content "report.xlsx" ] }
+                { pOSTMailSendRequestBodyAttachments = attachments }
           resp <- Sendgrid.runWithConfiguration (configure (sendgridCfg^.url) (sendgridCfg^.key)) $ pOSTMailSend $ Just body
           let handleResp resp =
                 if responseStatus resp == ok200
