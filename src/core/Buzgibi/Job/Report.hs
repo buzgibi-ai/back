@@ -79,7 +79,7 @@ makeDailyReport ReportCfg {..} = forever $ do
   
   stateTM <- get
   currTM <- liftIO getCurrentTime
-  when (utctDay stateTM == utctDay currTM) $ do 
+  when (utctDay stateTM /= utctDay currTM) $ do 
     modify' $ const currTM
     liftIO $ withElapsedTime logger ($location <> "(makeDailyReport)") $ do
       balanceResp <- retry 30 (pure . isLeft) $ 
