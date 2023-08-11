@@ -12,6 +12,7 @@ import Buzgibi.Api.Controller.User.Survey.Make (Survey)
 import Buzgibi.Api.Controller.User.GetHistory (History)
 import Buzgibi.Api.Controller.User.Survey.Edit (EditSurvey)
 import Buzgibi.Api.Controller.User.Survey.Submit (SubmitSurvey)
+import Buzgibi.Statement.User.Notification (GetNotification)
 import Buzgibi.Auth (AuthenticatedUser, JWT)
 import Buzgibi.Transport.Model.User
 import Buzgibi.Transport.Response (Response)
@@ -72,6 +73,11 @@ data UserApi route = UserApi
           :> "history"
           :> SA.Auth '[JWT] AuthenticatedUser
           :> QueryParam' '[Optional, Strict] "page" Int
-          :> Get '[JSON] (Response History)
+          :> Get '[JSON] (Response History),
+    _userApiNotificationsGet ::
+      route
+        :- "notifications"
+          :> SA.Auth '[JWT] AuthenticatedUser
+          :> Get '[JSON] (Response [GetNotification])
   }
   deriving stock (Generic)

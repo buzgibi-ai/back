@@ -14,6 +14,7 @@ module Buzgibi.Explain (spec_explain) where
 import qualified Buzgibi.Statement.File
 import qualified Buzgibi.Statement.User.Auth 
 import qualified Buzgibi.Statement.User.Survey
+import qualified Buzgibi.Statement.User.Notification
 
 import Control.Lens
 import Control.Monad.IO.Class
@@ -110,5 +111,9 @@ explainTests =
        "checkAfterTranscription" =>> Buzgibi.Statement.User.Survey.checkAfterTranscription,
        "insertStat" =>> Buzgibi.Statement.User.Survey.insertStat,
        "getDailyPhoneStat" =>> Buzgibi.Statement.User.Survey.getDailyPhoneStat
+     ]
+  ,  "Buzgibi.Statement.User.Notification" ==> 
+     [ "get" =>> Buzgibi.Statement.User.Notification.get,
+       "insert" =>> Buzgibi.Statement.User.Notification.insert
      ]
   ]

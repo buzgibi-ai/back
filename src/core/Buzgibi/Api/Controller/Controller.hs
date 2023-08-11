@@ -36,6 +36,7 @@ import qualified Buzgibi.Api.Controller.User.Survey.Submit as User.Survey.Submit
 import qualified Buzgibi.Api.Controller.Webhook.CatchBark as Webhook.CatchBark
 import qualified Buzgibi.Api.Controller.Webhook.CatchTelnyx as Webhook.CatchTelnyx
 import qualified Buzgibi.Api.Controller.Webhook.CatchGit as Webhook.CatchGit
+import qualified Buzgibi.Api.Controller.User.GetNotifications as User.GetNotifications
 import qualified Buzgibi.Auth as Auth
 import Katip
 import Katip.Controller hiding (webhook)
@@ -175,7 +176,13 @@ user =
           flip logExceptionM ErrorS
             $ katipAddNamespace
               (Namespace ["user", "survey", "submit"])
-            $ User.Survey.Submit.controller ident submit
+            $ User.Survey.Submit.controller ident submit,
+     _userApiNotificationsGet = \auth ->
+         auth `Auth.withAuth` \ident ->
+          flip logExceptionM ErrorS
+            $ katipAddNamespace
+              (Namespace ["user", "notifications", "get"])
+            $ User.GetNotifications.controller ident
     }
 
 _foreign :: ForeignApi (AsServerT KatipControllerM)
