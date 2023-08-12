@@ -10,12 +10,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell #-}
 
-module Buzgibi.Auth (AuthenticatedUser (..), JWT, UserIdentClaims, generateJWT, validateJwt, withAuth) where
+module Buzgibi.Auth (AuthenticatedUser (..), JWT, UserIdentClaims, generateJWT, validateJwt, withAuth, withWSAuth) where
 
+import Buzgibi.Transport.Model.User (AuthToken (..))
 import Buzgibi.Transport.Response
 import Control.Lens
-import Control.Monad (unless)
+import Control.Monad (unless, join)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader (ask)
 import Control.Monad.Time (currentTime)
@@ -23,7 +25,7 @@ import qualified Control.Monad.Trans.Except as Except
 import qualified Crypto.JOSE as Jose
 import Crypto.JWT
 import qualified Crypto.JWT as Jose
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (FromJSON, ToJSON, eitherDecode, encode)
 import Data.Aeson.Generic.DerivingVia
 import Data.Bifunctor (first)
 import Data.ByteArray (constEq)
@@ -36,13 +38,19 @@ import qualified Data.Text as T
 import Data.Time.Clock (addUTCTime)
 import Data.Traversable (for)
 import GHC.Generics (Generic)
-import Katip.Controller (KatipControllerM)
+import Katip.Controller (KatipControllerM, katipEnv, jwk)
 import Network.Wai (Request, requestHeaders)
-import Servant.Auth.Server (AuthResult (..), FromJWT (decodeJWT), JWTSettings (..), ToJWT (..))
+import Servant.Auth.Server (AuthResult (..), FromJWT (decodeJWT), JWTSettings (..), ToJWT (..), defaultJWTSettings)
 import Servant.Auth.Server.Internal.Class (IsAuth (..))
 import Servant.Auth.Server.Internal.ConfigTypes (jwtSettingsToJwtValidationSettings)
 import Servant.Auth.Server.Internal.Types (AuthCheck (..))
 import Servant.Auth.Swagger (HasSecurity (..))
+import qualified Network.WebSockets as WS
+import Data.Either.Combinators (whenLeft)
+import Data.String.Conv (toS)
+import Katip
+import Control.Lens.Iso.Extended (textbs)
+
 
 data AuthError = NoAuthHeader | NoBearer | TokenInvalid
 
@@ -127,3 +135,22 @@ data UserIdentClaims = UserIdentClaims
 
 instance Jose.HasClaimsSet UserIdentClaims where
   claimsSet f s = fmap (\a' -> s {userIdentClaimsJwtClaims = a'}) (f (userIdentClaimsJwtClaims s))
+
+
+withWSAuth :: WS.PendingConnection -> ((AuthenticatedUser, WS.Connection) -> KatipControllerM ()) -> KatipControllerM ()
+withWSAuth pend controller = do 
+  conn <- liftIO $ WS.acceptRequest pend
+  tokenResp <- liftIO $ fmap (eitherDecode @AuthToken) $ WS.receiveData @BSL.ByteString conn
+  res <- fmap join $ for tokenResp $ \(AuthToken token) -> do 
+    key <- fmap (^. katipEnv . Katip.Controller.jwk) ask
+    authRes <- liftIO $ validateJwt (defaultJWTSettings key) $ token^.textbs
+    fmap (first (const "auth error")) $ for authRes $ \auth -> controller (auth, conn)
+  whenLeft res $ \error -> do
+    $(logTM) ErrorS $ logStr @String $ "ws closes with an error: " <> error
+    let msg = 
+          BSL.toStrict $
+            encode @(Response ()) $
+              Error $
+                asError @T.Text $ 
+                  "connection rejected " <> toS error
+    liftIO $ pend `WS.rejectRequest` msg
