@@ -140,17 +140,21 @@ instance Jose.HasClaimsSet UserIdentClaims where
 withWSAuth :: WS.PendingConnection -> ((AuthenticatedUser, WS.Connection) -> KatipControllerM ()) -> KatipControllerM ()
 withWSAuth pend controller = do 
   conn <- liftIO $ WS.acceptRequest pend
-  tokenResp <- liftIO $ fmap (eitherDecode @AuthToken) $ WS.receiveData @BSL.ByteString conn
+  bs <- liftIO $ WS.receiveData @BSL.ByteString conn
+  $(logTM) InfoS $ logStr @String $ "ws auth raw data " <> show bs
+  let tokenResp = eitherDecode @AuthToken bs
   res <- fmap join $ for tokenResp $ \(AuthToken token) -> do 
     key <- fmap (^. katipEnv . Katip.Controller.jwk) ask
     authRes <- liftIO $ validateJwt (defaultJWTSettings key) $ token^.textbs
-    fmap (first (const "auth error")) $ for authRes $ \auth -> controller (auth, conn)
+    fmap (first (const "auth error")) $ for authRes $ \auth -> do
+      liftIO $ WS.sendDataMessage conn (WS.Text (encode (Ok ())) Nothing)
+      controller (auth, conn)
   whenLeft res $ \error -> do
     $(logTM) ErrorS $ logStr @String $ "ws closes with an error: " <> error
     let msg = 
           BSL.toStrict $
             encode @(Response ()) $
               Error $
-                asError @T.Text $ 
+                asError @T.Text $
                   "connection rejected " <> toS error
     liftIO $ pend `WS.rejectRequest` msg

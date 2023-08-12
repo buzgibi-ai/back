@@ -37,12 +37,14 @@ import qualified Buzgibi.Api.Controller.Webhook.CatchBark as Webhook.CatchBark
 import qualified Buzgibi.Api.Controller.Webhook.CatchTelnyx as Webhook.CatchTelnyx
 import qualified Buzgibi.Api.Controller.Webhook.CatchGit as Webhook.CatchGit
 import qualified Buzgibi.Api.Controller.User.GetNotifications as User.GetNotifications
+import qualified Buzgibi.Api.Controller.WS.History as WS.History 
 import qualified Buzgibi.Auth as Auth
 import Katip
 import Katip.Controller hiding (webhook)
 import Servant.API.Generic
 import Servant.RawM.Server ()
 import Servant.Server.Generic
+import qualified Network.WebSockets.Connection as WS
 
 controller :: Api (AsServerT KatipControllerM)
 controller = Api {_apiHttp = toServant httpApi}
@@ -55,7 +57,8 @@ httpApi =
       _httpApiFront = toServant frontend,
       _httpApiUser = toServant user,
       _httpApiForeign = toServant _foreign,
-      _httpApiReCaptcha = toServant captcha
+      _httpApiReCaptcha = toServant captcha,
+      _httpApiWS = toServant ws
     }
 
 file :: FileApi (AsServerT KatipControllerM)
@@ -231,3 +234,15 @@ captcha =
             (Namespace ["captcha", "validate"])
           . ReCaptcha.Verify.controller
     }
+
+ws :: WSApi (AsServerT KatipControllerM)
+ws = 
+  WSApi
+  { _wsApiUserHistory = 
+      \(pend :: WS.PendingConnection) ->
+        pend `Auth.withWSAuth` \(ident, conn) ->
+          flip logExceptionM ErrorS
+          $ katipAddNamespace
+            (Namespace ["ws", "user", "history"])
+          $ WS.History.controller ident conn
+  }

@@ -12,6 +12,7 @@ module Buzgibi.Api.Map
     module Front,
     module Foreign,
     module ReCaptcha,
+    module WS
   )
 where
 
@@ -20,6 +21,7 @@ import Buzgibi.Api.Foreign as Foreign
 import Buzgibi.Api.Frontend as Front
 import Buzgibi.Api.ReCaptcha as ReCaptcha
 import Buzgibi.Api.User as User
+import Buzgibi.Api.WS as WS
 import Servant.API
 import Servant.API.Generic
 import Servant.Swagger.Tags
@@ -54,6 +56,11 @@ data HttpApi route = HttpApi
       route
         :- Tags "ReCaptcha"
           :> "captcha"
-          :> ToServant ReCaptchaApi AsApi
+          :> ToServant ReCaptchaApi AsApi,
+    _httpApiWS ::
+      route
+        :- Tags "WS"
+          :> "ws"
+          :> ToServant WSApi AsApi
   }
   deriving stock (Generic)
