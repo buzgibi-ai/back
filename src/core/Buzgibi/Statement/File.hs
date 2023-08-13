@@ -103,7 +103,8 @@ getMetaForReport =
           f.exts
         from customer.survey_files as sf
         left join storage.file as f
-        on sf.report_id = f.id) as report
+        on sf.report_id = f.id
+        where f.id = $2 :: int8) as report
       on report.survey_id = ce.id
       left join (
         select
@@ -119,10 +120,10 @@ getMetaForReport =
         on sd.id = sb.survey_draft_id
         left join storage.file as f
         on sb.voice_id = f.id
-        order by sd.id desc limit 1
+        where f.id = $2 :: int8
       ) as voice
       on voice.survey_id = ce.id
-      where u.id = $1 :: int8 and (report.id = $2 :: int8 or voice.id = $2 :: int8)|]
+      where u.id = $1 :: int8 and (voice is not null or report is not null)|]
   where mkTpl x = x & _1 %~ coerce & _2 %~ coerce & _3 %~ coerce & _4 %~ coerce & _5 %~ V.toList @T.Text
 
 getMeta :: HS.Statement (Id "file") (Maybe (Hash, Name, Mime, Bucket, [T.Text]))
