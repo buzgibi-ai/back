@@ -370,7 +370,9 @@ getHistory =
            f.id :: int8 as report_ident,
            s.survey_status :: text as status,
            max(sd.id) as draft_ident
-         from customer.profile as p
+         from auth.user as u
+         inner join customer.profile as p
+         on u.id = p.user_id
          inner join customer.survey as s
          on p.id = s.user_id 
          inner join customer.survey_draft as sd
@@ -489,7 +491,8 @@ getUserByBarkIdent =
     on sd.id = sb.survey_draft_id
     inner join foreign_api.bark as b
     on b.id = sb.bark_id
-    where b.bark_ident = $1 :: text|]
+    where b.bark_ident = $1 :: text 
+    and sb.voice_id is null|]
 
 getSurveyForTelnyxApp :: HS.Statement () [(Int64, T.Text)]
 getSurveyForTelnyxApp = 

@@ -54,7 +54,7 @@ data Error =
      AudioOutIsMissing | 
      NetworkFailure B.ByteString |
      MinioError String |
-     UserMissing
+     UserMissingOrVoiceAlreadySet
   deriving Show
 
 controller :: Payload -> KatipControllerM ()
@@ -80,7 +80,7 @@ controller payload = do
            let (mime, exts) = extractMIMEandExts url
             
            usere <- lift $ transactionM hasql $ statement Survey.getUserByBarkIdent $ Bark.responseIdent resp
-           user <- fmap AuthenticatedUser $ E.except $ maybeToRight UserMissing $ usere
+           user <- fmap AuthenticatedUser $ E.except $ maybeToRight UserMissingOrVoiceAlreadySet $ usere
 
            file_id <- commitToMinio user file mime "bark" exts $ Bark.responseIdent resp
            minio_res <- for file_id $ \([ident], duration) -> do
