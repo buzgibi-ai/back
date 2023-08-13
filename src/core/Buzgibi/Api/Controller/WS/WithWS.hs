@@ -19,19 +19,22 @@ import qualified Control.Concurrent.Async.Lifted as Async
 import qualified Control.Monad.State.Strict as ST
 import Data.Foldable (for_)
 import Control.Monad.Trans.Class (lift)
+import Control.Lens
+import qualified Hasql.Connection as Hasql
+import qualified Data.Pool as Pool
 
 withWS 
   :: forall a . 
   FromJSON a => 
   AuthenticatedUser -> 
   WS.Connection -> 
-  (WS.Connection -> AuthenticatedUser -> a -> KatipControllerM ()) -> 
+  (Pool.Pool Hasql.Connection -> WS.Connection -> AuthenticatedUser -> a -> KatipControllerM ()) -> 
   KatipControllerM ()
 withWS user conn runWS =
   flip ST.evalStateT Nothing $ forever $ do
     res <- fmap (eitherDecode @a) $ liftIO $ WS.receiveData @BSL.ByteString conn
     for_ res $ \_data -> do
-      new <- lift $ Async.async $ forever $ runWS conn user _data
-      old <- ST.get
-      ST.put $ Just new
+      hasql <- fmap (^. katipEnv . hasqlDbPool) ask
+      new <- lift $ Async.async $ forever $ runWS hasql conn user _data
+      old <- ST.state $ \old -> (old, Just new)
       for_ old $ lift . Async.cancel
