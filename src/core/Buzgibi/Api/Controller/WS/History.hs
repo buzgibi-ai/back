@@ -18,29 +18,18 @@ import Data.Aeson (FromJSON, ToJSON, encode, eitherDecode)
 import Control.Monad.IO.Class (liftIO)
 import Data.Int (Int64)
 import qualified Hasql.Connection as Hasql
-import qualified Data.Pool as Pool
-import Control.Exception (onException)
 import qualified Hasql.Notifications as Hasql
 import Control.Lens.Iso.Extended (bytesLazy)
-import Control.Lens
 import Control.Monad (forever)
 import Data.Aeson.Generic.DerivingVia
 import GHC.Generics (Generic)
+import Control.Lens
 
 newtype Page = Page Int64
-  deriving newtype (FromJSON)
+  deriving newtype (FromJSON, Show)
 
 controller :: AuthenticatedUser -> WS.Connection -> KatipControllerM ()
-controller _ conn =
-  withWS @Page conn $ \page -> do 
-   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
-   liftIO $ withResource hasql $ resolveVoice conn page
-
-withResource :: Pool.Pool Hasql.Connection -> (Hasql.Connection -> IO ()) -> IO ()
-withResource pool go = do
-  (db, local) <- Pool.takeResource pool
-  go db `onException` Pool.putResource local db
-  Pool.putResource local db
+controller _ conn = withWS @Page conn $ \db page -> liftIO $ resolveVoice conn db page
 
 data Voice = Voice { voiceSurvey :: Int64, voiceVoice :: Int64 }
      deriving stock (Generic, Show)
@@ -50,8 +39,8 @@ data Voice = Voice { voiceSurvey :: Int64, voiceVoice :: Int64 }
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Voice)]]
           Voice
 
-resolveVoice :: WS.Connection -> Page -> Hasql.Connection -> IO ()
-resolveVoice c _ db = do 
+resolveVoice :: WS.Connection -> Hasql.Connection -> Page -> IO ()
+resolveVoice c db _ = do 
   let channelToListen = Hasql.toPgIdentifier "voice"
   Hasql.listen db channelToListen
   forever $
