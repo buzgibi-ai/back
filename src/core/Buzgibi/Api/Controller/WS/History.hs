@@ -31,10 +31,10 @@ newtype Page = Page Int64
   deriving newtype (FromJSON)
 
 controller :: AuthenticatedUser -> WS.Connection -> KatipControllerM ()
-controller _ conn = do 
-  withWS @Page conn $ \_ -> do 
-    hasql <- fmap (^. katipEnv . hasqlDbPool) ask
-    liftIO $ withResource hasql $ resolveVoice conn $ Page 1
+controller _ conn =
+  withWS @Page conn $ \page -> do 
+   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
+   liftIO $ withResource hasql $ resolveVoice conn page
 
 withResource :: Pool.Pool Hasql.Connection -> (Hasql.Connection -> IO ()) -> IO ()
 withResource pool go = do

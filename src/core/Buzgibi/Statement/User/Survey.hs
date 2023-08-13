@@ -491,8 +491,7 @@ getUserByBarkIdent =
     on sd.id = sb.survey_draft_id
     inner join foreign_api.bark as b
     on b.id = sb.bark_id
-    where b.bark_ident = $1 :: text 
-    and sb.voice_id is null|]
+    where b.bark_ident = $1 :: text|]
 
 getSurveyForTelnyxApp :: HS.Statement () [(Int64, T.Text)]
 getSurveyForTelnyxApp = 

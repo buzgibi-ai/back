@@ -70,10 +70,6 @@ import qualified Katip.Wai as Katip.Wai
 import Control.Monad.IO.Unlift (MonadUnliftIO (withRunInIO))
 import Data.Maybe (fromMaybe)
 import qualified Network.Minio as Minio
-import Control.Concurrent.MVar.Lifted
-import qualified Control.Monad.State.Class as S
-import Data.Tuple (swap)
-import Data.Bifunctor (first)
 import Data.Time.Clock (getCurrentTime)
 
 data Cfg = Cfg
@@ -115,20 +111,11 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   let withSwagger :: Proxy a -> Proxy (a :<|> SwaggerSchemaUI "swagger" "swagger.json")
       withSwagger _ = Proxy
 
-  stateRef <- fmap getKatipState S.get >>= newMVar
-
   let hoistedServer =
         hoistServerWithContext
           (withSwagger api)
           (Proxy @'[CookieSettings, JWTSettings])
-          (\controller -> do
-              modifyMVar stateRef $ \old -> do
-                fmap ((first getState) . swap) $ 
-                  runKatipController cfg (State old) $ do 
-                    resp <- controller
-                    S.modify' $ \(State new) -> 
-                      State $ if old /= new then new else old
-                    return resp)
+          (fmap fst . runKatipController cfg (State mempty))
           ( toServant Controller.controller
               :<|> swaggerSchemaUIServerT
                 (swaggerHttpApi cfgHost cfgSwaggerPort ver)
