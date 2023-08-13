@@ -198,6 +198,7 @@ library:
     - regex-with-pcre
     - stm-chans
     - retry
+    - hasql-notifications
 
   source-dirs:
     - src/core
