@@ -199,6 +199,7 @@ library:
     - stm-chans
     - retry
     - hasql-notifications
+    - stm-lifted
 
   source-dirs:
     - src/core
