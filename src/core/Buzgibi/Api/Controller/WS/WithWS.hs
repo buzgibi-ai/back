@@ -16,22 +16,21 @@ import qualified Network.WebSockets as WS
 import qualified Data.ByteString.Lazy as BSL
 import Data.Aeson (FromJSON, eitherDecode)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad (forever, void)
 import qualified Control.Concurrent.Async.Lifted as Async
-import qualified Control.Monad.State.Strict as ST
 import Data.Foldable (for_)
-import Data.Traversable (for)
-import Control.Monad.Trans.Class (lift)
 import Data.Either.Combinators (whenLeft)
 import Control.Exception.Lifted (onException)
 import qualified Hasql.Connection as Hasql
 import qualified Data.Pool as Pool
 import Control.Lens
 import BuildInfo (location)
+import qualified Control.Concurrent.STM.TChan.Lifted as Async
+import Control.Concurrent.STM.Lifted (atomically)
+import Control.Monad (forever)
 
 withWS 
   :: forall a . 
-  (FromJSON a, Show a) =>
+  FromJSON a =>
   WS.Connection -> 
   (Hasql.Connection -> a -> KatipControllerM ()) -> 
   KatipControllerM ()
@@ -39,20 +38,21 @@ withWS conn go = do
   $(logTM) DebugS $ logStr $ " ws connection established"
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   (db, local) <- liftIO $ Pool.takeResource hasql
-  let onError = do
-        liftIO $ Pool.putResource local db
-        lift $ $(logTM) ErrorS $ logStr $ $location <> " ws has been closed with error"
-  void $ flip ST.evalStateT Nothing $ 
-      flip onException onError $
-        forever $ do
-          res <- fmap (eitherDecode @a) $ liftIO $ WS.receiveData @BSL.ByteString conn
-          lift $ $(logTM) DebugS $ logStr $ " ws reload, req: " <> show res
-          aesonRes <- for res $ \_data -> do
-            new <- lift $ Async.async $ go db _data
-            old <- ST.state $ \old -> (old, Just new)
-            for_ old $ \a -> do
-               lift $ $(logTM) DebugS $ logStr $ "async canceled"
-               lift $ Async.cancel a
-          whenLeft aesonRes $ \error -> $(logTM) ErrorS $ logStr $ $location <> " ws aeson parse error ---> " <> error
-  liftIO $ Pool.putResource local db        
-  $(logTM) DebugS $ logStr $ " ws connection closed gracefully"        
+   
+  ch <- atomically Async.newTChan
+
+  -- the first thread is solely responsible for receiving messages from frontend 
+  front <- Async.async $ forever $ do 
+    msg <- liftIO $ WS.receiveData @BSL.ByteString conn
+    atomically $ Async.writeTChan ch msg
+   
+  -- the second one is for bd
+  let release = Hasql.release db >> Pool.putResource local db
+  back <- Async.async $
+    flip onException
+    (liftIO release) $ do 
+      msg <- atomically $ Async.readTChan ch
+      for_ (eitherDecode @a msg) $ go db
+      
+  (_, res) <- Async.waitAnyCatchCancel [front, back]
+  whenLeft res $ \error -> $(logTM) ErrorS $ logStr $ $location <> " ws ends up with an error ---> " <> show error
