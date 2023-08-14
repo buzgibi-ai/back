@@ -55,7 +55,6 @@ withWS conn go = do
   let release = do
         threadm <- Async.tryTakeMVar thread
         for_ threadm killThread
-        Hasql.release db
         Pool.putResource local db
   back <- Async.async $
     flip onException
