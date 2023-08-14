@@ -4,6 +4,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 
 module Buzgibi.Api.Controller.WS.WithWS (withWS) where
@@ -15,7 +16,7 @@ import qualified Network.WebSockets as WS
 import qualified Data.ByteString.Lazy as BSL
 import Data.Aeson (FromJSON, eitherDecode)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad (forever)
+import Control.Monad (forever, void)
 import qualified Control.Concurrent.Async.Lifted as Async
 import qualified Control.Monad.State.Strict as ST
 import Data.Foldable (for_)
@@ -26,7 +27,7 @@ import Control.Exception.Lifted (onException)
 import qualified Hasql.Connection as Hasql
 import qualified Data.Pool as Pool
 import Control.Lens
-
+import BuildInfo (location)
 
 withWS 
   :: forall a . 
@@ -40,8 +41,8 @@ withWS conn go = do
   (db, local) <- liftIO $ Pool.takeResource hasql
   let onError = do
         liftIO $ Pool.putResource local db
-        lift $ $(logTM) ErrorS $ logStr $ " ws closed, resource has been release"
-  flip ST.evalStateT Nothing $ 
+        lift $ $(logTM) ErrorS $ logStr $ $location <> " ws has been closed with error"
+  void $ flip ST.evalStateT Nothing $ 
       flip onException onError $
         forever $ do
           res <- fmap (eitherDecode @a) $ liftIO $ WS.receiveData @BSL.ByteString conn
@@ -52,4 +53,6 @@ withWS conn go = do
             for_ old $ \a -> do
                lift $ $(logTM) DebugS $ logStr $ "async canceled"
                lift $ Async.cancel a
-          whenLeft aesonRes $ \error -> $(logTM) ErrorS $ logStr $ " ws aeson parse error ---> " <> error
+          whenLeft aesonRes $ \error -> $(logTM) ErrorS $ logStr $ $location <> " ws aeson parse error ---> " <> error
+  liftIO $ Pool.putResource local db        
+  $(logTM) DebugS $ logStr $ " ws connection closed gracefully"        

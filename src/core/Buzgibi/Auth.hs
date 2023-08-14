@@ -50,7 +50,7 @@ import Data.Either.Combinators (whenLeft)
 import Data.String.Conv (toS)
 import Katip
 import Control.Lens.Iso.Extended (textbs)
-
+import BuildInfo (location)
 
 data AuthError = NoAuthHeader | NoBearer | TokenInvalid
 
@@ -150,7 +150,7 @@ withWSAuth pend controller = do
       liftIO $ WS.sendDataMessage conn (WS.Text (encode (Ok ())) Nothing)
       controller (auth, conn)
   whenLeft res $ \error -> do
-    $(logTM) ErrorS $ logStr @String $ "ws closes with an error: " <> error
+    $(logTM) ErrorS $ logStr $ $location <> " ws closes with an error: " <> error
     let msg = 
           BSL.toStrict $
             encode @(Response ()) $
