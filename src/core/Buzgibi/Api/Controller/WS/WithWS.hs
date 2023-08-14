@@ -27,6 +27,9 @@ import BuildInfo (location)
 import qualified Control.Concurrent.STM.TChan.Lifted as Async
 import Control.Concurrent.STM.Lifted (atomically)
 import Control.Monad (forever)
+import Control.Concurrent.Lifted (fork, killThread)
+import qualified Control.Concurrent.MVar.Lifted as Async
+
 
 withWS 
   :: forall a . 
@@ -41,18 +44,28 @@ withWS conn go = do
    
   ch <- atomically Async.newTChan
 
+  thread <- Async.newEmptyMVar
+
   -- the first thread is solely responsible for receiving messages from frontend 
   front <- Async.async $ forever $ do 
-    msg <- liftIO $ WS.receiveData @BSL.ByteString conn
+    msg <- liftIO (WS.receiveData @BSL.ByteString conn)
     atomically $ Async.writeTChan ch msg
    
   -- the second one is for bd
-  let release = Hasql.release db >> Pool.putResource local db
+  let release = do
+        threadm <- Async.tryTakeMVar thread
+        for_ threadm killThread
+        Hasql.release db
+        Pool.putResource local db
   back <- Async.async $
     flip onException
-    (liftIO release) $ do 
+    (liftIO release) $ forever $ do
       msg <- atomically $ Async.readTChan ch
-      for_ (eitherDecode @a msg) $ go db
-      
+      for_ (eitherDecode @a msg) $ \val -> do
+        threadm <- Async.tryTakeMVar thread
+        for_ threadm killThread
+        forkId <- fork $ go db val
+        Async.putMVar thread forkId
+
   (_, res) <- Async.waitAnyCatchCancel [front, back]
   whenLeft res $ \error -> $(logTM) ErrorS $ logStr $ $location <> " ws ends up with an error ---> " <> show error
