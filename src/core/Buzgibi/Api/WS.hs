@@ -13,11 +13,20 @@ import Servant.API.Generic (Generic, GenericMode (type (:-)))
 import Servant.API.WebSocket (WebSocketPending)
 import Servant.Swagger.Internal.Extended ()
 
-newtype WSApi route = WSApi
+data WSApi route = WSApi
   { _wsApiUserHistory ::
       route
         :- "user"
+          :> "survey"
           :> "history"
+          :> "voice"
+          :> WebSocketPending
+  , _wsApiUserReport ::
+      route
+        :- "user"
+          :> "survey"
+          :> "history"
+          :> "report"
           :> WebSocketPending
   }
   deriving stock (Generic)

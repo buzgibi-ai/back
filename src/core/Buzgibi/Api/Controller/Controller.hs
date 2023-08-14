@@ -37,7 +37,8 @@ import qualified Buzgibi.Api.Controller.Webhook.CatchBark as Webhook.CatchBark
 import qualified Buzgibi.Api.Controller.Webhook.CatchTelnyx as Webhook.CatchTelnyx
 import qualified Buzgibi.Api.Controller.Webhook.CatchGit as Webhook.CatchGit
 import qualified Buzgibi.Api.Controller.User.GetNotifications as User.GetNotifications
-import qualified Buzgibi.Api.Controller.WS.History as WS.History 
+import qualified Buzgibi.Api.Controller.WS.Survey.History as WS.Survey.History 
+import qualified Buzgibi.Api.Controller.WS.Survey.Report as WS.Survey.Report
 import qualified Buzgibi.Auth as Auth
 import Katip
 import Katip.Controller hiding (webhook)
@@ -243,6 +244,13 @@ ws =
         pend `Auth.withWSAuth` \(ident, conn) ->
           flip logExceptionM ErrorS
           $ katipAddNamespace
-            (Namespace ["ws", "user", "history"])
-          $ WS.History.controller ident conn
+            (Namespace ["ws", "user", "survey", "history", "voice"])
+          $ WS.Survey.History.controller ident conn
+  , _wsApiUserReport = 
+      \(pend :: WS.PendingConnection) ->
+        pend `Auth.withWSAuth` \(ident, conn) ->
+          flip logExceptionM ErrorS
+          $ katipAddNamespace
+            (Namespace ["ws", "user", "survey", "history", "report"])
+          $ WS.Survey.Report.controller ident conn        
   }
