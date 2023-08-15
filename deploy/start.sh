@@ -1,12 +1,18 @@
 #!/bin/sh
 
+
+# gh_key, pg_pass, pg_master_pass
+declare -a keysmap
+
+idx=0
 while IFS= read -r line || [[ -n "$line" ]]; do
-    gh_key=$line
+    keysmap[idx]=$line
+    (( idx++ ))
 done < "$1"
 
 sha_front=$(curl -L \
   -H "Accept: application/vnd.github+json" \
-  -H "Authorization: Bearer $gh_key"\
+  -H "Authorization: Bearer ${keysmap[0]}"\
   -H "X-GitHub-Api-Version: 2022-11-28" \
   https://api.github.com/repos/buzgibi-ai/front/commits/master \
   | jq -r '.sha')
@@ -19,6 +25,8 @@ echo "front sha --> $sha_front"
 cat <<EOT >> .env
   DBUSER=sonny
   DATABASE=buzgibi
+  DBPASS=${keysmap[1]}
+  DBPOSTGRESPASS=${keysmap[2]}
   BACK_TAG=master_${sha_back}
   FRONT_TAG=master_${sha_front}
 EOT
