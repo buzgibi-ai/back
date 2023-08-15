@@ -38,6 +38,8 @@ import Data.Proxy (Proxy (..))
 import Control.Lens.Iso.Extended (bytesLazy)
 import Buzgibi.Api.Controller.Utils (withError)
 import Data.String.Conv (toS)
+import Control.Concurrent (threadDelay)
+import qualified Data.Text.Lazy as TL
 
 withWS 
   :: forall a . 
@@ -74,13 +76,15 @@ withWS conn go = do
         forkId <- fork $ go db val
         Async.putMVar thread forkId
 
-  (_, res) <- Async.waitAnyCatchCancel [front, back]
+  keepAlive <- Async.async $ liftIO $ forever $ threadDelay (10 * 10 ^ 6) >> WS.sendPing @TL.Text conn mempty  
+
+  (_, res) <- Async.waitAnyCatchCancel [front, back, keepAlive]
   whenLeft res $ \error -> $(logTM) ErrorS $ logStr $ $location <> " ws ends up with an error ---> " <> show error
 
 type family Listen (s :: Symbol) (b :: Type) :: Constraint
 
-listen :: forall s a . (KnownSymbol s, Listen s a, FromJSON a, ToJSON a) => WS.Connection -> Hasql.Connection -> IO ()
-listen c db = do
+listen :: forall s a b . (KnownSymbol s, Listen s a, FromJSON a, ToJSON b) => WS.Connection -> Hasql.Connection -> (a -> b) -> IO ()
+listen c db go = do
   let channel =  toS $ symbolVal (Proxy @s)
   let channelToListen = Hasql.toPgIdentifier channel
   Hasql.listen db channelToListen
@@ -88,4 +92,4 @@ listen c db = do
     flip Hasql.waitForNotifications db $ 
       \channel payload -> do 
         let resp = eitherDecode @a $ payload^.from bytesLazy
-        WS.sendDataMessage c (WS.Text (encode (withError resp id)) Nothing)
+        WS.sendDataMessage c (WS.Text (encode (withError resp go)) Nothing)

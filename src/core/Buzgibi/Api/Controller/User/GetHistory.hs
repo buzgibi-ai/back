@@ -16,7 +16,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE TupleSections #-}
 
-module Buzgibi.Api.Controller.User.GetHistory (controller, History, Status (..), HistoryItem (..)) where
+module Buzgibi.Api.Controller.User.GetHistory (controller, mkStatus, History, Status (..), HistoryItem (..)) where
 
 import Buzgibi.Auth (AuthenticatedUser (..))
 import Buzgibi.Transport.Response

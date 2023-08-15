@@ -34,4 +34,4 @@ data Voice = Voice { voiceSurvey :: Int64, voiceVoice :: Int64 }
 type instance Listen "voice" Voice = ()
 
 controller :: AuthenticatedUser -> WS.Connection -> KatipControllerM ()
-controller _ conn = withWS @Page conn $ \db _ -> liftIO $ listen @"voice" @Voice conn db
+controller _ conn = withWS @Page conn $ \db _ -> liftIO $ listen @"voice" @Voice conn db id
