@@ -8,25 +8,19 @@
 
 module Buzgibi.Api.WS (WSApi (..)) where
 
-import Servant.API.Extended (type (:>))
+import Buzgibi.Api.Controller.WS.Survey.History (Resource)
+import Servant.API.Extended (type (:>), Capture)
 import Servant.API.Generic (Generic, GenericMode (type (:-)))
 import Servant.API.WebSocket (WebSocketPending)
 import Servant.Swagger.Internal.Extended ()
 
-data WSApi route = WSApi
+newtype WSApi route = WSApi
   { _wsApiUserHistory ::
       route
         :- "user"
           :> "survey"
           :> "history"
-          :> "voice"
-          :> WebSocketPending
-  , _wsApiUserReport ::
-      route
-        :- "user"
-          :> "survey"
-          :> "history"
-          :> "report"
+          :> Capture "resource" Resource
           :> WebSocketPending
   }
   deriving stock (Generic)
