@@ -1,7 +1,7 @@
 #!/bin/sh
 
 
-# gh_key, pg_pass, pg_master_pass
+# gh_key, pg_pass, pg_master_pass, pg_admin email, pg_admin psss
 declare -a keysmap
 
 idx=0
@@ -29,6 +29,8 @@ cat <<EOT >> .env
   DBPOSTGRESPASS=${keysmap[2]}
   BACK_TAG=master_${sha_back}
   FRONT_TAG=master_${sha_front}
+  PGADMINEMAIL=${keysmap[3]}
+  PGADMINPASS=${keysmap[4]}
 EOT
 
 cp ~/ssl/front/buzgibi.crt ./deploy/nginx/ssl/front/buzgibi.crt

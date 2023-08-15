@@ -9,9 +9,9 @@ services:
       - 5432:5432
     environment:
       - DB_USER=${DBUSER}
-      - DB_PASSWORD=3190d261d186aeead3a8deec202737c7775af5c8d455a9e5ba958c48b5fd3f59
+      - DB_PASSWORD=${DBPASS}
       - DB_DATABASE=${DATABASE}
-      - POSTGRES_PASSWORD=264c0424e4bd463a7d02b9db6896143e1a96cd1c52511119f839d2bc9c934241
+      - POSTGRES_PASSWORD=${DBPOSTGRESPASS}
       - POSTGRES_USER=postgres
     volumes:
       - ${PWD}/deploy/db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d/
@@ -99,9 +99,26 @@ services:
     networks:
       - buzgibi
 
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: buzgibi_pgadmin4
+    restart: always
+    ports:
+      - 8888:80
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMINEMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMINPASS}
+      SCRIPT_NAME: /pgadmin
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      buzgibi:
+         ipv4_address: 192.168.22.8
+
 volumes:
   pg_db: {}
   minio_data: {}
+  pgadmin-data: {}
 
 networks:
   buzgibi:
