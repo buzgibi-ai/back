@@ -973,7 +973,8 @@ saveReport =
       where survey_id = $1 :: int8
       returning 1 :: int4)
     update customer.survey
-    set survey_status = $3 :: text
+    set survey_status = $3 :: text,
+        processed = now()
     where id = $1 :: int8 and (select (count(*) > 0) :: bool from report)|]
 
 invalidatePhones :: HS.Statement [(Int64, T.Text)] (Maybe Int64)
