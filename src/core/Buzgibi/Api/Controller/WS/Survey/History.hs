@@ -19,6 +19,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Int (Int64)
 import Data.Aeson.Generic.DerivingVia
 import GHC.Generics (Generic)
+import Data.Coerce (coerce)
 
 newtype Page = Page Int64
   deriving newtype (FromJSON, Show)
@@ -34,4 +35,4 @@ data Voice = Voice { voiceSurvey :: Int64, voiceVoice :: Int64 }
 type instance Listen "voice" Voice = ()
 
 controller :: AuthenticatedUser -> WS.Connection -> KatipControllerM ()
-controller _ conn = withWS @Page conn $ \db _ -> liftIO $ listen @"voice" @Voice conn db id
+controller user conn = withWS @Page conn $ \db _ -> liftIO $ listen @"voice" @Voice conn db (coerce user) id

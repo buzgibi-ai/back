@@ -7,7 +7,7 @@ begin
     select
         json_build_object(
         'survey', tmp.id,
-        'report', tmp.report_id,
+        'report', tmp.report_id
         'status', tmp.survey_status)
     into result 
     from (

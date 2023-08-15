@@ -23,6 +23,7 @@ import Data.Aeson.Generic.DerivingVia
 import GHC.Generics (Generic)
 import Data.Aeson.WithField
 import Data.Bifunctor (first)
+import Data.Coerce (coerce)
 
 data Report = Report { reportSurvey :: Int64, reportReport :: Int64 }
      deriving stock (Generic, Show)
@@ -35,4 +36,6 @@ data Report = Report { reportSurvey :: Int64, reportReport :: Int64 }
 type instance Listen "report" (Maybe (WithField "status" Survey.Status Report)) = ()
 
 controller :: AuthenticatedUser -> WS.Connection -> KatipControllerM ()
-controller _ conn = withWS @Int conn $ \db _ -> liftIO $ listen @"report" @(Maybe (WithField "status" Survey.Status Report)) conn db $ fmap (first mkStatus)
+controller user conn = 
+  withWS @Int conn $ \db _ -> 
+    liftIO $ listen @"report" @(Maybe (WithField "status" Survey.Status Report)) conn db (coerce user) $ fmap (first mkStatus)

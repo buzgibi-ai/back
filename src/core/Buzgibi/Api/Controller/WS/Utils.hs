@@ -7,6 +7,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Buzgibi.Api.Controller.WS.Utils (withWS, listen, Listen) where
@@ -40,6 +41,7 @@ import Buzgibi.Api.Controller.Utils (withError)
 import Data.String.Conv (toS)
 import Control.Concurrent (threadDelay)
 import qualified Data.Text.Lazy as TL
+import Data.Int (Int64)
 
 withWS 
   :: forall a . 
@@ -48,7 +50,7 @@ withWS
   (Hasql.Connection -> a -> KatipControllerM ()) -> 
   KatipControllerM ()
 withWS conn go = do
-  $(logTM) DebugS $ logStr $ " ws connection established"
+  $(logTM) DebugS $ logStr @String $ " ws connection established"
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   (db, local) <- liftIO $ Pool.takeResource hasql
    
@@ -79,13 +81,13 @@ withWS conn go = do
   keepAlive <- Async.async $ liftIO $ forever $ threadDelay (10 * 10 ^ 6) >> WS.sendPing @TL.Text conn mempty  
 
   (_, res) <- Async.waitAnyCatchCancel [front, back, keepAlive]
-  whenLeft res $ \error -> $(logTM) ErrorS $ logStr $ $location <> " ws ends up with an error ---> " <> show error
+  whenLeft res $ \error -> $(logTM) ErrorS $ logStr @String $ $location <> " ws ends up with an error ---> " <> show error
 
 type family Listen (s :: Symbol) (b :: Type) :: Constraint
 
-listen :: forall s a b . (KnownSymbol s, Listen s a, FromJSON a, ToJSON b) => WS.Connection -> Hasql.Connection -> (a -> b) -> IO ()
-listen c db go = do
-  let channel =  toS $ symbolVal (Proxy @s)
+listen :: forall s a b . (KnownSymbol s, Listen s a, FromJSON a, ToJSON b) => WS.Connection -> Hasql.Connection -> Int64 -> (a -> b) -> IO ()
+listen c db ident go = do
+  let channel =  toS (symbolVal (Proxy @s)) <> "_" <> toS (show ident)
   let channelToListen = Hasql.toPgIdentifier channel
   Hasql.listen db channelToListen
   forever $
