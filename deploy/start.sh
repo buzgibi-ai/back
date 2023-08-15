@@ -1,5 +1,4 @@
-#!/bin/sh
-
+#!/bin/bash
 
 # gh_key, pg_pass, pg_master_pass, pg_admin email, pg_admin psss
 declare -a keysmap
