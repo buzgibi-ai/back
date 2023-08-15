@@ -117,7 +117,7 @@ makeSharableLink minio barkIdent = do
     for objectm $ \meta@(object, bucket, title, (ext:_)) -> do
       liftIO $ logger DebugS $ logStr @String  (" makeSharableLink ---> meta: " <> show meta)
       urlm <- liftIO $ fmap (second (^.from textbs)) $
-        Minio.runMinioWith minio $ Minio.presignedGetObjectUrl bucket object (7 * 24 * 3600) mempty mempty
+        Minio.runMinioWith minio $ Minio.presignedGetObjectUrl bucket object 3600 mempty mempty
       fmap (first (fromString . show)) $ for urlm $ \url -> do
         let replacedUrl = url Reg.?=~/ [Reg.ed|^https?:\/\/[A-Za-z0-9:.]*///http://35.210.166.20|]
         statement Survey.insertShareLink (barkIdent, replacedUrl)
