@@ -15,7 +15,7 @@ configSwagger:
 configHasql:
   hasqlSettingsPoolN: 50
   hasqlSettingsTm: 0.5
-  hasqlSettingsResPerStripe: 1
+  hasqlSettingsResPerStripe: 100
 
 configKatip:
   katipPath: katip
@@ -51,15 +51,5 @@ configCors:
 
 configServerError: true
 
-configSendGrid:
-  sendGridUrl: "https://api.sendgrid.com/v3"
-  sendGridApiKey:
-  sendGridSenderIdentity: admin@buzgibi.app
-  sendGridPersons:
-    - email: sclaw@buzgibi.app
-      personalization: Sergey Yakovlev
-    - email: koray@buzgibi.app
-      personalization: Koray Vatan
-
-configJobFrequency: 100
-configWebhook: https://api.buzgibi.app
+configJobFrequency: 20
+configWebhook: https://2b18-37-154-6-241.ngrok-free.app
