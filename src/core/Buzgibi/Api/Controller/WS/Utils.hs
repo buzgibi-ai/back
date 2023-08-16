@@ -22,7 +22,6 @@ import Control.Monad.IO.Class (liftIO)
 import qualified Control.Concurrent.Async.Lifted as Async
 import Data.Foldable (for_)
 import Data.Either.Combinators (whenLeft)
-import Control.Exception.Lifted (onException)
 import qualified Hasql.Connection as Hasql
 import qualified Data.Pool as Pool
 import Control.Lens
@@ -64,13 +63,8 @@ withWS conn go = do
     atomically $ Async.writeTChan ch msg
    
   -- the second one is for bd
-  let release = do
-        threadm <- Async.tryTakeMVar thread
-        for_ threadm killThread
-        Pool.putResource local db
   back <- Async.async $
-    flip onException
-    (liftIO release) $ forever $ do
+    forever $ do
       msg <- atomically $ Async.readTChan ch
       for_ (eitherDecode @a msg) $ \val -> do
         threadm <- Async.tryTakeMVar thread
@@ -81,7 +75,11 @@ withWS conn go = do
   keepAlive <- Async.async $ liftIO $ forever $ threadDelay (10 * 10 ^ 6) >> WS.sendPing @TL.Text conn mempty  
 
   (_, res) <- Async.waitAnyCatchCancel [front, back, keepAlive]
-  whenLeft res $ \error -> $(logTM) ErrorS $ logStr @String $ $location <> " ws ends up with an error ---> " <> show error
+  whenLeft res $ \error -> do
+    threadm <- Async.tryTakeMVar thread
+    for_ threadm killThread
+    liftIO $ Pool.putResource local db
+    $(logTM) ErrorS $ logStr @String $ $location <> " ws ends up with an error ---> " <> show error
 
 type family Listen (s :: Symbol) (b :: Type) :: Constraint
 
