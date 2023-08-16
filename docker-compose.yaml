@@ -35,6 +35,7 @@ services:
       - 12000:12000
     volumes:
       - ${HOME}/env.yaml:/server/env.yaml
+      - ${HOME}/buzgibi_env:/server/buzgibi_env
       - ${HOME}/config.yaml:/server/deploy/config.yaml
       - ${PWD}/deploy/init.sh:/server/deploy/init.sh
       - ${HOME}/jwk.txt:/server/deploy/jwk.txt

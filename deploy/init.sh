@@ -27,9 +27,9 @@ echo 'launch server..'
         --path_to_jwk deploy/jwk.txt \
         --print_cfg y \
         --env_path $env_file \
-        --mute500 $mute500" \
+        --mute500 $mute500 \
         --buzgibi_db_user ${keysmap[0]} \
         --buzgibi_db_pass ${keysmap[1]} \
         --buzgibi_database ${keysmap[2]} \
         --minio_access_key ${keysmap[3]} \
-        --minio_secret_key ${keysmap[4]} \
+        --minio_secret_key ${keysmap[4]}"
