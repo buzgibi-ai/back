@@ -64,6 +64,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.ByteString.Lazy as B
 import Data.Either.Combinators (whenLeft)
 import Data.Aeson (eitherDecode')
+import Data.String.Conv (toS)
 
 data PrintCfg = Y | N deriving stock (Generic)
 
@@ -92,12 +93,17 @@ data Cmd w = Cmd
     pathToJwk :: w ::: FilePath <?> "path to jwk",
     minioHost :: w ::: Maybe String <?> "minio host",
     minioPort :: w ::: Maybe String <?> "minio port",
+    minioAccessKey :: w ::: String <?> "minio access key",
+    minioSecretKey :: w ::: String <?> "minio secret key",
     swaggerHost :: w ::: Maybe String <?> "swagger host",
     swaggerPort :: w ::: Maybe Int <?> "swagger port",
     serverPort :: w ::: Maybe Int <?> "server port",
     printCfg :: w ::: Maybe PrintCfg <?> "whether config be printed",
     envPath :: w ::: Maybe FilePath <?> "file for storing sensitive data. it's used only in deployment",
-    mute500 :: w ::: Maybe Bool <?> "how to render 500 error"
+    mute500 :: w ::: Maybe Bool <?> "how to render 500 error",
+    buzgibiDbUser :: w ::: String <?> "db user",
+    buzgibiDbPass :: w ::: String <?> "db pass",
+    buzgibiDatabase :: w ::: String <?> "database"
   }
   deriving stock (Generic)
 
@@ -155,9 +161,14 @@ main = do
         rawCfg
           & db . host %~ (`fromMaybe` localhost)
           & db . port %~ (`fromMaybe` localport)
+          & db . user .~ buzgibiDbUser
+          & db . pass .~ buzgibiDbPass
+          & db . database .~ buzgibiDatabase
           & katip . path %~ (\path -> maybe path (</> path) pathToKatip)
           & Buzgibi.Config.minio . host %~ (`fromMaybe` minioHost)
           & Buzgibi.Config.minio . port %~ (`fromMaybe` minioPort)
+          & Buzgibi.Config.minio . accessKey .~ toS minioAccessKey
+          & Buzgibi.Config.minio . secretKey .~ toS minioSecretKey
           & swagger . host %~ (`fromMaybe` swaggerHost)
           & swagger . port %~ (flip (<|>) swaggerPort)
           & serverConnection . port %~ (`fromMaybe` serverPort)

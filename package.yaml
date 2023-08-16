@@ -232,6 +232,7 @@ executables:
       - bytestring
       - either
       - aeson
+      - string-conv
 
 tests:
   tasty:

@@ -1,9 +1,9 @@
 configDb:
   dbHost: 192.168.22.4
   dbPort: 5432
-  dbUser: sonny
-  dbPass: 3190d261d186aeead3a8deec202737c7775af5c8d455a9e5ba958c48b5fd3f59
-  dbDatabase: buzgibi
+  dbUser: user
+  dbPass: pass
+  dbDatabase: db
 
 configServerConnection:
   serverConnectionPort: 12000
@@ -29,8 +29,8 @@ configService:
    - [recaptcha, 6Lfq078UAAAAAHfSdWpLm9jLqwrZ_goGiyCtj5VG]
 
 configMinio:
-  minioAccessKey: sonny
-  minioSecretKey: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+  minioAccessKey: access
+  minioSecretKey: secret
   minioBucketPrefix: buzgibi
   minioHost: http://192.168.22.5
   minioPort: "9000"
