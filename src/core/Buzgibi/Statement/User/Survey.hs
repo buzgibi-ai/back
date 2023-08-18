@@ -545,31 +545,38 @@ getPhonesToCall =
     (const (toS (show PickedByTelnyx))) 
     (V.toList . fmap (\x -> x & _4 %~ V.toList)) $
   [vectorStatement|
-    select
-      t.id :: int8,
-      t.telnyx_ident :: text,
-      vsl.share_link_url :: text,
-      array_agg(jsonb_build_object( 
-       'phone', sp.phone,
-       'ident', sp.id)) :: jsonb[]
-    from (select
-        b.bark_id as bark_ident,
-        s.id as survey_ident,
-        s.survey_status
-      from customer.survey as s
-      inner join customer.survey_draft as sd
-      on sd.survey_id = s.id
-      inner join customer.survey_bark as b
-      on sd.id = b.survey_draft_id
-      order by sd.id desc limit 1) as tbl
-    inner join customer.voice_share_link as vsl
-    on tbl.bark_ident = vsl.bark_id
-    inner join customer.survey_phones as sp
-    on tbl.survey_ident = sp.survey_id
-    inner join foreign_api.telnyx_app as t
-    on t.survey_id = tbl.survey_ident
-    where tbl.survey_status = $1 :: text and sp.is_valid_number
-    group by t.id, t.telnyx_ident, vsl.share_link_url|]
+     with survey as 
+       (select
+          s.id as survey_ident,
+          s.survey_status,
+          max(sd.id) as survey_draft_ident
+        from customer.survey as s
+        inner join customer.survey_draft as sd
+        on sd.survey_id = s.id
+        group by s.id, s.survey_status)
+     select
+       t.id :: int8,
+       t.telnyx_ident :: text,
+       vsl.share_link_url :: text,
+       array_agg(jsonb_build_object( 
+        'phone', sp.phone,
+        'ident', sp.id)) :: jsonb[]
+     from (
+       select
+         b.bark_id as bark_ident,
+         tmp.survey_ident,
+         tmp.survey_status
+       from survey as tmp
+       inner join customer.survey_bark as b
+       on tmp.survey_draft_ident = b.survey_draft_id) as tbl
+     inner join customer.voice_share_link as vsl
+     on tbl.bark_ident = vsl.bark_id
+     inner join customer.survey_phones as sp
+     on tbl.survey_ident = sp.survey_id
+     inner join foreign_api.telnyx_app as t
+     on t.survey_id = tbl.survey_ident
+     where tbl.survey_status = $1 :: text and sp.is_valid_number
+     group by tbl.survey_ident, t.id, t.telnyx_ident, vsl.share_link_url|]
 
 data CallStatus = Invalid | CallMade | Hangup | Answered | Recorded
      deriving Generic
