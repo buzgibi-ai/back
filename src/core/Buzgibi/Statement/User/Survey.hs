@@ -903,7 +903,7 @@ getSurveyForReport =
             when not sp.is_valid_number then 
               'phone is invalid'
             when cta.invalid is not null then 
-              cta.invalid
+              'phone is invalid'
             else trim(both '"' from cta.call_hangup_cause)
           end as result
         from auth.user as u
@@ -928,7 +928,7 @@ getSurveyForReport =
             when psa.result is not null then 
               psa.result
             when cta.invalid is not null then 
-              cta.invalid
+              'phone is invalid'
             when cta.call_hangup_cause is not null then 
               trim(both '"' from cta.call_hangup_cause)
             when pt.error is not null then
