@@ -58,24 +58,28 @@ withWS conn go = do
   thread <- Async.newEmptyMVar
 
   -- the first thread is solely responsible for receiving messages from frontend 
-  front <- Async.async $ forever $ do 
-    msg <- liftIO (WS.receiveData @BSL.ByteString conn)
-    atomically $ Async.writeTChan ch msg
-   
+  let front = forever $ liftIO (WS.receiveData @BSL.ByteString conn) >>= atomically . Async.writeTChan ch
   -- the second one is for bd
-  back <- Async.async $
-    forever $ do
-      msg <- atomically $ Async.readTChan ch
-      for_ (eitherDecode @a msg) $ \val -> do
-        threadm <- Async.tryTakeMVar thread
-        for_ threadm killThread
-        forkId <- fork $ go db val
-        Async.putMVar thread forkId
+  let back =
+        forever $ do
+          msg <- atomically $ Async.readTChan ch
+          for_ (eitherDecode @a msg) $ \val -> do
+            threadm <- Async.tryTakeMVar thread
+            for_ threadm killThread
+            forkId <- fork $ go db val
+            Async.putMVar thread forkId
+  let keepAlive = liftIO $ forever $ threadDelay (10 * 10 ^ 6) >> WS.sendPing @TL.Text conn mempty  
 
-  keepAlive <- Async.async $ liftIO $ forever $ threadDelay (10 * 10 ^ 6) >> WS.sendPing @TL.Text conn mempty  
+  res <- Async.withAsync front $ 
+    \front_async ->
+       Async.withAsync back $ 
+          \back_async ->
+             Async.withAsync keepAlive $ 
+                \alive_async ->
+                   Async.waitAnyCatchCancel 
+                     [front_async, back_async, alive_async]
 
-  (_, res) <- Async.waitAnyCatchCancel [front, back, keepAlive]
-  whenLeft res $ \error -> do
+  whenLeft (snd res) $ \error -> do
     threadm <- Async.tryTakeMVar thread
     for_ threadm killThread
     liftIO $ Pool.putResource local db
