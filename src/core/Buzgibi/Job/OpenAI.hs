@@ -105,7 +105,7 @@ getTranscription OpenAICfg {..} = forever $ do
         let (es, ys) = partitionEithers yse
         if ifInsufficientFunds es
         then do
-          transaction pool logger $ statement setInsufficientFund (survIdent, TranscriptionsDoneOpenAI)
+          transaction pool logger $ statement setInsufficientFund (survIdent, ProcessedByTelnyx)
           logger EmergencyS $ logStr @String $ $location <> " the service cannot function normally due to the lack of funds"
         else do
           mkErrorMsg "getTranscription" logger survIdent es
