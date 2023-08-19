@@ -37,7 +37,7 @@ mkEnumConvertor ''Resource
 mkParamSchemaEnum ''Resource [|isoResource . to (modify (Proxy @Resource)) . stext . to String|]
 mkFromHttpApiDataEnum ''Resource [|from stext . from isoResource . to Right|]
 
-data Report = Report { reportSurvey :: Int64, reportReport :: Int64 }
+data Report = Report { reportSurvey :: Maybe Int64, reportReport :: Int64 }
      deriving stock (Generic, Show)
      deriving
        (ToJSON, FromJSON)
