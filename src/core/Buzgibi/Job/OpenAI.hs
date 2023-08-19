@@ -22,7 +22,7 @@ import Buzgibi.Statement.User.Survey
         insertSA,
         checkAfterTranscription,
         setInsufficientFund,
-        Status (TranscriptionsDoneOpenAI),
+        Status (TranscriptionsDoneOpenAI, ProcessedByTelnyx),
         OpenAITranscription (..), 
         OpenAISA (..)
        )

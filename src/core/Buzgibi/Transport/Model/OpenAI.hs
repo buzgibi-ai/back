@@ -104,4 +104,4 @@ newtype Error = Error T.Text
 instance FromJSON Error where
   parseJSON = withObject "Error" $ \o -> do
     e <- o .: "error"
-    fmap Error $ e .: "type"
+    fmap Error $ e .: "code"
