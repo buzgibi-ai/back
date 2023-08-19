@@ -9,6 +9,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Buzgibi.Job.Telnyx (makeApp, makeCall, TelnyxCfg (..)) where
 
@@ -20,7 +21,9 @@ import Buzgibi.Statement.User.Survey
         invalidatePhones,
         checkAfterInvalidate,
         failTelnyxApp,
-        PhoneToCall (..))
+        setInsufficientFund,
+        PhoneToCall (..),
+        Status (PickedByTelnyx))
 import Buzgibi.Api.CallApi.Instance ()        
 import Buzgibi.EnvKeys (Telnyx (..))
 import Buzgibi.Transport.Model.Telnyx
@@ -44,6 +47,7 @@ import Data.Aeson (eitherDecode, encode)
 import Data.Traversable (for)
 import Data.Either.Combinators (whenLeft)
 import Data.Tuple.Extended (consT)
+import Data.Int (Int64)
 
 data TelnyxCfg =
      TelnyxCfg 
@@ -123,9 +127,23 @@ makeCall TelnyxCfg {..} = forever $ do
               \(call, _) -> pure $ consT phoneToCallIdent $ encodeCallResponse (coerce call)
   
         let (errXs, callXs) = partitionEithers resp
-        for_ errXs $ \e -> logger ErrorS $ logStr $ $location <> " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)
-        transaction pool logger $ statement insertAppCall callXs
-        surveyId <- transaction pool logger $ statement invalidatePhones errXs
-        for_ surveyId $ transaction pool logger . statement checkAfterInvalidate
+        decodeRes <- for (ifInsufficientFunds errXs) $ \result ->
+          if result then do
+            transaction pool logger $ statement setInsufficientFund (ident, PickedByTelnyx)
+            logger EmergencyS $ logStr @String $ $location <> " the service cannot function normally due to the lack of funds"
+          else do
+            for_ errXs $ \e -> logger ErrorS $ logStr $ $location <> " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)
+            transaction pool logger $ statement insertAppCall callXs
+            surveyId <- transaction pool logger $ statement invalidatePhones errXs
+            for_ surveyId $ transaction pool logger . statement checkAfterInvalidate
+        whenLeft decodeRes $ \e -> logger CriticalS $ logStr $ $location <> " decode error for " <> show ident <> " error --> " <> toS (show e)     
 
       whenLeft decodeRes $ \e -> logger CriticalS $ logStr $ $location <> " call for " <> show ident <> " hasn't been made, error --> " <> toS (show e)
+
+ifInsufficientFunds :: [(Int64, T.Text)] -> Either String Bool
+ifInsufficientFunds = fmap and . traverse (fmap (go . coerce) . (eitherDecode @Errors) . toS . snd)
+  where
+    go [] = False 
+    go (Error {errorCode}:xs) 
+      | errorCode == 20100 = True
+      | otherwise = go xs

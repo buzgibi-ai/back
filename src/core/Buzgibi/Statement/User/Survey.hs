@@ -59,7 +59,8 @@ module Buzgibi.Statement.User.Survey
     checkAfterTranscription,
     insertStat,
     getDailyPhoneStat,
-    DailyPhoneStat (..)
+    DailyPhoneStat (..),
+    setInsufficientFund
   ) where
 
 
@@ -76,7 +77,7 @@ import Data.Maybe
 import Database.Transaction (ParamsShow (..))
 import qualified Hasql.Statement as HS
 import Test.QuickCheck.Extended ()
-import Data.Aeson.Types (Value, FromJSON (parseJSON), ToJSON (toJSON))
+import Data.Aeson.Types (Value (String), FromJSON (parseJSON), ToJSON (toJSON))
 import Data.Aeson (withText)
 import Data.Bifunctor (second, first)
 import qualified Data.Vector as V
@@ -94,7 +95,8 @@ data Status =
      SentimentalAnalysisDoneOpenAI |
      SurveyProcessed | 
      Fail |
-     TelnyxAppFailure T.Text
+     TelnyxAppFailure T.Text |
+     InsufficientFunds Status
   deriving Generic
 
 instance Show Status where
@@ -107,6 +109,7 @@ instance Show Status where
     show SentimentalAnalysisDoneOpenAI = "sentimental analysis is finished"
     show SurveyProcessed = "processed"
     show Fail = "fail"
+    show (InsufficientFunds s) = "insufficient_funds:" <> show s
     show (TelnyxAppFailure s) = "telnyx:" <> toS s
 
 instance ParamsShow Status where
@@ -130,7 +133,11 @@ instance FromJSON Status where
       "phones picked for calling" -> pure PhonesPickedForCallByTelnyx
       str -> 
         if T.isPrefixOf "telnyx:" str
-        then pure $ maybe undefined TelnyxAppFailure $ T.stripPrefix "telnyx:" str
+          then pure $ maybe undefined TelnyxAppFailure $ T.stripPrefix "telnyx:" str
+        else if T.isPrefixOf "insufficient_funds:" str
+          then 
+            let s = fromMaybe undefined $ T.stripPrefix "insufficient_funds:" str  
+            in fmap InsufficientFunds $ parseJSON (String s)
         else fail $ toS str <> " doesn't fall into Status type"
 
 mkArbitrary ''Status
@@ -1066,3 +1073,6 @@ getDailyPhoneStat =
         'result', result) :: jsonb
     from public.phone_transcription_result
     where cast(created_at as date) = cast(now() as date) - 1|]
+
+setInsufficientFund :: HS.Statement (Int64, Status) ()
+setInsufficientFund = lmap (second (toS . show . InsufficientFunds)) $ [resultlessStatement|update customer.survey set survey_status = $2 :: text where id = $1 :: int8|]

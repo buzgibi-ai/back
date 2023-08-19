@@ -44,7 +44,9 @@ module Buzgibi.Transport.Model.Telnyx
         PlaybackStartRequest (..),
         PlaybackStartResponse,
         BalanceResponse (..),
-        BalanceResponseWrapper (..)
+        BalanceResponseWrapper (..),
+        Errors (..),
+        Error (..)
        ) where
 
 import Database.Transaction (ParamsShow (..))
@@ -58,6 +60,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text.Extended ()
 import Data.Time.Clock (UTCTime)
 import Data.String.Conv
+import qualified Data.Vector as V
 
 data Outbound =  
      Outbound 
@@ -407,3 +410,20 @@ instance FromJSON BalanceResponseWrapper where
     withObject "BalanceResponseWrapper" $ \o -> do
       _data <- o .: "data"
       fmap BalanceResponseWrapper $ parseJSON @BalanceResponse _data
+
+
+data Error = Error { errorCode :: Int, errorDetail :: T.Text }
+     deriving stock (Generic)
+     deriving
+     (FromJSON, ToJSON)
+     via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Error)]]
+          Error 
+
+newtype Errors = Errors [Error]
+
+instance FromJSON Errors where
+  parseJSON =
+    withObject "Errors" $ \o -> do
+      xs <- o .: "errors"
+      fmap (Errors . V.toList) $ withArray "Errors(array)" (traverse parseJSON) xs
