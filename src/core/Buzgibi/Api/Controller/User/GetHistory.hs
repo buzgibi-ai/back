@@ -39,7 +39,7 @@ import TH.Mk (mkToSchemaAndJSON)
 import Data.Aeson.WithField
 import Data.Bifunctor (first, second)
 
-data Status = InProcess | Done | Fail | Draft
+data Status = InProcess | Done | Fail | Draft | TechnicalFailure
   deriving stock (Generic, Show, Eq)
 
 mkToSchemaAndJSON ''Status
@@ -106,6 +106,7 @@ mkStatus Survey.SurveyProcessed = Done
 mkStatus Survey.Fail = Fail
 mkStatus (Survey.TelnyxAppFailure _) = Fail
 mkStatus Survey.Draft = Draft
+mkStatus (Survey.InsufficientFunds _) = TechnicalFailure
 mkStatus _ = InProcess
 
 injectVoice ([], _) = History 0 0 []
