@@ -16,12 +16,13 @@
 module Buzgibi.Transport.Model.OpenAI 
        (TranscriptionResponse (..), 
         SARequest (..),
-        SAResponse (..), 
+        SAResponse (..),
+        Error (..), 
         defSARequest
        ) where
 
 import GHC.Generics (Generic)
-import Data.Aeson
+import Data.Aeson hiding (Error)
 import qualified Data.Text as T
 import Data.Aeson.Generic.DerivingVia
 import qualified Data.Vector as V
@@ -96,3 +97,11 @@ instance FromJSON SAResponse where
       withArray "SAResponse(array)" (traverse getText) choices
     where
        getText = withObject "SAResponse(array):item" (flip (.:) "text")
+
+
+newtype Error = Error T.Text
+
+instance FromJSON Error where
+  parseJSON = withObject "Error" $ \o -> do
+    e <- o .: "error"
+    fmap Error $ e .: "type"

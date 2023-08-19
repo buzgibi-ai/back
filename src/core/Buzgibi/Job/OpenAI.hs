@@ -21,6 +21,8 @@ import Buzgibi.Statement.User.Survey
         mkTranscriptionFailure,
         insertSA,
         checkAfterTranscription,
+        setInsufficientFund,
+        Status (TranscriptionsDoneOpenAI),
         OpenAITranscription (..), 
         OpenAISA (..)
        )
@@ -37,7 +39,7 @@ import Control.Concurrent (threadDelay)
 import Control.Monad (forever)
 import Database.Transaction
 import Data.Traversable (for)
-import Data.Aeson (eitherDecode, encode)
+import Data.Aeson (eitherDecode, encode, decode)
 import qualified Control.Concurrent.Async as Async
 import qualified Network.Minio as Minio
 import Data.Either (partitionEithers)
@@ -54,6 +56,8 @@ import Control.Lens ((^.))
 import Request (forConcurrentlyNRetry)
 import qualified Data.Text as T
 import Data.Int (Int64)
+import Data.Maybe (fromMaybe)
+
 
 data OpenAICfg =
      OpenAICfg 
@@ -99,9 +103,15 @@ getTranscription OpenAICfg {..} = forever $ do
                   (pure . transcriptionResponseText . fst)
 
         let (es, ys) = partitionEithers yse
-        mkErrorMsg "getTranscription" logger survIdent es
-        let xs = map (second (mkTranscriptionOk (openaiCfg^.clarifyingPrefix))) ys <> map (second mkTranscriptionFailure) es
-        transaction pool logger $ statement insertTranscription (survIdent, xs) *> statement checkAfterTranscription survIdent
+        if ifInsufficientFunds es
+        then do
+          transaction pool logger $ statement setInsufficientFund (survIdent, TranscriptionsDoneOpenAI)
+          logger EmergencyS $ logStr @String $ $location <> " the service cannot function normally due to the lack of funds"
+        else do
+          mkErrorMsg "getTranscription" logger survIdent es
+          let xs = map (second (mkTranscriptionOk (openaiCfg^.clarifyingPrefix))) ys <> map (second mkTranscriptionFailure) es
+          transaction pool logger $ statement insertTranscription (survIdent, xs) *> statement checkAfterTranscription survIdent
+  
       whenLeft res $ \error ->  
         logger CriticalS $ logStr $ $location <> ": phone parse failed for survey " <> show survIdent <> ", error: " <> error
 
@@ -130,8 +140,17 @@ performSentimentalAnalysis OpenAICfg {..} =
                     case xs of [] -> Left "empty choices"; (x:_) -> Right x
 
         let (es, ys) = partitionEithers yse
-        mkErrorMsg "performSentimentalAnalysis" logger survIdent es
-        transaction pool logger $ statement insertSA (survIdent, ys)
+        if ifInsufficientFunds es
+        then do
+          transaction pool logger $ statement setInsufficientFund (survIdent, TranscriptionsDoneOpenAI)
+          logger EmergencyS $ logStr @String $ $location <> " the service cannot function normally due to the lack of funds"
+        else do
+          mkErrorMsg "performSentimentalAnalysis" logger survIdent es
+          transaction pool logger $ statement insertSA (survIdent, ys)
 
       whenLeft res $ \error -> 
         logger ErrorS $ logStr $ $location <> ": SA failed for survey " <> show survIdent <> ", error: " <> error
+
+ifInsufficientFunds :: [(Int64, T.Text)] -> Bool
+ifInsufficientFunds = or . map (fromMaybe False . fmap go . (decode @Error) . toS . snd)
+  where go (Error e) = e == "insufficient_quota"
