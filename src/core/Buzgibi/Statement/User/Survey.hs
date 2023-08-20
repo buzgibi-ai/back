@@ -72,7 +72,6 @@ import Data.Default.Class
 import GHC.Generics (Generic)
 import Data.Default.Class.Extended ()
 import Data.Text.Extended ()
-import Data.Proxy (Proxy (..))
 import TH.Mk
 import Control.Lens
 import Data.Maybe
@@ -86,7 +85,8 @@ import qualified Data.Vector as V
 import Data.String.Conv (toS)
 import Data.Tuple.Extended (snocT, consT)
 import Data.Aeson.Generic.DerivingVia
-import Data.Swagger.Schema.Extended (deriveToSchemaConstructorTag, modify)
+import Data.Swagger.Schema.Extended (deriveToSchemaConstructorTag)
+import Data.Char (toLower)
 
 data Status = 
      Draft | 
@@ -169,10 +169,10 @@ data AssessmentScore = Yn | ScaleOfTen
     deriving
     (ToJSON, FromJSON)
     via WithOptions
-        '[TagSingleConstructors 'True, ConstructorTagModifier '[UserDefined FirstLetterToLower]]
+        '[SumEnc UntaggedVal, ConstructorTagModifier '[UserDefined FirstLetterToLower]]
         AssessmentScore
 
-deriveToSchemaConstructorTag ''AssessmentScore [| modify (Proxy @AssessmentScore) |]
+deriveToSchemaConstructorTag ''AssessmentScore [| \(head:tail) -> toLower head : tail |]
 
 instance Default AssessmentScore where
     def = Yn
