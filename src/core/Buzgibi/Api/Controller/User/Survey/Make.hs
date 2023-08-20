@@ -34,7 +34,7 @@ import Buzgibi.Auth (AuthenticatedUser (..))
 import Buzgibi.Transport.Id (Id (..))
 import Buzgibi.Transport.Response
 import Buzgibi.Transport.Model.File
-import Buzgibi.EnvKeys (url, version, key, textTemp, waveformTemp)
+import Buzgibi.EnvKeys (url, version, key, textTemp, waveformTemp, introduction, yn, from0To10)
 import Data.Aeson (FromJSON, ToJSON (toJSON), eitherDecodeStrict, eitherDecode', encode)
 import Data.Aeson.Generic.DerivingVia
 import Data.Proxy (Proxy (..))
@@ -168,12 +168,14 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                      webhook <- fmap (^. katipEnv . webhook) ask
                      idx <- liftIO $ randomRIO (0, 2)
                      let voice = voices (bark^.textTemp) (bark^.waveformTemp) !! idx
+                     let question | surveyAssessmentScore == Survey.Yn = bark^.introduction.yn
+                                  | surveyAssessmentScore == Survey.ScaleOfTen = bark^.introduction.from0To10            
                      resp <- liftIO $ do
                        Request.make
                         (bark^.url) manager 
                         [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
                         HTTP.methodPost $ 
-                        Left (Just (mkBarkRequest webhook (bark^.version) voice surveySurvey))
+                        Left (Just (mkBarkRequest webhook (bark^.version) voice (question <> "[clears throat]" <> surveySurvey)))
                      let mkBarkRecord ident st = 
                             Survey.Bark {
                               Survey.barkReq = toJSON $ mkBarkRequest webhook (bark^.version) voice surveySurvey,

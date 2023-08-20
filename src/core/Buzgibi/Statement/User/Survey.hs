@@ -7,6 +7,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 
@@ -68,9 +69,10 @@ import Data.Int (Int64, Int32)
 import qualified Data.Text as T
 import Hasql.TH
 import Data.Default.Class
-import GHC.Generics
+import GHC.Generics (Generic)
 import Data.Default.Class.Extended ()
 import Data.Text.Extended ()
+import Data.Proxy (Proxy (..))
 import TH.Mk
 import Control.Lens
 import Data.Maybe
@@ -84,6 +86,7 @@ import qualified Data.Vector as V
 import Data.String.Conv (toS)
 import Data.Tuple.Extended (snocT, consT)
 import Data.Aeson.Generic.DerivingVia
+import Data.Swagger.Schema.Extended (deriveToSchemaConstructorTag, modify)
 
 data Status = 
      Draft | 
@@ -161,14 +164,18 @@ mkArbitrary ''Category
 instance ParamsShow Category where
     render = show
 
-data AssessmentScore = YN | ScaleOfTen
-  deriving Generic
-  deriving Show
+data AssessmentScore = Yn | ScaleOfTen
+    deriving stock (Show, Eq, Generic)
+    deriving
+    (ToJSON, FromJSON)
+    via WithOptions
+        '[TagSingleConstructors 'True, ConstructorTagModifier '[UserDefined FirstLetterToLower]]
+        AssessmentScore
 
-mkToSchemaAndJSON ''AssessmentScore
+deriveToSchemaConstructorTag ''AssessmentScore [| modify (Proxy @AssessmentScore) |]
 
 instance Default AssessmentScore where
-    def = YN
+    def = Yn
 
 instance ParamsShow AssessmentScore where
     render = show

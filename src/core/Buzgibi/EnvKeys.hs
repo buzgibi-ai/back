@@ -27,6 +27,15 @@ data Github = Github {githubKey :: !T.Text, githubRepos :: ![T.Text], githubTran
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Github)]]
           Github
 
+data Introduction = Introduction { introductionYn :: !T.Text, introductionFrom0To10 :: T.Text }
+  deriving stock (Generic)
+  deriving stock (Show)
+  deriving
+    (FromJSON)
+    via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Introduction)]]
+          Introduction
+
 data Bark = 
      Bark 
      { 
@@ -34,7 +43,8 @@ data Bark =
        barkVersion :: !T.Text, 
        barkUrl :: !T.Text,
        barkTextTemp :: !Double,
-       barkWaveformTemp :: !Double
+       barkWaveformTemp :: !Double,
+       barkIntroduction :: !Introduction
      }
   deriving stock (Generic)
   deriving stock (Show)
@@ -116,3 +126,4 @@ makeFields ''Github
 makeFields ''Bark
 makeFields ''OpenAI
 makeFields ''Sendgrid
+makeFields ''Introduction
