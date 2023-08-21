@@ -29,7 +29,7 @@ import Katip.Controller
 import TH.Mk
 import Control.Lens
 import Control.Lens.Iso.Extended (stext)
-import System.Directory (getHomeDirectory)
+import System.Directory (getCurrentDirectory)
 import qualified Data.Text.IO as T (readFile)
 import Control.Monad.IO.Class (liftIO)
 
@@ -59,6 +59,6 @@ controller :: Maybe Page -> KatipControllerM (Response Meta)
 controller Nothing = return $ Ok $ Meta mempty Nothing
 controller (Just page) = do 
   description <- liftIO $ do
-   home <- getHomeDirectory  
-   T.readFile $ home <> "/" <> "meta" <> "/" <> page^.isoPage
+   dir <- getCurrentDirectory
+   T.readFile $ dir <> "/" <> "meta" <> "/" <> page^.isoPage <> ".txt"
   return $ Ok $ Meta description Nothing
