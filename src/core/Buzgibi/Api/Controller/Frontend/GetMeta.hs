@@ -11,8 +11,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE InstanceSigs #-}
 
-module Buzgibi.Api.Controller.Frontend.GetMeta (controller, Meta) where
+module Buzgibi.Api.Controller.Frontend.GetMeta (controller, Meta, Page) where
 
 import Buzgibi.Transport.Response
 import Data.Aeson hiding (Error)
@@ -23,8 +24,14 @@ import Data.Proxy (Proxy (..))
 import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier)
 import qualified Data.Text as T
 import Data.Typeable (typeRep)
-import GHC.Generics hiding (Meta)
+import GHC.Generics (Generic)
 import Katip.Controller
+import TH.Mk
+import Control.Lens
+import Control.Lens.Iso.Extended (stext)
+import System.Directory (getHomeDirectory)
+import qualified Data.Text.IO as T (readFile)
+import Control.Monad.IO.Class (liftIO)
 
 data Meta = Meta {description :: !T.Text, robot :: !(Maybe T.Text)}
   deriving stock (Generic, Show)
@@ -42,5 +49,16 @@ deriveToSchemaFieldLabelModifier
        in maybe s (map toLower) (stripPrefix (toLower head : tail) s)
     |]
 
-controller :: Maybe T.Text -> KatipControllerM (Response Meta)
-controller _ = undefined
+data Page = Home
+
+mkEnumConvertor ''Page
+mkParamSchemaEnum ''Page [|isoPage . stext . to String|]
+mkFromHttpApiDataEnum ''Page [|from stext . from isoPage . to Right|]
+
+controller :: Maybe Page -> KatipControllerM (Response Meta)
+controller Nothing = return $ Ok $ Meta mempty Nothing
+controller (Just page) = do 
+  description <- liftIO $ do
+   home <- getHomeDirectory  
+   T.readFile $ home <> "/" <> "meta" <> "/" <> page^.isoPage
+  return $ Ok $ Meta description Nothing

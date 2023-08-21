@@ -10,12 +10,11 @@ module Buzgibi.Api.Frontend (FrontendApi (..)) where
 
 import Buzgibi.Transport.Model.Translation (Lang, Translation)
 import Buzgibi.Api.Controller.Frontend.GetCookies (Cookie)
-import Buzgibi.Api.Controller.Frontend.GetMeta (Meta)
+import Buzgibi.Api.Controller.Frontend.GetMeta (Meta, Page)
 import Buzgibi.Api.Controller.Frontend.Init (Init)
 import Buzgibi.Api.Controller.Frontend.Log (FrontendLogRequest)
 import Buzgibi.Transport.Model.User (AuthToken)
 import Buzgibi.Transport.Response (Response)
-import qualified Data.Text as T
 import Servant.API.Extended
 import Servant.API.Generic (Generic)
 
@@ -42,7 +41,7 @@ data FrontendApi route = FrontendApi
     _frontendApiGetMeta ::
       route
         :- "meta"
-          :> QueryParam' '[Optional, Strict] "page" T.Text
+          :> QueryParam' '[Optional, Strict] "page" Page
           :> Get '[JSON] (Response Meta)
   }
   deriving stock (Generic)
