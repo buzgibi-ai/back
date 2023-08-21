@@ -23,10 +23,10 @@ module Buzgibi.Api.Controller.User.Survey.Edit (controller, EditSurvey) where
 import qualified Buzgibi.Transport.Model.Bark as Bark
 import qualified Buzgibi.Statement.User.Survey as Survey
 import Buzgibi.Api.Controller.User.Survey.Make (voices, mkBarkRequest)
-import Buzgibi.EnvKeys (textTemp, waveformTemp, url, version, key)
+import Buzgibi.EnvKeys (textTemp, waveformTemp, url, version, key, introduction, yn, from0To10)
 import Buzgibi.Auth (AuthenticatedUser (..))
 import Buzgibi.Transport.Response
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (FromJSON, ToJSON, encode, decode)
 import Data.Aeson.Generic.DerivingVia
 import Data.Proxy (Proxy (..))
 import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier, modify)
@@ -49,6 +49,8 @@ import Control.Lens.Iso.Extended (textbs)
 import Data.Aeson (toJSON, eitherDecodeStrict)
 import Data.Foldable (for_)
 import Data.Maybe (isJust)
+import Control.Monad (join)
+import Data.String.Conv (toS)
 
 data Error = BarkCredentials404
 
@@ -79,16 +81,18 @@ controller AuthenticatedUser {..} surveyIdent value@EditSurvey {..} = do
       manager <- fmap (^. katipEnv . httpReqManager) ask
       webhook <- fmap (^. katipEnv . webhook) ask
       transactionM hasql $ do 
-        draftIdentm <- statement Survey.insertDraft (ident, surveyIdent, editSurveySurvey)
-        for_ draftIdentm $ \draftIdent -> do 
+        draftm <- fmap (join . fmap (decode @Survey.InsertDraft . encode)) $ statement Survey.insertDraft (ident, surveyIdent, editSurveySurvey)
+        for_ draftm $ \Survey.InsertDraft {..} -> do 
           idx <- liftIO $ randomRIO (0, 2)
           let voice = voices (bark^.textTemp) (bark^.waveformTemp) !! idx
+          let question | read (toS insertDraftSurveyType) == Survey.Yn = bark^.introduction.yn
+                       | read (toS insertDraftSurveyType) == Survey.ScaleOfTen = bark^.introduction.from0To10  
           resp <- liftIO $ do
             Request.make
               (bark^.url) manager 
               [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
               HTTP.methodPost $ 
-              Left (Just (mkBarkRequest webhook (bark^.version) voice editSurveySurvey))
+              Left (Just (mkBarkRequest webhook (bark^.version) voice (question <> editSurveySurvey)))
           case resp of
             Right (resp, _) -> do
               let bark_resp = eitherDecodeStrict @Bark.Response resp
@@ -97,7 +101,7 @@ controller AuthenticatedUser {..} surveyIdent value@EditSurvey {..} = do
                       Survey.barkReq = toJSON $ mkBarkRequest webhook (bark^.version) voice editSurveySurvey,
                       Survey.barkStatus = st,
                       Survey.barkIdent = ident,
-                      Survey.barkSurveyDraftId = draftIdent
+                      Survey.barkSurveyDraftId = insertDraftIdent
                     }
               case bark_resp of
                 Right resp -> 
@@ -105,5 +109,5 @@ controller AuthenticatedUser {..} surveyIdent value@EditSurvey {..} = do
                     mkBarkRecord (Bark.responseIdent resp) Survey.BarkSent
                 Left err -> error $ "bark response resulted in error: " <> show err
             Left err -> error $ "bark response resulted in error: " <> show err
-        pure $ isJust draftIdentm    
+        pure $ isJust draftm    
   return $ withError resp $ id

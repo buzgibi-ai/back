@@ -61,7 +61,8 @@ module Buzgibi.Statement.User.Survey
     insertStat,
     getDailyPhoneStat,
     DailyPhoneStat (..),
-    setInsufficientFund
+    setInsufficientFund,
+    InsertDraft (..)
   ) where
 
 
@@ -165,7 +166,7 @@ instance ParamsShow Category where
     render = show
 
 data AssessmentScore = Yn | ScaleOfTen
-    deriving stock (Show, Eq, Generic)
+    deriving stock (Show, Eq, Generic, Read)
     deriving
     (ToJSON, FromJSON)
     via WithOptions
@@ -256,12 +257,21 @@ insert =
         'draft', (select ident from draft)
       )) :: jsonb|]
 
-insertDraft :: HS.Statement (Int64, Int64, T.Text) (Maybe Int64)
+
+data InsertDraft = InsertDraft { insertDraftIdent :: Int64, insertDraftSurveyType :: T.Text }
+     deriving stock (Generic)
+     deriving
+     (ToJSON, FromJSON)
+     via WithOptions
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor InsertDraft)]]
+          InsertDraft
+
+insertDraft :: HS.Statement (Int64, Int64, T.Text) (Maybe Value)
 insertDraft =
   lmap (snocT (toS (show Draft)))
   [maybeStatement|
     with survey as (
-      select s.id 
+      select s.id, s.survey_type
        from auth.user as u
        inner join customer.profile as p
        on u.id = p.user_id
@@ -273,7 +283,11 @@ insertDraft =
     insert into customer.survey_draft
     (survey, survey_id) 
     values ($3 :: text, (select id from survey))
-    returning id :: int8|]
+    returning 
+      jsonb_build_object(
+        'ident', id :: int8,
+        'survey_type', (select survey_type from survey)
+        ) :: jsonb|]
 
 submit :: HS.Statement (Int64, Int64) Bool
 submit = 

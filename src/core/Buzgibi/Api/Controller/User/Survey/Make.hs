@@ -175,7 +175,7 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                         (bark^.url) manager 
                         [(HTTP.hAuthorization, "Token " <> (bark^.key.textbs))] 
                         HTTP.methodPost $ 
-                        Left (Just (mkBarkRequest webhook (bark^.version) voice (question <> "[clears throat]" <> surveySurvey)))
+                        Left (Just (mkBarkRequest webhook (bark^.version) voice (question <> surveySurvey)))
                      let mkBarkRecord ident st = 
                             Survey.Bark {
                               Survey.barkReq = toJSON $ mkBarkRequest webhook (bark^.version) voice surveySurvey,
