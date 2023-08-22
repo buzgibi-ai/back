@@ -239,7 +239,7 @@ insert =
           $5 :: float8,
           $6 :: text,
           $7 :: text
-        from auth..user as u 
+        from auth.user as u 
         inner join customer.profile as p
         on u.id = p.user_id
         where u.id = $1 :: int8 and u.is_email_confirmed
