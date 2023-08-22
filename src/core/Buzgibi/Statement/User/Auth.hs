@@ -3,7 +3,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Buzgibi.Statement.User.Auth (insertUser, insertJwt, insertToken, logout, getUserIdByEmail) where
+module Buzgibi.Statement.User.Auth (insertUser, insertJwt, insertToken, logout, getUserIdByEmail, insertConfirmationLink) where
 
 import Control.Lens
 import Data.Coerce
@@ -60,3 +60,13 @@ insertToken =
 
 logout :: HS.Statement Int64 Bool
 logout = dimap coerce (> 0) $ [rowsAffectedStatement| update auth.jwt set is_valid = false where user_id = $1 :: int8 and is_valid |]
+
+insertConfirmationLink :: HS.Statement (Int64, T.Text) Bool
+insertConfirmationLink =
+  rmap (> 0)
+  [rowsAffectedStatement|
+    insert into auth.email_confirmation_link
+    (user_id, link, valid_until)
+    select id, $2 :: text, now() + interval '1 day'
+    from auth.user 
+    where id = $1 :: int8 and not is_email_confirmed|]

@@ -49,7 +49,7 @@ deriveToSchemaFieldLabelModifier
        in maybe s (map toLower) (stripPrefix (toLower head : tail) s)
     |]
 
-data Page = Home
+data Page = Home | Dummy
 
 mkEnumConvertor ''Page
 mkParamSchemaEnum ''Page [|isoPage . stext . to String|]
