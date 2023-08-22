@@ -3,7 +3,15 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Buzgibi.Statement.User.Auth (insertUser, insertJwt, insertToken, logout, getUserIdByEmail, insertConfirmationLink) where
+module Buzgibi.Statement.User.Auth 
+       (insertUser, 
+        insertJwt, 
+        insertToken, 
+        logout, 
+        getUserIdByEmail, 
+        insertConfirmationLink, 
+        confirmEmail
+        ) where
 
 import Control.Lens
 import Data.Coerce
@@ -70,3 +78,19 @@ insertConfirmationLink =
     select id, $2 :: text, now() + interval '1 day'
     from auth.user 
     where id = $1 :: int8 and not is_email_confirmed|]
+
+confirmEmail ::  HS.Statement (Int64, T.Text) Bool
+confirmEmail =
+  rmap (> 0)
+  [rowsAffectedStatement|
+    update auth.user 
+    set is_email_confirmed = true
+    where id = $1 :: int8 and not is_email_confirmed and
+    (select exists(select 1
+     from auth.user as u 
+     inner join auth.email_confirmation_link as l
+     on u.id = l.user_id
+     where l.link = $2 :: text 
+     and u.id = $1 :: int8 
+     and l.valid_until > now()
+     order by l.id desc limit 1))|]

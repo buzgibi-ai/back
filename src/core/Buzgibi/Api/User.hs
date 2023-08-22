@@ -20,6 +20,7 @@ import Servant.API.Extended
 import Servant.API.Generic (Generic)
 import qualified Servant.Auth.Server as SA
 import Data.Int (Int64)
+import Data.Text (Text)
 
 data AuthApi route = AuthApi
   { _authApiLogin ::
@@ -37,7 +38,14 @@ data AuthApi route = AuthApi
       route
         :- "logout"
           :> SA.Auth '[JWT] AuthenticatedUser
-          :> Post '[JSON] (Response ())
+          :> Post '[JSON] (Response ()),
+    _authApiEmailConfirm ::
+      route
+        :- "email"
+          :> "confirm"
+          :> SA.Auth '[JWT] AuthenticatedUser
+          :> QueryParam "key" Text
+          :> Get '[JSON] (Response Bool)
   }
   deriving stock (Generic)
 

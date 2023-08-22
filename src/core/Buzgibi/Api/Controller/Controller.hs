@@ -38,6 +38,7 @@ import qualified Buzgibi.Api.Controller.Webhook.CatchTelnyx as Webhook.CatchTeln
 import qualified Buzgibi.Api.Controller.Webhook.CatchGit as Webhook.CatchGit
 import qualified Buzgibi.Api.Controller.User.GetNotifications as User.GetNotifications
 import qualified Buzgibi.Api.Controller.WS.Survey.History as WS.Survey.History
+import qualified Buzgibi.Api.Controller.Auth.Email.Confirm as Auth.Email.Confirm 
 import qualified Buzgibi.Auth as Auth
 import Katip
 import Katip.Controller hiding (webhook)
@@ -107,7 +108,13 @@ auth =
           flip logExceptionM ErrorS $
             katipAddNamespace
               (Namespace ["auth", "logout"])
-              (Auth.Logout.controller user)
+              (Auth.Logout.controller user),
+      _authApiEmailConfirm = \auth key ->
+        auth `Auth.withAuth` \user ->
+          flip logExceptionM ErrorS $
+            katipAddNamespace
+              (Namespace ["auth", "email", "confirm"])
+              (Auth.Email.Confirm.controller user key)
     }
 
 frontend :: FrontendApi (AsServerT KatipControllerM)

@@ -233,14 +233,16 @@ insert =
         insert into customer.survey
         (user_id, survey_status, latitude, longitude, category, survey_type)
         select
-          id :: int8,
+          p.id :: int8,
           $3 :: text, 
           $4 :: float8, 
           $5 :: float8,
           $6 :: text,
           $7 :: text
-        from customer.profile
-        where user_id = $1 :: int8
+        from auth..user as u 
+        inner join customer.profile as p
+        on u.id = p.user_id
+        where u.id = $1 :: int8 and u.is_email_confirmed
         returning id :: int8 as ident),
       draft as (
         insert into customer.survey_draft 
