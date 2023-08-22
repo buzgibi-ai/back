@@ -75,7 +75,8 @@ explainTests =
         "getUserIdByEmail" =>> Buzgibi.Statement.User.Auth.getUserIdByEmail,
         "logout" =>> Buzgibi.Statement.User.Auth.logout,
         "insertToken" =>> Buzgibi.Statement.User.Auth.insertToken,
-        "insertConfirmationLink" =>> Buzgibi.Statement.User.Auth.insertConfirmationLink
+        "insertConfirmationLink" =>> Buzgibi.Statement.User.Auth.insertConfirmationLink,
+        "confirmEmail" =>> Buzgibi.Statement.User.Auth.confirmEmail
      ]
   , "Buzgibi.Statement.User.Survey" ==>
      [ "insert" =>> Buzgibi.Statement.User.Survey.insert,
