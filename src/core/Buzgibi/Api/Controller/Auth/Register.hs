@@ -70,7 +70,7 @@ sendConfirmationLink ident email = do
   when ok $ do 
     cfg <- fmap (^. katipEnv . sendGrid) ask
     for_ cfg $ \(Sendgrid {..}, sendgrid) -> do
-      let link = "https://buzgibi.app/auth/email/confirm?key=" <> hash
+      let link = "https://buzgibi.app/#/auth/email/confirm?key=" <> hash
       let reqBody = 
             mkPOSTMailSendRequestBody 
             [mkPOSTMailSendRequestBodyContentsendgrid "text/plain" ("confirmation link: " <> link)]
