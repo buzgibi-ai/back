@@ -1,0 +1,1 @@
+alter table auth.email_confirmation_link add column created_at timestamptz not null default now();

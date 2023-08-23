@@ -19,4 +19,5 @@
     <include file="./changelog/index/version17.sql" />
     <include file="./changelog/index/version18.sql" />
     <include file="./changelog/index/version19.sql" />
+    <include file="./changelog/index/version20.sql" />
 </databaseChangeLog>

@@ -45,7 +45,13 @@ data AuthApi route = AuthApi
           :> "confirm"
           :> SA.Auth '[JWT] AuthenticatedUser
           :> QueryParam "key" Text
-          :> Get '[JSON] (Response Bool)
+          :> Get '[JSON] (Response Bool),
+    _authApiEmailLinkSend ::
+      route
+        :- "email"
+          :> "link"
+          :> SA.Auth '[JWT] AuthenticatedUser
+          :> Put '[JSON] (Response (Maybe Int))       
   }
   deriving stock (Generic)
 

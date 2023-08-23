@@ -10,7 +10,8 @@ module Buzgibi.Statement.User.Auth
         logout, 
         getUserIdByEmail, 
         insertConfirmationLink, 
-        confirmEmail
+        confirmEmail,
+        resendLink
         ) where
 
 import Control.Lens
@@ -19,6 +20,7 @@ import Data.Int (Int64)
 import qualified Data.Text as T
 import qualified Hasql.Statement as HS
 import Hasql.TH
+import Data.Aeson (Value)
 
 insertUser :: HS.Statement (T.Text, T.Text) (Maybe Int64)
 insertUser =
@@ -79,7 +81,7 @@ insertConfirmationLink =
     from auth.user 
     where id = $1 :: int8 and not is_email_confirmed|]
 
-confirmEmail ::  HS.Statement (Int64, T.Text) Bool
+confirmEmail :: HS.Statement (Int64, T.Text) Bool
 confirmEmail =
   rmap (> 0)
   [rowsAffectedStatement|
@@ -94,3 +96,30 @@ confirmEmail =
      and u.id = $1 :: int8 
      and l.valid_until > now()
      order by l.id desc limit 1))|]
+
+resendLink :: HS.Statement (Int64, T.Text) (Maybe Value)
+resendLink =
+  [maybeStatement|
+    with 
+      tmp as (
+        select
+          u.email, 
+          l.created_at 
+        from auth.user as u 
+        inner join auth.email_confirmation_link as l
+        on u.id = l.user_id 
+        where u.id = $1 :: int8 and not is_email_confirmed
+        order by l.id desc limit 1), 
+      link as (
+        insert into auth.email_confirmation_link
+        (user_id, link, valid_until)
+        select id, $2 :: text, now() + interval '1 day'
+        from auth.user
+        where id = $1 :: int8 
+        and (select now() > created_at + interval '30 min' from tmp)
+        returning (select to_jsonb(email) from tmp) as email) ,
+      tm_left as (
+        select to_jsonb(cast(extract(epoch from created_at + interval '30 min') - extract(epoch from now()) as int)) as tm
+        from tmp 
+        where (select * from link) is null)   
+    select email :: jsonb from link union select tm :: jsonb from tm_left|]
