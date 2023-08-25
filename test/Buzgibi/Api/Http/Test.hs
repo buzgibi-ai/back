@@ -22,6 +22,8 @@ import Buzgibi.Api.Controller.Frontend.GetCookies (Cookie, SameSiteOption)
 import Buzgibi.Api.Controller.Frontend.GetMeta (Meta)
 import Buzgibi.Api.Controller.User.Survey.Edit (EditSurvey)
 import Buzgibi.Api.Controller.User.Survey.Submit (SubmitSurvey)
+import Buzgibi.Api.Controller.Auth.Password.MakeLink (ResetPasswordLink)
+import Buzgibi.Api.Controller.Auth.Password.Create (NewPassword) 
 
 import Servant.API.Generic
 import Servant.Swagger.Test
@@ -56,7 +58,8 @@ mkArbitrary ''Meta
 mkArbitrary ''Cookie
 mkArbitrary ''EditSurvey
 mkArbitrary ''SubmitSurvey
-
+mkArbitrary ''ResetPasswordLink
+mkArbitrary ''NewPassword
 
 spec_api :: Spec
 spec_api =

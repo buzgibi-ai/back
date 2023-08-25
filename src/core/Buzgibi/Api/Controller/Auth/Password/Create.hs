@@ -21,7 +21,7 @@ import qualified Buzgibi.Statement.User.Auth as Auth
 import Buzgibi.Transport.Response (Response (Ok))
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Data.Aeson (FromJSON)
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson.Generic.DerivingVia
 import Data.Swagger.Schema.Extended (deriveToSchemaFieldLabelModifier)
 import Data.Typeable (typeRep)
@@ -35,7 +35,7 @@ import Database.Transaction (statement, transactionM)
 data NewPassword = NewPassword { newPasswordPassword :: Text, newPasswordKey :: Text }
   deriving stock (Generic, Show)
   deriving
-    (FromJSON)
+    (FromJSON, ToJSON)
     via WithOptions
           '[FieldLabelModifier '[UserDefined FirstLetterToLower, UserDefined (StripConstructor NewPassword)]]
           NewPassword

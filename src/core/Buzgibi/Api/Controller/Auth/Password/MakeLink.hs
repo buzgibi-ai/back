@@ -13,7 +13,7 @@ import Buzgibi.Transport.Response (Response (Ok))
 import Buzgibi.EnvKeys (Sendgrid (..))
 import Data.Text (Text, unpack)
 import GHC.Generics (Generic)
-import Data.Aeson (FromJSON)
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Swagger (ToSchema)
 import Control.Lens
 import Database.Transaction
@@ -40,8 +40,8 @@ import Control.Monad.IO.Class
 import Data.Int (Int64)
 
 newtype ResetPasswordLink = ResetPasswordLink Text
-  deriving stock (Generic)
-  deriving newtype (FromJSON)
+  deriving stock (Generic, Show)
+  deriving newtype (FromJSON, ToJSON)
 
 instance ToSchema ResetPasswordLink
 
