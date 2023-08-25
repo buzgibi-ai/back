@@ -39,7 +39,9 @@ import qualified Buzgibi.Api.Controller.Webhook.CatchGit as Webhook.CatchGit
 import qualified Buzgibi.Api.Controller.User.GetNotifications as User.GetNotifications
 import qualified Buzgibi.Api.Controller.WS.Survey.History as WS.Survey.History
 import qualified Buzgibi.Api.Controller.Auth.Email.Confirm as Auth.Email.Confirm
-import qualified Buzgibi.Api.Controller.Auth.Email.SendLink as Auth.Email.SendLink 
+import qualified Buzgibi.Api.Controller.Auth.Email.SendLink as Auth.Email.SendLink
+import qualified Buzgibi.Api.Controller.Auth.Password.MakeLink as Auth.Password.MakeLink
+import qualified Buzgibi.Api.Controller.Auth.Password.Create as Auth.Password.Create
 import qualified Buzgibi.Auth as Auth
 import Katip
 import Katip.Controller hiding (webhook)
@@ -121,7 +123,17 @@ auth =
           flip logExceptionM ErrorS $
             katipAddNamespace
               (Namespace ["auth", "email", "link", "send"])
-              (Auth.Email.SendLink.controller user)
+              (Auth.Email.SendLink.controller user),
+      _authApiResetPassMakeLink = \email ->
+          flip logExceptionM ErrorS $
+            katipAddNamespace
+              (Namespace ["auth", "pass", "reset", "link"])
+              (Auth.Password.MakeLink.controller email),
+      _authApiResetPassNewPass = \pass ->
+          flip logExceptionM ErrorS $
+            katipAddNamespace
+              (Namespace ["auth", "pass", "reset"])
+              (Auth.Password.Create.controller pass)
     }
 
 frontend :: FrontendApi (AsServerT KatipControllerM)

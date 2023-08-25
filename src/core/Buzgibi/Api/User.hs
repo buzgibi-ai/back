@@ -13,6 +13,8 @@ import Buzgibi.Api.Controller.User.GetHistory (History)
 import Buzgibi.Api.Controller.User.Survey.Edit (EditSurvey)
 import Buzgibi.Api.Controller.User.Survey.Submit (SubmitSurvey)
 import Buzgibi.Statement.User.Notification (GetNotification)
+import Buzgibi.Api.Controller.Auth.Password.MakeLink (ResetPasswordLink)
+import Buzgibi.Api.Controller.Auth.Password.Create (NewPassword)
 import Buzgibi.Auth (AuthenticatedUser, JWT)
 import Buzgibi.Transport.Model.User
 import Buzgibi.Transport.Response (Response)
@@ -51,7 +53,20 @@ data AuthApi route = AuthApi
         :- "email"
           :> "link"
           :> SA.Auth '[JWT] AuthenticatedUser
-          :> Put '[JSON] (Response (Maybe Int))       
+          :> Put '[JSON] (Response (Maybe Int)),
+    _authApiResetPassMakeLink ::
+      route
+        :- "password"
+          :> "reset"
+          :> "link"
+          :> ReqBody '[JSON] ResetPasswordLink
+          :> Put '[JSON] (Response (Maybe Int64)),
+    _authApiResetPassNewPass ::
+      route
+        :- "password"
+          :> "reset"
+          :> ReqBody '[JSON] NewPassword
+          :> Post '[JSON] (Response Bool) 
   }
   deriving stock (Generic)
 

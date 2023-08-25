@@ -29,7 +29,7 @@ import Control.Concurrent.Lifted (fork)
 import Data.Foldable (for_)
 import Control.Monad (void, join)
 import Data.Time.Clock.System (getSystemTime, systemSeconds)
-import Hash (mkHash)
+import Hash (mkHash512)
 import OpenAPI.Operations.POSTMailSend
   ( mkPOSTMailSendRequestBody,
     mkPOSTMailSendRequestBodyContentsendgrid,
@@ -56,7 +56,7 @@ controller :: AuthenticatedUser -> KatipControllerM (Response (Maybe Int))
 controller (AuthenticatedUser {ident}) = do
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   tm <- fmap (fromIntegral . systemSeconds) $ liftIO $ getSystemTime
-  let hash = mkHash $ show tm <> show ident
+  let hash = mkHash512 $ show tm <> show ident
   res <- fmap (join . fmap (decode @LinkRes . encode)) $ transactionM hasql $ statement Auth.resendLink (ident, hash)
   for_ res $ \case
     Email email ->

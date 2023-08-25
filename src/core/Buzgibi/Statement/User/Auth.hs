@@ -11,7 +11,9 @@ module Buzgibi.Statement.User.Auth
         getUserIdByEmail, 
         insertConfirmationLink, 
         confirmEmail,
-        resendLink
+        resendLink,
+        insertPasswordResetLink,
+        insertNewPassword
         ) where
 
 import Control.Lens
@@ -123,3 +125,46 @@ resendLink =
         from tmp 
         where (select * from link) is null)   
     select email :: jsonb from link union select tm :: jsonb from tm_left|]
+
+insertPasswordResetLink :: HS.Statement (T.Text, T.Text) (Maybe Int64)
+insertPasswordResetLink =
+  [maybeStatement|
+     with 
+       tmp as (
+         select
+           u.id as user_ident, 
+           l.created_at, now()
+         from auth.user as u 
+         left join auth.password_reset_link as l
+         on u.id = l.user_id
+         where u.email = $1 :: text 
+         and not coalesce(is_expended, false)
+         order by l.id desc limit 1),
+      link as (
+        insert into auth.password_reset_link
+        (user_id, link, valid_until)
+        select user_ident, $2 :: text, now() + interval '5 min'
+        from tmp
+        where (select now() > coalesce(created_at, '1970-01-01'::timestamptz) + interval '30 min' from tmp)
+        returning 1),
+      tm_left as (
+        select cast(extract(epoch from created_at + interval '30 min') - extract(epoch from now()) as int) as tm
+        from tmp 
+        where (select * from link) is null)
+    select tm :: int8 from tm_left|]
+
+insertNewPassword :: HS.Statement (T.Text, T.Text) Bool
+insertNewPassword =
+  rmap (> 0)
+  [rowsAffectedStatement|
+    with link as (
+      update auth.password_reset_link
+      set is_expended = true
+      where link = $2 :: text 
+      and now() < valid_until 
+      and is_expended is null
+      returning user_id)
+    update auth.user 
+    set pass = crypt($1 :: text, gen_salt('md5')),
+        modified = now()
+    where id = (select user_id from link)|]
