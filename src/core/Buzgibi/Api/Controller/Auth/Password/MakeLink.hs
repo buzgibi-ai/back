@@ -9,9 +9,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE BlockArguments #-}
 
-module Buzgibi.Api.Controller.Auth.Password.MakeLink (controller, ResetPasswordLink, InsertionResult) where
+module Buzgibi.Api.Controller.Auth.Password.MakeLink (controller, ResetPasswordLink) where
 
 import Buzgibi.Api.Controller.Utils (withError)
 import qualified Buzgibi.Statement.User.Auth as Auth
@@ -44,8 +44,6 @@ import Katip.Controller
 import Control.Monad.IO.Class
 import Data.Int (Int64)
 import Data.Aeson.Generic.DerivingVia
-import Data.Swagger.Schema.Extended (deriveToSchemaConstructorTagUnrestricted)
-import Data.Char (toLower) 
 
 newtype ResetPasswordLink = ResetPasswordLink Text
   deriving stock (Generic, Show)
@@ -54,16 +52,14 @@ newtype ResetPasswordLink = ResetPasswordLink Text
 instance ToSchema ResetPasswordLink
 
 data InsertionResult = Success | TMLeft Int64 | User404
-    deriving stock (Generic, Show)
+    deriving stock (Generic)
     deriving
-    (ToJSON, FromJSON)
+    (FromJSON)
     via WithOptions
         '[SumEnc UntaggedVal, ConstructorTagModifier '[CamelTo2 "_"]]
         InsertionResult
 
-deriveToSchemaConstructorTagUnrestricted ''InsertionResult [| map toLower |]
-
-controller :: ResetPasswordLink -> KatipControllerM (Response InsertionResult)
+controller :: ResetPasswordLink -> KatipControllerM (Response (Maybe Int64))
 controller (ResetPasswordLink email) = do
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   tm <- fmap (fromIntegral . systemSeconds) $ liftIO $ getSystemTime
@@ -89,4 +85,4 @@ controller (ResetPasswordLink email) = do
                   "password reset"
             liftIO $ void $ runWithConfiguration sendgrid (pOSTMailSend (Just reqBody))
     _ -> return ()       
-  return $ withError res id
+  return $ withError res \case (TMLeft sec) -> Just sec; _ -> Nothing
