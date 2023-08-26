@@ -154,7 +154,7 @@ insertPasswordResetLink =
      select 
        coalesce(
 	       (select to_jsonb(tm :: int8) :: jsonb from tm_left),
-         (select to_jsonb('ok' :: text) :: jsonb from link),
+         (select to_jsonb('success' :: text) :: jsonb from link),
 		     to_jsonb('user404' :: text) :: jsonb) :: jsonb|]
 
 insertNewPassword :: HS.Statement (T.Text, T.Text) Bool

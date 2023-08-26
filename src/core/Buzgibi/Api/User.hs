@@ -13,7 +13,7 @@ import Buzgibi.Api.Controller.User.GetHistory (History)
 import Buzgibi.Api.Controller.User.Survey.Edit (EditSurvey)
 import Buzgibi.Api.Controller.User.Survey.Submit (SubmitSurvey)
 import Buzgibi.Statement.User.Notification (GetNotification)
-import Buzgibi.Api.Controller.Auth.Password.MakeLink (ResetPasswordLink)
+import Buzgibi.Api.Controller.Auth.Password.MakeLink (ResetPasswordLink, InsertionResult)
 import Buzgibi.Api.Controller.Auth.Password.Create (NewPassword)
 import Buzgibi.Auth (AuthenticatedUser, JWT)
 import Buzgibi.Transport.Model.User
@@ -60,7 +60,7 @@ data AuthApi route = AuthApi
           :> "reset"
           :> "link"
           :> ReqBody '[JSON] ResetPasswordLink
-          :> Put '[JSON] (Response (Maybe Int64)),
+          :> Put '[JSON] (Response InsertionResult),
     _authApiResetPassNewPass ::
       route
         :- "password"

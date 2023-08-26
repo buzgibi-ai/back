@@ -9,21 +9,23 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TemplateHaskell #-}
 
-module Buzgibi.Api.Controller.Auth.Password.MakeLink (controller, ResetPasswordLink) where
+module Buzgibi.Api.Controller.Auth.Password.MakeLink (controller, ResetPasswordLink, InsertionResult) where
 
+import Buzgibi.Api.Controller.Utils (withError)
 import qualified Buzgibi.Statement.User.Auth as Auth
-import Buzgibi.Transport.Response (Response (Ok))
+import Buzgibi.Transport.Response (Response)
 import Buzgibi.EnvKeys (Sendgrid (..))
 import Data.Text (Text, unpack)
 import GHC.Generics (Generic)
-import Data.Aeson (FromJSON, ToJSON, encode, decode)
+import Data.Aeson (FromJSON, ToJSON, encode, eitherDecode)
 import Data.Swagger (ToSchema)
 import Control.Lens
 import Database.Transaction
 import Control.Concurrent.Lifted (fork)
 import Data.Foldable (for_)
-import Control.Monad (void, join)
+import Control.Monad (void)
 import Data.Time.Clock.System (getSystemTime, systemSeconds)
 import Hash (mkHash512)
 import OpenAPI.Operations.POSTMailSend
@@ -42,7 +44,8 @@ import Katip.Controller
 import Control.Monad.IO.Class
 import Data.Int (Int64)
 import Data.Aeson.Generic.DerivingVia
-import Data.Traversable (for)
+import Data.Swagger.Schema.Extended (deriveToSchemaConstructorTagUnrestricted)
+import Data.Char (toLower) 
 
 newtype ResetPasswordLink = ResetPasswordLink Text
   deriving stock (Generic, Show)
@@ -58,16 +61,18 @@ data InsertionResult = Success | TMLeft Int64 | User404
         '[SumEnc UntaggedVal, ConstructorTagModifier '[CamelTo2 "_"]]
         InsertionResult
 
-controller :: ResetPasswordLink -> KatipControllerM (Response (Maybe Int64))
+deriveToSchemaConstructorTagUnrestricted ''InsertionResult [| map toLower |]
+
+controller :: ResetPasswordLink -> KatipControllerM (Response InsertionResult)
 controller (ResetPasswordLink email) = do
   hasql <- fmap (^. katipEnv . hasqlDbPool) ask
   tm <- fmap (fromIntegral . systemSeconds) $ liftIO $ getSystemTime
   let hash = mkHash512 $ show tm <> unpack email
   res <- 
-    fmap (decode @InsertionResult . encode) $ 
+    fmap (eitherDecode @InsertionResult . encode) $ 
       transactionM hasql $ 
         statement Auth.insertPasswordResetLink (email, hash)
-  resp <- for res $ \case
+  for_ res $ \case
     Success -> do
       void $ fork $ do
         cfg <- fmap (^. katipEnv . sendGrid) ask
@@ -83,7 +88,5 @@ controller (ResetPasswordLink email) = do
                   } ]
                   "password reset"
             liftIO $ void $ runWithConfiguration sendgrid (pOSTMailSend (Just reqBody))
-      return Nothing
-    TMLeft sec -> return $ Just sec
-    User404 -> return Nothing
-  return $ Ok $ join $ resp  
+    _ -> return ()       
+  return $ withError res id
