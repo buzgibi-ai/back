@@ -10,7 +10,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Buzgibi.Api.Controller.Auth.Password.MakeLink (controller, ResetPasswordLink, InsertionResult (..)) where
+module Buzgibi.Api.Controller.Auth.Password.MakeLink (controller, ResetPasswordLink) where
 
 import qualified Buzgibi.Statement.User.Auth as Auth
 import Buzgibi.Transport.Response (Response (Ok))
