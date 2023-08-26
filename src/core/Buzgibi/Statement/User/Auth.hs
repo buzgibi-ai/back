@@ -126,9 +126,9 @@ resendLink =
         where (select * from link) is null)   
     select email :: jsonb from link union select tm :: jsonb from tm_left|]
 
-insertPasswordResetLink :: HS.Statement (T.Text, T.Text) (Maybe Int64)
+insertPasswordResetLink :: HS.Statement (T.Text, T.Text) Value
 insertPasswordResetLink =
-  [maybeStatement|
+  [singletonStatement|
      with 
        tmp as (
          select
@@ -151,7 +151,11 @@ insertPasswordResetLink =
         select cast(extract(epoch from created_at + interval '30 min') - extract(epoch from now()) as int) as tm
         from tmp 
         where (select * from link) is null)
-    select tm :: int8 from tm_left|]
+     select 
+       coalesce(
+	       (select to_jsonb(tm :: int8) :: jsonb from tm_left),
+         (select to_jsonb('ok' :: text) :: jsonb from link),
+		     to_jsonb('user404' :: text) :: jsonb) :: jsonb|]
 
 insertNewPassword :: HS.Statement (T.Text, T.Text) Bool
 insertNewPassword =
