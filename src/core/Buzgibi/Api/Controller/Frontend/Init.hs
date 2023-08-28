@@ -16,6 +16,7 @@
 
 module Buzgibi.Api.Controller.Frontend.Init (controller, Init, Env, JWTStatus) where
 
+import qualified Buzgibi.Statement.User.Auth as Auth
 import Buzgibi.Api.Controller.Frontend.GetCookies (cookieTitle)
 import Buzgibi.Api.Controller.Utils (ContentError (..), getContent, withError)
 import Buzgibi.Auth (validateJwt)
@@ -48,8 +49,12 @@ import qualified Data.Vector as V
 import GHC.Generics hiding (from, to)
 import qualified GitHub as GitHub
 import Katip.Controller hiding (Service)
+import Katip
 import Servant.Auth.Server (defaultJWTSettings)
 import TH.Mk
+import qualified Data.Hashable as H (hash)
+import Data.Int (Int64)
+import Database.Transaction (transaction, statement)
 
 data Error = Github GitHub.Error | Content ContentError
 
@@ -122,7 +127,10 @@ controller :: Maybe AuthToken -> KatipControllerM (Response Init)
 controller token = do
   tokenResp <- for token $ \tk -> do
     key <- fmap (^. katipEnv . jwk) ask
-    res <- liftIO $ validateJwt (defaultJWTSettings key) undefined $ coerce tk ^. textbs
+    hasql <- fmap (^. katipEnv . hasqlDbPool) ask
+    auth_logger <- katipAddNamespace (Namespace ["auth"]) askLoggerIO
+    let checkToken = transaction hasql auth_logger . statement Auth.checkToken . fromIntegral @_ @Int64 . H.hash
+    res <- liftIO $ validateJwt (defaultJWTSettings key) checkToken $ coerce tk ^. textbs
     return $ case res of Left _ -> Invalid; _ -> Valid
 
   github <- fmap (^. katipEnv . github) ask
