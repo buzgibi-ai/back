@@ -76,7 +76,7 @@ data Error = BarkCredentials404 | InsertionFail | File String
 
 instance Show Error where
   show BarkCredentials404 = "we cannot perform the request"
-  show InsertionFail = "the survey cannot be processed"
+  show InsertionFail = "insertion_failed"
   show (File e) = e
 
 data FileError = 
