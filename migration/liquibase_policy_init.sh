@@ -28,8 +28,6 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     (( idx++ ))
 done < "${buzgibi_env_file}"
 
-echo "  --->  ${keysmap[0]}"
-
 /liquibase/liquibase \
     --driver=org.postgresql.Driver \
     --url=jdbc:postgresql://db:5432/buzgibi \
