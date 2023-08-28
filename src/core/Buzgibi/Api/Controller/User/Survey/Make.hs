@@ -76,7 +76,7 @@ data Error = BarkCredentials404 | InsertionFail | File String
 
 instance Show Error where
   show BarkCredentials404 = "we cannot perform the request"
-  show InsertionFail = "new enquiry entry cannot be fulfilled"
+  show InsertionFail = "the survey cannot be processed"
   show (File e) = e
 
 data FileError = 
@@ -195,7 +195,7 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                        Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
               else  $(logTM) InfoS $ logStr @String $ $location <> " all phones are invalid. skip"
           let truncatedTo30 = if V.length phoneRecordXs > 30 then [asError @T.Text "truncated_to_30"] else mempty
-          return $ maybeToRight InsertionFail $ fmap (, truncatedTo30) identm
+          return $ maybe (Right (undefined, [asError @T.Text (toS (show InsertionFail))])) Right $ fmap (, truncatedTo30) identm
   return $ withErrorExt resp $ const ()
 
 data VoiceModel =

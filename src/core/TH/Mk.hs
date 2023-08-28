@@ -141,7 +141,7 @@ mkParamSchemaEnum name iso = do
   [d|
     instance ToParamSchema $(conT name) where
       toParamSchema _ = 
-        mempty
+        mempty 
           & type_
             ?~ SwaggerString
           & enum_ ?~ (new_xs <&> \x -> view $iso (coerce x))
@@ -149,7 +149,7 @@ mkParamSchemaEnum name iso = do
 
 loadMigrationListTest :: IO [String]
 loadMigrationListTest = do  
-  dir <- getCurrentDirectory
+  dir <- getCurrentDirectory 
   let migDir = dir </> "migration/index"
   let mkTpl file =
         fmap

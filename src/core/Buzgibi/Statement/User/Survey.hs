@@ -242,23 +242,25 @@ insert =
         from auth.user as u 
         inner join customer.profile as p
         on u.id = p.user_id
-        where u.id = $1 :: int8 and u.is_email_confirmed
+        where u.id = $1 :: int8 
+        and u.is_email_confirmed
         returning id :: int8 as ident),
       draft as (
         insert into customer.survey_draft 
         (survey, survey_id) 
-        values 
-        ($2 :: text, (select ident from survey)) 
-        returning id :: int8 as ident)
-    insert into customer.survey_files 
-    (survey_id, phones_id)
-    select ident, $8 :: int8 from survey
-    returning (
+        select $2 :: text, ident 
+        from survey 
+        returning id :: int8 as ident),
+      files as (
+        insert into customer.survey_files 
+        (survey_id, phones_id)
+        select ident, $8 :: int8 
+        from survey)
+    select
       jsonb_build_object(
-        'survey', (select ident from survey),
-        'draft', (select ident from draft)
-      )) :: jsonb|]
-
+        'survey', ident,
+        'draft', (select ident from draft)) :: jsonb    
+    from survey|]
 
 data InsertDraft = InsertDraft { insertDraftIdent :: Int64, insertDraftSurveyType :: T.Text }
      deriving stock (Generic)
