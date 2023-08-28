@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # ============LICENSE_START====================================================
 #  Copyright (C) 2021. Nordix Foundation. All rights reserved.
 # =============================================================================
@@ -17,11 +17,24 @@
 # SPDX-License-Identifier: Apache-2.0
 # ============LICENSE_END======================================================
 
+buzgibi_env_file=$(realpath -s buzgibi_env)
+
+# db_user, db_pass, db, minio_access_key, minio_secret_key
+declare -a keysmap
+
+idx=0
+while IFS= read -r line || [[ -n "$line" ]]; do
+    keysmap[idx]=$line
+    (( idx++ ))
+done < "${buzgibi_env_file}"
+
+echo "  --->  ${keysmap[0]}"
+
 /liquibase/liquibase \
     --driver=org.postgresql.Driver \
     --url=jdbc:postgresql://db:5432/buzgibi \
     --changeLogFile=changelog/changelog.xml \
-    --username=sonny \
-    --password=3190d261d186aeead3a8deec202737c7775af5c8d455a9e5ba958c48b5fd3f59 \
+    --username=${keysmap[0]} \
+    --password=${keysmap[1]} \
     --log-level info \
     update

@@ -80,6 +80,7 @@ services:
     volumes:
       - ${PWD}/migration/:/liquibase/changelog
       - ${PWD}/migration/liquibase_policy_init.sh:/liquibase/liquibase_policy_init.sh
+      - ${HOME}/buzgibi_env:/liquibase/buzgibi_env
     command: ['./liquibase_policy_init.sh']
     networks:
       - buzgibi
