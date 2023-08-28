@@ -200,6 +200,7 @@ library:
     - retry
     - hasql-notifications
     - stm-lifted
+    - uuid
 
   source-dirs:
     - src/core

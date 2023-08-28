@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Buzgibi.Api.Controller.Auth.Register (controller) where
 
@@ -37,6 +38,7 @@ import OpenAPI.Types.FromEmailObject (mkFromEmailObject, fromEmailObjectName)
 import "sendgrid" OpenAPI.Common
 import Data.Coerce (coerce)
 import OpenAPI.Types.ToEmailArray (mkToEmailArrayItem)
+import qualified Data.Hashable as H (hash)
 
 data Error = UserTaken | JWT
 
@@ -54,9 +56,10 @@ controller cred = do
     fmap (maybeToRight UserTaken) $ for identm $ \ident -> do
       tokene <- mkToken ident $ email cred
       fmap (first (const JWT)) $
-        for tokene $ \tokenbs -> do
+        for tokene $ \(tokenbs, uuid) -> do
           let token = tokenbs ^. bytesLazy . from textbs
-          _ <- statement Auth.insertJwt (ident, token)
+          let uuid_hash = fromIntegral @_ @Int64 $ H.hash uuid
+          _ <- statement Auth.insertJwt (ident, token, uuid_hash)
           return (ident, token)
   for_ res $ \(ident, _) -> void $ fork $ sendConfirmationLink ident $ email cred         
   return $ withError res $ AuthToken . snd

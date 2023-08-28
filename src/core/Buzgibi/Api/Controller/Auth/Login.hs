@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Buzgibi.Api.Controller.Auth.Login (controller) where
 
@@ -16,6 +17,8 @@ import Data.Either.Combinators (maybeToRight)
 import Data.Traversable (for)
 import Database.Transaction
 import Katip.Controller
+import qualified Data.Hashable as H (hash)
+import Data.Int (Int64)
 
 data Error = User404 | JWT | WrongPass
 
@@ -35,9 +38,10 @@ controller cred = do
       for identm $ \ident -> do
         tokene <- mkToken ident $ email cred
         fmap (join . first (const JWT)) $
-          for tokene $ \tokenbs -> do
+          for tokene $ \(tokenbs, uuid) -> do
             let token = tokenbs ^. bytesLazy . from textbs
-            res <- statement Auth.insertToken (email cred, password cred, token)
+            let uuid_hash = fromIntegral @_ @Int64 $ H.hash uuid
+            res <- statement Auth.insertToken (email cred, password cred, token, uuid_hash)
             return $
               if res
                 then Right token

@@ -29,6 +29,7 @@ import Buzgibi.Job.Report as Job.Report
 import Buzgibi.Api
 import Buzgibi.EnvKeys (Telnyx (..), OpenAI (..), Sendgrid)
 import qualified Buzgibi.Api.Controller.Controller as Controller
+import qualified Buzgibi.Statement.User.Auth as Auth (checkToken)
 import Buzgibi.AppM
 import qualified Buzgibi.Config as Cfg
 import Buzgibi.Transport.Error
@@ -71,6 +72,10 @@ import Control.Monad.IO.Unlift (MonadUnliftIO (withRunInIO))
 import Data.Maybe (fromMaybe)
 import qualified Network.Minio as Minio
 import Data.Time.Clock (getCurrentTime)
+import Database.Transaction (transaction, statement)
+import Data.UUID (UUID)
+import Data.Hashable (hash)
+import Data.Int (Int64)
 
 data Cfg = Cfg
   { cfgHost :: !String,
@@ -114,7 +119,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   let hoistedServer =
         hoistServerWithContext
           (withSwagger api)
-          (Proxy @'[CookieSettings, JWTSettings])
+          (Proxy @'[CookieSettings, JWTSettings, UUID -> IO Bool])
           (fmap fst . runKatipController cfg (State mempty))
           ( toServant Controller.controller
               :<|> swaggerSchemaUIServerT
@@ -139,7 +144,16 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
                 setMaxRequestKeyLength 100 
                   defaultParseRequestBodyOptions
           }
-  let mkCtx = multipartOpts :. formatters :. defaultJWTSettings (configKatipEnv ^. jwk) :. defaultCookieSettings :. EmptyContext
+  
+  let checkToken = transaction (katipEnvHasqlDbPool configKatipEnv) auth_logger . statement Auth.checkToken . fromIntegral @_ @Int64 . hash
+
+  let mkCtx = 
+        multipartOpts :. 
+        formatters :. 
+        defaultJWTSettings (configKatipEnv ^. jwk) :. 
+        (checkToken :: UUID -> IO Bool) :. 
+        defaultCookieSettings :.
+        EmptyContext
 
   mware_logger <- katipAddNamespace (Namespace ["middleware"]) askLoggerWithLocIO
   serverAsync <- liftIO $ async $ Warp.runSettings settings $ do 

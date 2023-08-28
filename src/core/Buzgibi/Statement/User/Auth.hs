@@ -13,7 +13,8 @@ module Buzgibi.Statement.User.Auth
         confirmEmail,
         resendLink,
         insertPasswordResetLink,
-        insertNewPassword
+        insertNewPassword,
+        checkToken
         ) where
 
 import Control.Lens
@@ -23,6 +24,7 @@ import qualified Data.Text as T
 import qualified Hasql.Statement as HS
 import Hasql.TH
 import Data.Aeson (Value)
+import Data.Maybe (fromMaybe)
 
 insertUser :: HS.Statement (T.Text, T.Text) (Maybe Int64)
 insertUser =
@@ -37,18 +39,18 @@ insertUser =
       profile as (insert into customer.profile (user_id) (select * from auth))
     select id :: int8 from auth|]
 
-insertJwt :: HS.Statement (Int64, T.Text) Bool
+insertJwt :: HS.Statement (Int64, T.Text, Int64) Bool
 insertJwt =
   dimap coerce (> 0) $
     [rowsAffectedStatement|
        insert into auth.jwt 
-       (user_id, jwt) 
-       values ($1 :: int8, $2 :: text)|]
+       (user_id, jwt, uuid_hash) 
+       values ($1 :: int8, $2 :: text, $3 :: bigint)|]
 
 getUserIdByEmail :: HS.Statement T.Text (Maybe Int64)
 getUserIdByEmail = [maybeStatement|select id :: int8 from auth.user where email = $1 :: text|]
 
-insertToken :: HS.Statement (T.Text, T.Text, T.Text) Bool
+insertToken :: HS.Statement (T.Text, T.Text, T.Text, Int64) Bool
 insertToken =
   dimap coerce (> 0) $
     [rowsAffectedStatement|
@@ -66,8 +68,8 @@ insertToken =
              is_valid and
              user_id = (select id from user_ident)
              and (select is_pass_valid from user_ident) is true )
-       insert into auth.jwt (user_id, jwt)
-       select id :: int8, $3 :: text from user_ident 
+       insert into auth.jwt (user_id, jwt, uuid_hash)
+       select id :: int8, $3 :: text, $4 :: bigint from user_ident 
        where (select is_pass_valid from user_ident)|]
 
 logout :: HS.Statement Int64 Bool
@@ -167,8 +169,15 @@ insertNewPassword =
       where link = $2 :: text 
       and now() < valid_until 
       and is_expended is null
-      returning user_id)
-    update auth.user 
+      returning user_id),
+    jwt as (
+      update auth.jwt 
+      set is_valid = false 
+      where user_id = (select user_id from link))  
+    update auth.user
     set pass = crypt($1 :: text, gen_salt('md5')),
         modified = now()
     where id = (select user_id from link)|]
+
+checkToken :: HS.Statement Int64 Bool
+checkToken = rmap (fromMaybe False) $ [maybeStatement| select is_valid :: bool from auth.jwt where uuid_hash = $1 :: int8|]

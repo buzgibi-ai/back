@@ -122,7 +122,7 @@ controller :: Maybe AuthToken -> KatipControllerM (Response Init)
 controller token = do
   tokenResp <- for token $ \tk -> do
     key <- fmap (^. katipEnv . jwk) ask
-    res <- liftIO $ validateJwt (defaultJWTSettings key) $ coerce tk ^. textbs
+    res <- liftIO $ validateJwt (defaultJWTSettings key) undefined $ coerce tk ^. textbs
     return $ case res of Left _ -> Invalid; _ -> Valid
 
   github <- fmap (^. katipEnv . github) ask
