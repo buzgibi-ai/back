@@ -86,21 +86,23 @@ getTranscription OpenAICfg {..} = forever $ do
       let phones = sequence $ map (eitherDecode @OpenAITranscription . encode) ys
       res <- for phones $ \xs -> do
         yse <- forConcurrentlyNRetry 3 60 retryTranscription xs $
-          \OpenAITranscription {..} -> 
-            fmap (bimap (openAITranscriptionPhoneIdent,) (openAITranscriptionPhoneIdent,) . join . first (toS . show)) $ 
-            Minio.runMinioWith minio $ do
-              let (ext:_) = openAITranscriptionVoiceExts
-              tm <- (toS . show . systemSeconds) <$> liftIO getSystemTime
-              o <- Minio.getObject openAITranscriptionVoiceBucket openAITranscriptionVoiceHash Minio.defaultGetObjectOptions
-              path <-
-                runConduit $
-                Minio.gorObjectStream o
-                  .| sinkSystemTempFile
-                  (toS (openAITranscriptionVoiceTitle <> "_" <> tm <> "." <> ext))
-              let parts = [partFileSource "file" path, partBS "model" "whisper-1"]    
-              liftIO $ callApi @"audio/transcriptions" @() @TranscriptionResponse
-                (ApiCfg openaiCfg manager logger) (Right parts) methodPost mempty Left $ 
-                  (pure . transcriptionResponseText . fst)
+          \OpenAITranscription {..} ->
+            if openAITranscriptionAttempts < 3 then
+              fmap (bimap (openAITranscriptionPhoneIdent,) (openAITranscriptionPhoneIdent,) . join . first (toS . show)) $ 
+              Minio.runMinioWith minio $ do
+                let (ext:_) = openAITranscriptionVoiceExts
+                tm <- (toS . show . systemSeconds) <$> liftIO getSystemTime
+                o <- Minio.getObject openAITranscriptionVoiceBucket openAITranscriptionVoiceHash Minio.defaultGetObjectOptions
+                path <-
+                  runConduit $
+                  Minio.gorObjectStream o
+                    .| sinkSystemTempFile
+                    (toS (openAITranscriptionVoiceTitle <> "_" <> tm <> "." <> ext))
+                let parts = [partFileSource "file" path, partBS "model" "whisper-1"]    
+                liftIO $ callApi @"audio/transcriptions" @() @TranscriptionResponse
+                  (ApiCfg openaiCfg manager logger) (Right parts) methodPost mempty Left $ 
+                    (pure . transcriptionResponseText . fst)
+            else pure $ Right (openAITranscriptionPhoneIdent, mempty)
 
         let (es, ys) = partitionEithers yse
         if ifInsufficientFunds es

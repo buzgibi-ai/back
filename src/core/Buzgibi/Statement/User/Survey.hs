@@ -745,7 +745,8 @@ data OpenAITranscription =
        openAITranscriptionVoiceBucket :: T.Text,
        openAITranscriptionVoiceHash :: T.Text,
        openAITranscriptionVoiceTitle :: T.Text,
-       openAITranscriptionVoiceExts :: [T.Text]
+       openAITranscriptionVoiceExts :: [T.Text],
+       openAITranscriptionAttempts :: Int
      } 
      deriving stock (Generic)
      deriving
@@ -765,6 +766,7 @@ getSurveysForTranscription =
         'voice_bucket', f.bucket,
         'voice_hash', f.hash,
         'voice_title', f.title,
+        'attempts', coalesce(pt.attempts, 0),
         'voice_exts',
          array(
           select 
@@ -875,7 +877,7 @@ insertTranscription =
       case 
         when excluded.error is not null then 
           phone_transcription.attempts + 1 
-        else phone_transcription.attempts 
+        else phone_transcription.attempts
       end|]
 
 checkAfterTranscription :: HS.Statement Int64 ()
