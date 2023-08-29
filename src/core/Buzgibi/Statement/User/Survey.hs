@@ -745,8 +745,7 @@ data OpenAITranscription =
        openAITranscriptionVoiceBucket :: T.Text,
        openAITranscriptionVoiceHash :: T.Text,
        openAITranscriptionVoiceTitle :: T.Text,
-       openAITranscriptionVoiceExts :: [T.Text],
-       openAITranscriptionAttempts :: Int
+       openAITranscriptionVoiceExts :: [T.Text]
      } 
      deriving stock (Generic)
      deriving
@@ -766,7 +765,6 @@ getSurveysForTranscription =
         'voice_bucket', f.bucket,
         'voice_hash', f.hash,
         'voice_title', f.title,
-        'attempts', coalesce(pt.attempts, 0),
         'voice_exts',
          array(
           select 
@@ -783,13 +781,13 @@ getSurveysForTranscription =
     left join customer.phone_transcription as pt
     on pt.phone_id = sp.id
     where s.survey_status = $1 :: text 
-    and (pt.transcription is null or pt.error is not null) 
+    and (pt.transcription is null or pt.error is not null) and not pt.is_stuck
     group by s.id|]
 
 data OpenAISA = 
      OpenAISA
      { openAISAPhoneIdent :: Int64,
-       openAISAText :: T.Text 
+       openAISAText :: T.Text
      }
      deriving stock (Generic)
      deriving
@@ -871,6 +869,7 @@ insertTranscription =
     error = 
       case 
         when excluded.transcription is not null then null
+        when phone_transcription.attempts + 1 > 5 then null
         else excluded.error
       end,
     attempts = 
@@ -878,7 +877,8 @@ insertTranscription =
         when excluded.error is not null then 
           phone_transcription.attempts + 1 
         else phone_transcription.attempts
-      end|]
+      end,
+    is_stuck = phone_transcription.attempts + 1 > 5|]
 
 checkAfterTranscription :: HS.Statement Int64 ()
 checkAfterTranscription = 
@@ -965,8 +965,8 @@ getSurveyForReport =
               'phone is invalid'
             when cta.call_hangup_cause is not null then 
               trim(both '"' from cta.call_hangup_cause)
-            when pt.error is not null then
-              pt.error
+            when pt.is_stuck then 
+              'transcription is stuck'
             else 'sentiment analysis error'
           end as result
         from auth.user as u

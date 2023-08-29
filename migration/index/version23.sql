@@ -1,0 +1,1 @@
+alter table customer.phone_transcription add column is_stuck boolean not null default false;

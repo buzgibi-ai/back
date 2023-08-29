@@ -78,5 +78,5 @@ forConcurrentlyNRetry threads delay shouldRetry xs go =
 
 retry :: MonadUnliftIO m => Int -> (a -> m Bool) -> m a -> m a
 retry delay shouldRetry go =
-  let retryPolicy = constantDelay (delay * 10 ^ 6) <> limitRetries 5
+  let retryPolicy = constantDelay (delay * 10 ^ 6) <> limitRetries 3
   in retrying retryPolicy (const shouldRetry) (const go)
