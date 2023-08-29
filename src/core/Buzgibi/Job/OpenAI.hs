@@ -102,7 +102,14 @@ getTranscription OpenAICfg {..} = forever $ do
                 liftIO $ callApi @"audio/transcriptions" @() @TranscriptionResponse
                   (ApiCfg openaiCfg manager logger) (Right parts) methodPost mempty Left $ 
                     (pure . transcriptionResponseText . fst)
-            else pure $ Right (openAITranscriptionPhoneIdent, mempty)
+            else 
+              do 
+                logger EmergencyS $ 
+                  logStr @String $ 
+                    $location <> " openai is stuck on " <> 
+                    show openAITranscriptionPhoneIdent <> 
+                    ", survey ident: " <> show survIdent
+                pure $ Right (openAITranscriptionPhoneIdent, mempty)
 
         let (es, ys) = partitionEithers yse
         if ifInsufficientFunds es
