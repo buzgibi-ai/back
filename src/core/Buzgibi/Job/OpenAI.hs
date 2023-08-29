@@ -85,7 +85,7 @@ getTranscription OpenAICfg {..} = forever $ do
     Async.forConcurrently_ xs $ \(survIdent, ys) -> do 
       let phones = sequence $ map (eitherDecode @OpenAITranscription . encode) ys
       res <- for phones $ \xs -> do
-        yse <- forConcurrentlyNRetry 10 10 retryTranscription xs $
+        yse <- forConcurrentlyNRetry 3 120 retryTranscription xs $
           \OpenAITranscription {..} ->
             fmap (bimap (openAITranscriptionPhoneIdent,) (openAITranscriptionPhoneIdent,) . join . first (toS . show)) $ 
             Minio.runMinioWith minio $ do

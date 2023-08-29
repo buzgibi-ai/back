@@ -781,7 +781,7 @@ getSurveysForTranscription =
     left join customer.phone_transcription as pt
     on pt.phone_id = sp.id
     where s.survey_status = $1 :: text 
-    and (pt.transcription is null or pt.error is not null) and not pt.is_stuck
+    and ((pt.transcription is null or pt.error is not null) and not coalesce(pt.is_stuck, false))
     group by s.id|]
 
 data OpenAISA = 
