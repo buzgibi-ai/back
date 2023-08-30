@@ -1106,16 +1106,23 @@ setInsufficientFund :: HS.Statement (Int64, Status) ()
 setInsufficientFund = lmap (second (toS . show . InsufficientFunds)) $ [resultlessStatement|update customer.survey set survey_status = $2 :: text where id = $1 :: int8|]
 
 detectStuckCalls :: HS.Statement () ()
-detectStuckCalls = 
-  lmap (const (toS (show CallMade), (toS (show Answered)), (toS (show Invalid))))
-  [resultlessStatement|
-     update customer.call_telnyx_app 
-     set invalid = $3 :: text
-     where (
-       select now() < s.created + interval '15 min'
-       from customer.survey as s
-       inner join customer.survey_phones as p
-       on s.id = p.survey_id
-       where p.id = phone_id) and
-       call_status = $1 :: text or 
-       call_status = $2 :: text|]
+detectStuckCalls =
+  let params = 
+        consT (toS (show PhonesPickedForCallByTelnyx)) $ 
+        consT (toS (show CallMade)) $ 
+        (toS (show Answered), toS (show Invalid))
+  in 
+    lmap (const params)
+    [resultlessStatement|
+      update customer.call_telnyx_app 
+      set call_status = $4 :: text,
+          invalid = 'call stuck at status ' || call_status
+      where (
+        select now() > s.created + interval '15 min'
+        from customer.survey as s
+        inner join customer.survey_phones as p
+        on s.id = p.survey_id
+        where p.id = phone_id 
+        and s.survey_status = $1 :: text) and
+        (call_status = $2 :: text or
+        call_status = $3 :: text)|]
