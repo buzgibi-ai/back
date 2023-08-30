@@ -62,7 +62,8 @@ module Buzgibi.Statement.User.Survey
     getDailyPhoneStat,
     DailyPhoneStat (..),
     setInsufficientFund,
-    InsertDraft (..)
+    InsertDraft (..),
+    detectStuckCalls
   ) where
 
 
@@ -1103,3 +1104,18 @@ getDailyPhoneStat =
 
 setInsufficientFund :: HS.Statement (Int64, Status) ()
 setInsufficientFund = lmap (second (toS . show . InsufficientFunds)) $ [resultlessStatement|update customer.survey set survey_status = $2 :: text where id = $1 :: int8|]
+
+detectStuckCalls :: HS.Statement () ()
+detectStuckCalls = 
+  lmap (const (toS (show CallMade), (toS (show Answered)), (toS (show Invalid))))
+  [resultlessStatement|
+     update customer.call_telnyx_app 
+     set invalid = $3 :: text
+     where (
+       select now() > s.created + interval '15 min'
+       from customer.survey as s
+       inner join customer.survey_phones as p
+       on s.id = p.survey_id
+       where p.id = phone_id) and
+       call_status = $1 :: text or 
+       call_status = $2 :: text|]

@@ -174,6 +174,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
         }
   telnyxApp <- liftIO $ async $ Job.Telnyx.makeApp telnyxEnv
   telnyxCall <- liftIO $ async $ Job.Telnyx.makeCall telnyxEnv
+  telnyxDetectStuckCalls <- liftIO $ async $ Job.Telnyx.detectStuckCalls telnyxEnv
 
   openai_logger <- katipAddNamespace (Namespace ["job", "openai"]) askLoggerIO
   let openAICfg =
@@ -210,7 +211,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   report <- liftIO $ async $ getCurrentTime >>= evalStateT (Job.Report.makeDailyReport reportCfg)
 
   end <- fmap snd $ flip logExceptionM ErrorS $ liftIO $ waitAnyCatchCancel 
-    [serverAsync, telnyxApp, telnyxCall, survey, openaiTranscrip, openaiSA, report]
+    [serverAsync, telnyxApp, telnyxCall, telnyxDetectStuckCalls, survey, openaiTranscrip, openaiSA, report]
   
   whenLeft end $ \e -> $(logTM) EmergencyS $ logStr $ "server has been terminated. error " <> show e
 

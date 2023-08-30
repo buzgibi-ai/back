@@ -11,9 +11,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Buzgibi.Job.Telnyx (makeApp, makeCall, TelnyxCfg (..)) where
+module Buzgibi.Job.Telnyx (makeApp, makeCall, Buzgibi.Job.Telnyx.detectStuckCalls, TelnyxCfg (..)) where
 
-import Buzgibi.Statement.User.Survey 
+import Buzgibi.Statement.User.Survey
        (getSurveyForTelnyxApp, 
         insertTelnyxApp, 
         getPhonesToCall, 
@@ -22,6 +22,7 @@ import Buzgibi.Statement.User.Survey
         checkAfterInvalidate,
         failTelnyxApp,
         setInsufficientFund,
+        detectStuckCalls,
         PhoneToCall (..),
         Status (PickedByTelnyx))
 import Buzgibi.Api.CallApi.Instance ()        
@@ -148,3 +149,9 @@ ifInsufficientFunds = or . map (fromMaybe False . fmap (go . coerce) . (decode @
     go (Error {errorCode}:xs) 
       | errorCode == 20100 = True
       | otherwise = go xs
+
+detectStuckCalls :: TelnyxCfg -> IO ()
+detectStuckCalls TelnyxCfg {..} = forever $ do
+  threadDelay (jobFrequency * 10 ^ 6)
+  withElapsedTime logger ($location <> "(makeCall)") $
+    transaction pool logger $ statement Buzgibi.Statement.User.Survey.detectStuckCalls ()

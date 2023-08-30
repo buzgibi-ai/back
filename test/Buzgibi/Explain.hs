@@ -116,7 +116,8 @@ explainTests =
        "checkAfterTranscription" =>> Buzgibi.Statement.User.Survey.checkAfterTranscription,
        "insertStat" =>> Buzgibi.Statement.User.Survey.insertStat,
        "getDailyPhoneStat" =>> Buzgibi.Statement.User.Survey.getDailyPhoneStat,
-       "setInsufficientFund" =>> Buzgibi.Statement.User.Survey.setInsufficientFund
+       "setInsufficientFund" =>> Buzgibi.Statement.User.Survey.setInsufficientFund,
+       "detectStuckCalls" =>> Buzgibi.Statement.User.Survey.detectStuckCalls
      ]
   ,  "Buzgibi.Statement.User.Notification" ==> 
      [ "get" =>> Buzgibi.Statement.User.Notification.get,
