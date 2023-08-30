@@ -1112,7 +1112,7 @@ detectStuckCalls =
      update customer.call_telnyx_app 
      set invalid = $3 :: text
      where (
-       select now() > s.created + interval '15 min'
+       select now() < s.created + interval '15 min'
        from customer.survey as s
        inner join customer.survey_phones as p
        on s.id = p.survey_id
