@@ -870,7 +870,7 @@ insertTranscription =
     error = 
       case 
         when excluded.transcription is not null then null
-        when phone_transcription.attempts + 1 > 3 then null
+        when phone_transcription.attempts + 1 > 2 then null
         else excluded.error
       end,
     attempts = 
@@ -879,7 +879,7 @@ insertTranscription =
           phone_transcription.attempts + 1 
         else phone_transcription.attempts
       end,
-    is_stuck = phone_transcription.attempts + 1 > 3|]
+    is_stuck = phone_transcription.attempts + 1 > 2|]
 
 checkAfterTranscription :: HS.Statement Int64 ()
 checkAfterTranscription = 

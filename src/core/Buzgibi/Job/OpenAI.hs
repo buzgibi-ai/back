@@ -53,7 +53,6 @@ import Control.Monad (join)
 import BuildInfo (location)
 import Data.Either.Combinators (whenLeft)
 import Control.Lens ((^.))
-import Request (forConcurrentlyNRetry)
 import qualified Data.Text as T
 import Data.Int (Int64)
 import Data.Maybe (fromMaybe)
@@ -85,7 +84,7 @@ getTranscription OpenAICfg {..} = forever $ do
     Async.forConcurrently_ xs $ \(survIdent, ys) -> do 
       let phones = sequence $ map (eitherDecode @OpenAITranscription . encode) ys
       res <- for phones $ \xs -> do
-        yse <- forConcurrentlyNRetry 3 120 retryTranscription xs $
+        yse <- Async.forConcurrently xs $
           \OpenAITranscription {..} ->
             fmap (bimap (openAITranscriptionPhoneIdent,) (openAITranscriptionPhoneIdent,) . join . first (toS . show)) $ 
             Minio.runMinioWith minio $ do
@@ -114,10 +113,6 @@ getTranscription OpenAICfg {..} = forever $ do
   
       whenLeft res $ \error ->  
         logger CriticalS $ logStr $ $location <> ": phone parse failed for survey " <> show survIdent <> ", error: " <> error
-
-retryTranscription :: Either (Int64, T.Text) (Int64, T.Text) -> IO Bool
-retryTranscription (Left _) = pure True
-retryTranscription (Right _) = pure False
 
 performSentimentalAnalysis :: OpenAICfg -> IO ()
 performSentimentalAnalysis OpenAICfg {..} = 
