@@ -37,7 +37,7 @@ module Buzgibi.Statement.User.Survey
     getUserByAppIdent,
     insertVoiceTelnyx,
     getSurveysForTranscription,
-    OpenAITranscription (..),
+    VoiceForTranscription (..),
     insertTranscription,
     mkTranscriptionOk,
     mkTranscriptionFailure,
@@ -740,20 +740,20 @@ insertVoiceTelnyx =
      where call_leg_id = $1 :: text 
      and call_hangup_cause is null|]
 
-data OpenAITranscription = 
-     OpenAITranscription 
-     { openAITranscriptionPhoneIdent :: Int64, 
-       openAITranscriptionVoiceBucket :: T.Text,
-       openAITranscriptionVoiceHash :: T.Text,
-       openAITranscriptionVoiceTitle :: T.Text,
-       openAITranscriptionVoiceExts :: [T.Text]
+data VoiceForTranscription = 
+     VoiceForTranscription 
+     { voiceForTranscriptionPhoneIdent :: Int64, 
+       voiceForTranscriptionVoiceBucket :: T.Text,
+       voiceForTranscriptionVoiceHash :: T.Text,
+       voiceForTranscriptionVoiceTitle :: T.Text,
+       voiceForTranscriptionVoiceExts :: [T.Text]
      } 
      deriving stock (Generic)
      deriving
      (ToJSON, FromJSON)
      via WithOptions
-          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor OpenAITranscription)]]
-          OpenAITranscription
+          '[FieldLabelModifier '[CamelTo2 "_", UserDefined (StripConstructor VoiceForTranscription)]]
+          VoiceForTranscription
 
 getSurveysForTranscription :: HS.Statement () [(Int64, [Value])]
 getSurveysForTranscription = 
@@ -870,7 +870,7 @@ insertTranscription =
     error = 
       case 
         when excluded.transcription is not null then null
-        when phone_transcription.attempts + 1 > 2 then null
+      when phone_transcription.attempts + 1 > 5 then null
         else excluded.error
       end,
     attempts = 
@@ -879,7 +879,7 @@ insertTranscription =
           phone_transcription.attempts + 1 
         else phone_transcription.attempts
       end,
-    is_stuck = phone_transcription.attempts + 1 > 2|]
+    is_stuck = phone_transcription.attempts + 1 > 5|]
 
 checkAfterTranscription :: HS.Statement Int64 ()
 checkAfterTranscription = 

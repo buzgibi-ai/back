@@ -12,6 +12,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NumericUnderscores #-}
 
 module Main (main) where
 
@@ -236,7 +237,7 @@ main = do
       Http.tlsManagerSettings
         { managerConnCount = 50,
           managerResponseTimeout =
-            responseTimeoutMicro (5 * 10 ^ 6)
+            responseTimeoutMicro (20 * 1_000_000)
         }
 
   minioEnv <-
@@ -293,7 +294,8 @@ main = do
           minio = (minioEnv, cfg ^. Buzgibi.Config.minio . Buzgibi.Config.bucketPrefix),
           webhook = cfg^.webhook,
           jobFrequency = cfg^.jobFrequency,
-          sendgridCfg = envKeys >>= envKeysSendgrid
+          sendgridCfg = envKeys >>= envKeysSendgrid,
+          gcCfg = envKeys >>= envKeysGoogle
         }
 
   jwke <- liftIO $ fmap (eitherDecode' @JWK) $ B.readFile pathToJwk

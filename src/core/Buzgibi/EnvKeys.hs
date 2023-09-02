@@ -71,7 +71,7 @@ data Telnyx =
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Telnyx)]]
           Telnyx
 
-data OpenAI = OpenAI { openAIUrl :: !T.Text, openAIKey :: !T.Text, openAIClarifyingPrefix :: !T.Text }
+data OpenAI = OpenAI { openAIUrl :: !T.Text, openAIKey :: !T.Text }
   deriving stock (Generic)
   deriving stock (Show)
   deriving
@@ -79,6 +79,16 @@ data OpenAI = OpenAI { openAIUrl :: !T.Text, openAIKey :: !T.Text, openAIClarify
     via WithOptions
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor OpenAI)]]
           OpenAI
+
+data Google = Google { googleUrl :: !T.Text, googleKey :: !T.Text, googleClarifyingPrefix :: !T.Text, googleToken :: !T.Text }
+  deriving stock (Generic)
+  deriving stock (Show)
+  deriving
+    (FromJSON)
+    via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Google)]]
+          Google
+
 
 data Person = Person { personEmail :: !T.Text, personPersonalization :: !T.Text }
   deriving stock (Generic)
@@ -111,7 +121,8 @@ data EnvKeys = EnvKeys
     envKeysGithub :: !(Maybe Github),
     envKeysBark :: !(Maybe Bark),
     envKeysTelnyx :: !(Maybe Telnyx),
-    envKeysOpenAI :: !(Maybe OpenAI)
+    envKeysOpenAI :: !(Maybe OpenAI),
+    envKeysGoogle :: !(Maybe Google)
   }
   deriving stock (Generic)
   deriving stock (Show)
@@ -127,3 +138,4 @@ makeFields ''Bark
 makeFields ''OpenAI
 makeFields ''Sendgrid
 makeFields ''Introduction
+makeFields ''Google

@@ -22,7 +22,7 @@ import Network.HTTP.Types.Header (ResponseHeaders)
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Request as Request
 import Network.HTTP.Client (HttpException)
-import Network.HTTP.Types (methodPost, methodGet, hAuthorization, hContentType, Method)
+import Network.HTTP.Types (methodPost, methodGet, hAuthorization, hContentType, Method, Header)
 import Control.Exception (try)
 import Data.String.Conv (toS)
 import Data.Bifunctor (first)
@@ -51,11 +51,12 @@ callApi ::
   ApiCfg cfg ->
   Either (Maybe b) [Part] ->
   Method ->
+  [Header] ->
   [(T.Text, T.Text)] ->
-  (T.Text -> (Either e r)) -> 
+  (T.Text -> (Either e r)) ->
   ((c, ResponseHeaders) -> Either e r) -> 
   IO (Either e r)
-callApi ApiCfg {..} request method queryXs onError onOk = do
+callApi ApiCfg {..} request method hs queryXs onError onOk = do
   let url_tmp = getUrl cfg <> "/" <> toS (symbolVal (Proxy @a))
   let reduce tmp (needle, v) = T.replace needle v tmp
   let url | length queryXs > 0 = foldl' reduce url_tmp queryXs
@@ -63,10 +64,9 @@ callApi ApiCfg {..} request method queryXs onError onOk = do
   let authH = (hAuthorization, toS ("Bearer " <> getKey cfg))
   let contTypeH = (hContentType, either (const "application/json") (const "multipart/form-data") request)
 
-  logger DebugS $ logStr @String $ $location <> ": auth header ----> " <> toS (show authH)
+  logger DebugS $ logStr @String $ $location <> ": auth header ----> " <> toS (show ([authH, contTypeH] ++ hs))
   logger DebugS $ logStr @String $ $location <> ": url ----> " <> toS (show url)
 
   resp <- fmap (join . first (toS . show)) $ try @HttpException $ 
-            Request.make @b url manager [authH, contTypeH] method request
+            Request.make @b url manager ([authH, contTypeH] ++ hs) method request
   return $ Request.withError @c resp onError onOk
-

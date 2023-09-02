@@ -87,8 +87,8 @@ controller payload@Payload {..} = do
            let playback_request = Just $ PlaybackStartRequest { playbackStartRequestAudioUrl = url }
            let queryParam = [("{call_control_id}", answeredCallControlId)]
 
-           playbackResp <- liftIO $ callApi @("calls/{call_control_id}/actions/playback_start") @PlaybackStartRequest @PlaybackStartResponse telnyxApiCfg (Left playback_request) methodPost queryParam Left (const (Right ()))
-           recordResp <- liftIO $ callApi @("calls/{call_control_id}/actions/record_start") @RecordingStartRequest @RecordingStartResponse telnyxApiCfg (Left record_request) methodPost queryParam Left (const (Right ()))
+           playbackResp <- liftIO $ callApi @("calls/{call_control_id}/actions/playback_start") @PlaybackStartRequest @PlaybackStartResponse telnyxApiCfg (Left playback_request) methodPost [] queryParam Left (const (Right ()))
+           recordResp <- liftIO $ callApi @("calls/{call_control_id}/actions/record_start") @RecordingStartRequest @RecordingStartResponse telnyxApiCfg (Left record_request) methodPost [] queryParam Left (const (Right ()))
           
            let resp = sequence [playbackResp, recordResp]
 
@@ -141,6 +141,6 @@ controller payload@Payload {..} = do
            telnyxApiCfg <- fmap (ApiCfg (fromMaybe undefined (env^.telnyx)) (env^.httpReqManager)) askLoggerIO  
            let request = Just $ HangupRequest machineDetectionClientState
            let queryParam = [("{call_control_id}", machineDetectionCallControlId)]
-           void $ liftIO $ callApi @("calls/{call_control_id}/actions/hangup") @HangupRequest @() telnyxApiCfg (Left request) methodPost queryParam Left (const (Right ()))
+           void $ liftIO $ callApi @("calls/{call_control_id}/actions/hangup") @HangupRequest @() telnyxApiCfg (Left request) methodPost [] queryParam Left (const (Right ()))
 
   when (isLeft res) $ $(logTM) CriticalS $ logStr $ $location <> " ---> parse error: " <> show res

@@ -135,10 +135,10 @@ instance Lift ParamSchemaEnumCon where
 
 mkParamSchemaEnum :: Name -> Q Exp -> Q [Dec]
 mkParamSchemaEnum name iso = do
-  r <- reify name
+  r <- reify name 
   TyConI (DataD _ _ _ _ old_xs _) <- reify name
   let new_xs = coerce old_xs :: [ParamSchemaEnumCon]
-  [d|
+  [d| 
     instance ToParamSchema $(conT name) where
       toParamSchema _ = 
         mempty 

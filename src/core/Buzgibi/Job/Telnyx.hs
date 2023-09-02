@@ -87,7 +87,7 @@ makeApp TelnyxCfg {..} = forever $ do
               }
             }
       callApi @"call_control_applications" @AppRequest @AppResponse 
-        (ApiCfg telnyxCfg manager logger) (Left (Just request)) methodPost mempty (Left . (ident, )) $ 
+        (ApiCfg telnyxCfg manager logger) (Left (Just request)) methodPost [] mempty (Left . (ident, )) $ 
           \(app, _) -> pure $ (ident, title,) $ coerce app
 
     let (errXs, appXs) = partitionEithers resp
@@ -126,7 +126,7 @@ makeCall TelnyxCfg {..} = forever $ do
                   callRequestAnsweringMachineDetection = telnyxMachine telnyxCfg
                 }
           callApi @"calls" @CallRequest @CallResponseData 
-            (ApiCfg telnyxCfg manager logger) (Left (Just request)) methodPost mempty (Left . (phoneToCallIdent,)) $ 
+            (ApiCfg telnyxCfg manager logger) (Left (Just request)) methodPost [] mempty (Left . (phoneToCallIdent,)) $ 
               \(call, _) -> pure $ consT phoneToCallIdent $ encodeCallResponse (coerce call)
   
         let (errXs, callXs) = partitionEithers resp

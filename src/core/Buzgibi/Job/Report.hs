@@ -87,6 +87,7 @@ makeDailyReport ReportCfg {..} = forever $ do
           (ApiCfg telnyxCfg manager logger) 
             (Left Nothing) 
               methodGet 
+              []
                 mempty 
                   Left 
                     (Right . coerce . fst)

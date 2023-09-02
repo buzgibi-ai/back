@@ -16,6 +16,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# OPTIONS_GHC -fno-warn-unused-local-binds #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
@@ -26,8 +27,9 @@ import Buzgibi.Job.Telnyx as Job.Telnyx
 import Buzgibi.Job.OpenAI as Job.OpenAI
 import Buzgibi.Job.Survey as Job.Survey
 import Buzgibi.Job.Report as Job.Report
+import Buzgibi.Job.Google as Job.Google
 import Buzgibi.Api
-import Buzgibi.EnvKeys (Telnyx (..), OpenAI (..), Sendgrid)
+import Buzgibi.EnvKeys (Telnyx (..), OpenAI (..), Google, Sendgrid)
 import qualified Buzgibi.Api.Controller.Controller as Controller
 import qualified Buzgibi.Statement.User.Auth as Auth (checkToken)
 import Buzgibi.AppM
@@ -92,7 +94,8 @@ data Cfg = Cfg
     minio :: !(Minio.MinioConn, T.Text),
     webhook :: !T.Text,
     jobFrequency :: !Int,
-    sendgridCfg :: !(Maybe Sendgrid)
+    sendgridCfg :: !(Maybe Sendgrid),
+    gcCfg :: !(Maybe Google)
   }
 
 run :: Cfg -> KatipContextT AppM ()
@@ -186,8 +189,20 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
           minio = fst minio,
           jobFrequency = jobFrequency
         }
-  openaiTranscrip <- liftIO $ async $ Job.OpenAI.getTranscription openAICfg
   openaiSA <- liftIO $ async $ Job.OpenAI.performSentimentalAnalysis openAICfg
+  
+  google_logger <- katipAddNamespace (Namespace ["job", "google"]) askLoggerIO
+  let googleCfg =
+        Job.Google.GoogleCfg
+        { logger = google_logger,
+          pool = katipEnvHasqlDbPool configKatipEnv, 
+          googleCfg = fromMaybe (error "google not set") gcCfg,
+          manager = manager,
+          minio = fst minio,
+          jobFrequency = jobFrequency
+        }
+
+  googleTranscribeVoice <- liftIO $ async $ Job.Google.transcribeVoice googleCfg
 
   survey_logger <- katipAddNamespace (Namespace ["job", "survey"]) askLoggerIO
   let surveyCfg =
@@ -211,7 +226,7 @@ run Cfg {..} = katipAddNamespace (Namespace ["application"]) $ do
   report <- liftIO $ async $ getCurrentTime >>= evalStateT (Job.Report.makeDailyReport reportCfg)
 
   end <- fmap snd $ flip logExceptionM ErrorS $ liftIO $ waitAnyCatchCancel 
-    [serverAsync, telnyxApp, telnyxCall, telnyxDetectStuckCalls, survey, openaiTranscrip, openaiSA, report]
+    [serverAsync, telnyxApp, telnyxCall, telnyxDetectStuckCalls, survey, googleTranscribeVoice, openaiSA, report]
   
   whenLeft end $ \e -> $(logTM) EmergencyS $ logStr $ "server has been terminated. error " <> show e
 
