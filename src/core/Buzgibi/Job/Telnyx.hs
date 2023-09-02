@@ -23,6 +23,7 @@ import Buzgibi.Statement.User.Survey
         failTelnyxApp,
         setInsufficientFund,
         detectStuckCalls,
+        checkAfterWebhookAll,
         PhoneToCall (..),
         Status (PickedByTelnyx))
 import Buzgibi.Api.CallApi.Instance ()        
@@ -154,4 +155,6 @@ detectStuckCalls :: TelnyxCfg -> IO ()
 detectStuckCalls TelnyxCfg {..} = forever $ do
   threadDelay (jobFrequency * 10 ^ 6)
   withElapsedTime logger ($location <> "(makeCall)") $
-    transaction pool logger $ statement Buzgibi.Statement.User.Survey.detectStuckCalls ()
+    transaction pool logger $ do 
+      statement Buzgibi.Statement.User.Survey.detectStuckCalls ()
+      statement Buzgibi.Statement.User.Survey.checkAfterWebhookAll ()

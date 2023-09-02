@@ -63,7 +63,8 @@ module Buzgibi.Statement.User.Survey
     DailyPhoneStat (..),
     setInsufficientFund,
     InsertDraft (..),
-    detectStuckCalls
+    detectStuckCalls,
+    checkAfterWebhookAll
   ) where
 
 
@@ -714,6 +715,33 @@ checkAfterWebhook =
             else survey_status
           end  
     where id = (select id from survey)|]
+
+checkAfterWebhookAll :: HS.Statement () ()
+checkAfterWebhookAll =
+  lmap (const $ snocT (toS (show PhonesPickedForCallByTelnyx)) (toS (show ProcessedByTelnyx), toS (show Fail)))
+  [resultlessStatement|
+    update customer.survey
+    set survey_status = 
+          case
+            when s.all_calls = s.error_calls then $2 :: text 
+            when s.all_calls = s.error_calls + s.ok_calls then $1 :: text
+            else survey_status
+          end
+    from ( 
+      select 
+        s.id as ident,
+        count(*) as all_calls,
+        count(cta.invalid) +
+        count(cta.call_hangup_cause) as error_calls,
+        count(cta.voice_id) as ok_calls
+      from customer.survey as s
+      inner join customer.survey_phones as sp
+      on sp.survey_id = s.id
+      inner join customer.call_telnyx_app as cta
+      on cta.phone_id = sp.id
+      where s.survey_status = $3 :: text
+      group by s.id) as s
+    where id = s.ident|]
 
 getUserByAppIdent :: HS.Statement T.Text (Maybe (Int64, T.Text))
 getUserByAppIdent = 
