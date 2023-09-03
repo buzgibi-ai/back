@@ -237,7 +237,7 @@ main = do
       Http.tlsManagerSettings
         { managerConnCount = 50,
           managerResponseTimeout =
-            responseTimeoutMicro (20 * 1_000_000)
+            responseTimeoutMicro (5 * 1_000_000)
         }
 
   minioEnv <-

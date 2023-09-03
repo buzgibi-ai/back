@@ -35,6 +35,7 @@ import qualified Request as Request (make)
 import qualified Control.Monad.Trans.Except as E
 import Control.Monad.IO.Class (liftIO)
 import qualified Network.HTTP.Types as HTTP
+import qualified Network.HTTP.Client as HTTP
 import qualified Data.ByteString as B
 import Data.Either.Combinators (maybeToRight, whenLeft)
 import Data.Bifunctor (first)
@@ -113,7 +114,7 @@ controller payload@Payload {..} = do
              res <- E.runExceptT $ do
                manager <- lift $ fmap (^. katipEnv . httpReqManager) ask
                file_resp <- liftIO $ Request.make url manager [] HTTP.methodGet (Left (Nothing @()))
-               file <- E.withExceptT NetworkFailure $ E.except file_resp
+               file <- E.withExceptT (NetworkFailure . toS . HTTP.responseBody) $ E.except file_resp
                let mime = defaultMimeLookup ".mp3"
                usere <- lift $ transactionM hasql $ statement User.Survey.getUserByAppIdent recordConnectionId
                (user, surveyTitle) <- fmap (first AuthenticatedUser) $ E.except $ maybeToRight UserMissing $ usere

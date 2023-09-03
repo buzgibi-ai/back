@@ -19,14 +19,15 @@ import Buzgibi.Statement.User.Survey
         mkTranscriptionOk,
         mkTranscriptionFailure,
         getSurveysForTranscription)
+import Buzgibi.Job.Google.Token ()        
 import Buzgibi.Transport.Model.Google
-import Buzgibi.EnvKeys (clarifyingPrefix, key)
+import Buzgibi.EnvKeys (clarifyingPrefix)
+import Buzgibi.Job.Google.Api (callApi, Api)
 import qualified Network.HTTP.Client as HTTP
+import qualified Network.HTTP.Types as HTTP
 import qualified Hasql.Connection as Hasql
-import Buzgibi.Api.CallApi
 import Buzgibi.EnvKeys (Google)
 import Buzgibi.Job.Utils (withElapsedTime)
-import Buzgibi.Api.CallApi.Instance () 
 import Data.Pool (Pool)
 import Katip
 import qualified Network.Minio as Minio
@@ -56,6 +57,7 @@ import Request (forConcurrentlyNRetry)
 import qualified Data.Text as T
 import Data.Int (Int64)
 
+
 data GoogleCfg =
      GoogleCfg 
      { logger :: Severity -> LogStr -> IO (), 
@@ -82,7 +84,7 @@ transcribeVoice GoogleCfg {..} = forever $ do
       Async.forConcurrently_ xs $ \(survIdent, ys) -> do 
         let phones = sequence $ map (eitherDecode @VoiceForTranscription . encode) ys
         res <- for phones $ \xs -> do
-          yse <- forConcurrentlyNRetry 2 5 retryTranscription xs $
+          yse <- forConcurrentlyNRetry 5 2 retryTranscription xs $
             \VoiceForTranscription {..} ->
               fmap (bimap (voiceForTranscriptionPhoneIdent,) (voiceForTranscriptionPhoneIdent,) . join . first (toS . show)) $ 
               Minio.runMinioWith minio $ do
@@ -96,11 +98,10 @@ transcribeVoice GoogleCfg {..} = forever $ do
                     (toS (voiceForTranscriptionVoiceTitle <> "_" <> tm <> "." <> ext))
                 voice <- liftIO $ fmap (decodeUtf8 . B64.encode) $ B.readFile path
                 let request = TranscribeVoiceRequest defConfig $ Audio voice
-                liftIO $ callApi @"speech:recognize" @TranscribeVoiceRequest @TranscribeVoiceResponse
-                  (ApiCfg googleCfg manager logger)
-                  (Left (Just request)) methodPost [("x-goog-user-project", "buzgibi")] [("key", toS (googleCfg^.key))] Left $
-                    \(TranscribeVoiceResponse{..}, _) -> Right $ fromMaybe mempty $ fmap gleanTranscription transcribeVoiceResponseResults
-
+                resp <- liftIO $ callApi @"speech:recognize" @TranscribeVoiceRequest @TranscribeVoiceResponse googleCfg manager HTTP.methodPost request
+                for resp $ \TranscribeVoiceResponse{..} -> 
+                  pure $ fromMaybe mempty $ fmap gleanTranscription transcribeVoiceResponseResults
+ 
           let (es, ys) = partitionEithers yse
           mkErrorMsg "getTranscription" logger survIdent es
           let xs = map (second (mkTranscriptionOk (googleCfg^.clarifyingPrefix))) ys <> map (second mkTranscriptionFailure) es

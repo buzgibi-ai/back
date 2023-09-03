@@ -80,7 +80,14 @@ data OpenAI = OpenAI { openAIUrl :: !T.Text, openAIKey :: !T.Text }
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor OpenAI)]]
           OpenAI
 
-data Google = Google { googleUrl :: !T.Text, googleKey :: !T.Text, googleClarifyingPrefix :: !T.Text, googleToken :: !T.Text }
+data Google = 
+     Google { 
+      googleUrl :: !T.Text, 
+      googleKey :: !T.Text, 
+      googleClarifyingPrefix :: !T.Text, 
+      googleTokenUrl :: !T.Text,
+      googleTokenEmail :: !T.Text,
+      googleTokenPk :: !T.Text }
   deriving stock (Generic)
   deriving stock (Show)
   deriving

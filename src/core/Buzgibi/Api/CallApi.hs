@@ -21,16 +21,16 @@ import qualified Data.Text as T
 import Network.HTTP.Types.Header (ResponseHeaders)
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Request as Request
-import Network.HTTP.Client (HttpException)
 import Network.HTTP.Types (methodPost, methodGet, hAuthorization, hContentType, Method, Header)
-import Control.Exception (try)
-import Data.String.Conv (toS)
-import Data.Bifunctor (first)
-import Control.Monad (join)
 import Katip
 import Data.Foldable (foldl')
 import Network.HTTP.Client.MultipartFormData (Part)
 import BuildInfo (location)
+import qualified Data.ByteString.Lazy as BL
+import Data.String.Conv (toS)
+import qualified Data.ByteString as B
+import qualified Network.HTTP.Types as HTTP
+
 
 type family Api (api :: Symbol) (req :: Type) (resp :: Type) :: Constraint
 
@@ -43,7 +43,30 @@ data ApiCfg a =
 
 class IsApi a where
   getUrl :: a -> T.Text
-  getKey :: a -> T.Text
+  getKey :: a -> IO T.Text
+
+_callApi ::
+  forall a b c cfg .
+  (KnownSymbol a, Typeable a, FromJSON c, ToJSON b, Api a b c, IsApi cfg) => 
+  ApiCfg cfg ->
+  Either (Maybe b) [Part] ->
+  Method ->
+  [Header] ->
+  [(T.Text, T.Text)] ->
+  IO (Either (HTTP.Response BL.ByteString) (B.ByteString, HTTP.ResponseHeaders))
+_callApi ApiCfg {..} request method hs queryXs = do
+  let url_tmp = getUrl cfg <> "/" <> toS (symbolVal (Proxy @a))
+  let reduce tmp (needle, v) = T.replace needle v tmp
+  let url | length queryXs > 0 = foldl' reduce url_tmp queryXs
+          | otherwise = url_tmp
+  authKey <-  getKey cfg
+  let authH = (hAuthorization, toS ("Bearer " <> authKey))
+  let contTypeH = (hContentType, either (const "application/json") (const "multipart/form-data") request)
+
+  logger DebugS $ logStr @String $ $location <> ": auth header ----> " <> toS (show ([authH, contTypeH] ++ hs))
+  logger DebugS $ logStr @String $ $location <> ": url ----> " <> toS (show url)
+
+  Request.make @b url manager ([authH, contTypeH] ++ hs) method request
 
 callApi ::
   forall a b c e r cfg .
@@ -56,17 +79,5 @@ callApi ::
   (T.Text -> (Either e r)) ->
   ((c, ResponseHeaders) -> Either e r) -> 
   IO (Either e r)
-callApi ApiCfg {..} request method hs queryXs onError onOk = do
-  let url_tmp = getUrl cfg <> "/" <> toS (symbolVal (Proxy @a))
-  let reduce tmp (needle, v) = T.replace needle v tmp
-  let url | length queryXs > 0 = foldl' reduce url_tmp queryXs
-          | otherwise = url_tmp
-  let authH = (hAuthorization, toS ("Bearer " <> getKey cfg))
-  let contTypeH = (hContentType, either (const "application/json") (const "multipart/form-data") request)
-
-  logger DebugS $ logStr @String $ $location <> ": auth header ----> " <> toS (show ([authH, contTypeH] ++ hs))
-  logger DebugS $ logStr @String $ $location <> ": url ----> " <> toS (show url)
-
-  resp <- fmap (join . first (toS . show)) $ try @HttpException $ 
-            Request.make @b url manager ([authH, contTypeH] ++ hs) method request
-  return $ Request.withError @c resp onError onOk
+callApi cfg request method hs queryXs onError onOk = fmap (\resp -> Request.withError @c resp (onError . toS . HTTP.responseBody) onOk) $ _callApi @a @b @c cfg request method hs queryXs
+{-# INLINE callApi #-}

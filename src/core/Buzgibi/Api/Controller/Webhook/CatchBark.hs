@@ -29,6 +29,7 @@ import Database.Transaction
 import qualified Request as Request (make)
 import qualified Data.Map as M
 import qualified Network.HTTP.Types as HTTP
+import qualified Network.HTTP.Client as HTTP
 import Data.Either.Combinators (maybeToRight, fromLeft')
 import Control.Monad.IO.Class
 import qualified Data.Text as T
@@ -76,7 +77,7 @@ controller payload = do
            manager <- lift $ fmap (^. katipEnv . httpReqManager) ask
            $(logTM) DebugS (logStr @String  ("catch bark webhook --> url: " <> show url))
            file_resp <- liftIO $ Request.make url manager [] HTTP.methodGet (Left (Nothing @()))
-           file <- E.withExceptT NetworkFailure $ E.except file_resp
+           file <- E.withExceptT (NetworkFailure . toS . HTTP.responseBody) $ E.except file_resp
            let (mime, exts) = extractMIMEandExts url
             
            usere <- lift $ transactionM hasql $ statement Survey.getUserByBarkIdent $ Bark.responseIdent resp
