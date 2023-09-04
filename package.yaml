@@ -201,6 +201,7 @@ library:
     - hasql-notifications
     - stm-lifted
     - uuid
+    - google-oauth2-jwt
 
   source-dirs:
     - src/core
