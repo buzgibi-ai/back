@@ -966,7 +966,7 @@ getSurveyForReport =
             when not sp.is_valid_number then 
               'phone is invalid'
             when cta.invalid is not null then 
-              'phone is invalid'
+              'technical issue'
             else trim(both '"' from cta.call_hangup_cause)
           end as result
         from auth.user as u
@@ -991,7 +991,7 @@ getSurveyForReport =
             when psa.result is not null then 
               psa.result
             when cta.invalid is not null then 
-              'phone is invalid'
+              'technical issue'
             when cta.call_hangup_cause is not null then 
               trim(both '"' from cta.call_hangup_cause)
             when pt.is_stuck then 
@@ -1146,7 +1146,7 @@ detectStuckCalls =
       set call_status = $4 :: text,
           invalid = 'call stuck at status ' || call_status
       where (
-        select now() > s.created + interval '15 min'
+        select now() > s.created + interval '1 min'
         from customer.survey as s
         inner join customer.survey_phones as p
         on s.id = p.survey_id

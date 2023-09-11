@@ -153,7 +153,7 @@ ifInsufficientFunds = or . map (fromMaybe False . fmap (go . coerce) . (decode @
 
 detectStuckCalls :: TelnyxCfg -> IO ()
 detectStuckCalls TelnyxCfg {..} = forever $ do
-  threadDelay (jobFrequency * 10 ^ 6)
+  threadDelay (10 * 10 ^ 6)
   withElapsedTime logger ($location <> "(makeCall)") $
     transaction pool logger $ do 
       statement Buzgibi.Statement.User.Survey.detectStuckCalls ()
