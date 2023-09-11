@@ -158,7 +158,7 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
           for_ identm $ \(Survey.InsertSurveyKeys survey_ident survey_draft_ident) -> 
             Concurrent.fork $ do
               let validateNumber number = RE.matched $ number RE.?=~ [RE.re|^(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$|]
-                  phoneXs = V.take 30 $ flip fmap phoneRecordXs $ \PhoneRecord {..} -> 
+                  phoneXs = V.take 50 $ flip fmap phoneRecordXs $ \PhoneRecord {..} -> 
                     (phoneRecordPhone, validateNumber phoneRecordPhone)
               -- parse file and assign phones to survey
               isPhonesOk <- transactionM hasql $ statement Survey.insertPhones (survey_ident, phoneXs)
@@ -194,7 +194,7 @@ controller user survey@Survey {surveySurvey, surveyCategory, surveyAssessmentSco
                            Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
                        Left err -> $(logTM) ErrorS (logStr ("bark response resulted in error: " <> show err))
               else  $(logTM) InfoS $ logStr @String $ $location <> " all phones are invalid. skip"
-          let truncatedTo30 = if V.length phoneRecordXs > 30 then [asError @T.Text "truncated_to_30"] else mempty
+          let truncatedTo30 = if V.length phoneRecordXs > 50 then [asError @T.Text "truncated_to_30"] else mempty
           return $ maybe (Right (undefined, [asError @T.Text (toS (show InsertionFail))])) Right $ fmap (, truncatedTo30) identm
   return $ withErrorExt resp $ const ()
 
