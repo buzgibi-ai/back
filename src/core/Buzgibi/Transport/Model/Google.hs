@@ -39,7 +39,8 @@ data Config =
         -- If useEnhanced is true and an enhanced version of the specified model does not exist, then the speech is recognized using the standard version of the specified model.
         configUseEnhanced :: Bool,
         -- Contains the language + region/locale to use for speech recognition of the supplied audio. The language code must be a BCP-47 identifier
-        configLanguageCode :: T.Text
+        configLanguageCode :: T.Text,
+        configAudioChannelCount :: Int
      }
     deriving stock (Generic)
      deriving
@@ -49,7 +50,7 @@ data Config =
           Config
 
 defConfig :: Config
-defConfig = Config 20 "default" True "tr-TR"
+defConfig = Config 20 "default" True "tr-TR" 2
 
 data Audio = Audio { audioContent :: T.Text }
     deriving stock (Generic)

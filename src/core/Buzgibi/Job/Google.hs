@@ -104,7 +104,8 @@ transcribeVoice GoogleCfg {..} = forever $ do
                   voice <- liftIO $ fmap (decodeUtf8 . B64.encode) $ B.readFile path
                   let request = TranscribeVoiceRequest defConfig $ Audio voice
                   resp <- liftIO $ callApi @"speech:recognize" @TranscribeVoiceRequest @TranscribeVoiceResponse googleCfg manager HTTP.methodPost request
-                  for resp $ \TranscribeVoiceResponse{..} ->
+                  for resp $ \TranscribeVoiceResponse{..} -> do
+                    liftIO $ logger WarningS $ logStr $ "google transcription ---> "  <> show transcribeVoiceResponseResults
                     pure $ fromMaybe mempty $ fmap gleanTranscription transcribeVoiceResponseResults
  
           let (es, ys) = partitionEithers yse
