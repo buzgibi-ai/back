@@ -23,4 +23,5 @@
     <include file="./changelog/index/version21.sql" />
     <include file="./changelog/index/version22.sql" />
     <include file="./changelog/index/version23.sql" />
+    <include file="./changelog/index/version24.sql" />
 </databaseChangeLog>

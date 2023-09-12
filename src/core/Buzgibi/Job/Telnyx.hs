@@ -116,7 +116,7 @@ makeCall TelnyxCfg {..} = forever $ do
                 {
                   callRequestTo = [phoneToCallPhone],
                   callRequestFrom = telnyxPhone telnyxCfg,
-                  callRequestFromDisplayName = mempty,
+                  callRequestFromDisplayName = "survey company",
                   callRequestConnectionId = telnyxIdent,
                   -- there is a wrong place for an audio to be played back
                   -- audio is being played prematurely and by 

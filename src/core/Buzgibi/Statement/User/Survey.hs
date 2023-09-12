@@ -300,7 +300,8 @@ submit =
   dimap (snocT (toS (show Submit))) (> 0)
   [rowsAffectedStatement|
     update customer.survey
-    set survey_status = $3 :: text
+    set survey_status = $3 :: text,
+        actual_start = now()
     where id = 
       (select s.id
        from auth.user as u
@@ -1146,7 +1147,7 @@ detectStuckCalls =
       set call_status = $4 :: text,
           invalid = 'call stuck at status ' || call_status
       where (
-        select now() > s.created + interval '7 min'
+        select now() > s.actual_start + interval '5 min'
         from customer.survey as s
         inner join customer.survey_phones as p
         on s.id = p.survey_id

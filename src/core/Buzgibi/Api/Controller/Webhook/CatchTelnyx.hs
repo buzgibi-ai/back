@@ -84,7 +84,7 @@ controller payload@Payload {..} = do
            let msg = $location <> " ---- > voice url not found for a call " <> answeredCallControlId
            url <- fmap (fromMaybe (error (toS msg))) $ transactionM hasql $ statement User.Survey.getVoiceLinkByCallLegId answeredCallLegId
 
-           let record_request = Just $ RecordingStartRequest { recordingStartRequestFormat = MP3,  recordingStartRequestChannels = Single }
+           let record_request = Just $ RecordingStartRequest { recordingStartRequestFormat = WAV,  recordingStartRequestChannels = Single }
            let playback_request = Just $ PlaybackStartRequest { playbackStartRequestAudioUrl = url }
            let queryParam = [("{call_control_id}", answeredCallControlId)]
 

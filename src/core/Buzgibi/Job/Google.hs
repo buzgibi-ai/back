@@ -56,6 +56,7 @@ import Data.Ord (comparing)
 import Request (forConcurrentlyNRetry)
 import qualified Data.Text as T
 import Data.Int (Int64)
+import System.Process (readProcess)
 
 
 data GoogleCfg =
@@ -96,11 +97,15 @@ transcribeVoice GoogleCfg {..} = forever $ do
                   Minio.gorObjectStream o
                     .| sinkSystemTempFile
                     (toS (voiceForTranscriptionVoiceTitle <> "_" <> tm <> "." <> ext))
-                voice <- liftIO $ fmap (decodeUtf8 . B64.encode) $ B.readFile path
-                let request = TranscribeVoiceRequest defConfig $ Audio voice
-                resp <- liftIO $ callApi @"speech:recognize" @TranscribeVoiceRequest @TranscribeVoiceResponse googleCfg manager HTTP.methodPost request
-                for resp $ \TranscribeVoiceResponse{..} ->
-                  pure $ fromMaybe mempty $ fmap gleanTranscription transcribeVoiceResponseResults
+                duration <- liftIO $ readProcess "buzgibi-audio-file-duration" [path] mempty
+                if read @Double duration > 60 then 
+                  pure $ Right mempty
+                else do  
+                  voice <- liftIO $ fmap (decodeUtf8 . B64.encode) $ B.readFile path
+                  let request = TranscribeVoiceRequest defConfig $ Audio voice
+                  resp <- liftIO $ callApi @"speech:recognize" @TranscribeVoiceRequest @TranscribeVoiceResponse googleCfg manager HTTP.methodPost request
+                  for resp $ \TranscribeVoiceResponse{..} ->
+                    pure $ fromMaybe mempty $ fmap gleanTranscription transcribeVoiceResponseResults
  
           let (es, ys) = partitionEithers yse
           mkErrorMsg "getTranscription" logger survIdent es
