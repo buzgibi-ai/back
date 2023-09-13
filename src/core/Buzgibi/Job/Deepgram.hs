@@ -41,7 +41,7 @@ import Data.String.Conv (toS)
 import Data.Bifunctor (first, bimap, second)
 import Control.Monad.IO.Class (liftIO)
 import Control.Lens ((^.))
-import Data.List (sortBy)
+import Data.List (maximumBy)
 import Data.Ord (comparing)
 import Data.Either (partitionEithers)
 import Data.Aeson (object, (.=))
@@ -78,9 +78,7 @@ transcribeVoice DeepgramCfg {..} = forever $ do
               let link' = toS link Reg.?=~/ [Reg.ed|^https?:\/\/[A-Za-z0-9:.]*///http://35.210.166.20|]
               let bs = encode $ object ["url" .= link' ]
               resp <- liftIO $ callApi @Result (deepgramCfg^.url <> deepgramCfg^.lang) (deepgramCfg^.key) manager $ toS bs
-              for resp $ \(Result xs) -> 
-                let r = sortBy (comparing alternativesConfidence) xs
-                in pure $ case r of [] -> mempty; (x:_) -> alternativesTranscript x
+              for resp $ \(Result xs) -> pure $ alternativesTranscript $ maximumBy (comparing alternativesConfidence) xs
 
         let (es, ys) = partitionEithers yse
         mkErrorMsg "transcribeVoice" logger survIdent es

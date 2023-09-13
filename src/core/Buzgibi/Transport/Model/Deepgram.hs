@@ -16,7 +16,7 @@
 module Buzgibi.Transport.Model.Deepgram (Result (..), Alternatives (..)) where
 
 import GHC.Generics (Generic)
-import Data.Aeson (FromJSON, parseJSON, withObject, (.:), Value (Array))
+import Data.Aeson (FromJSON, parseJSON, withObject, (.:), Value (Array, Object))
 import qualified Data.Text as T
 import Data.Aeson.Generic.DerivingVia
 import qualified Data.Vector as V
@@ -35,7 +35,10 @@ newtype Result = Result [Alternatives]
   deriving Show
 
 instance FromJSON Result where
-  parseJSON = withObject "Result" $ \o -> do 
-    Array xs <- o .: "results"
+  parseJSON = withObject "Result" $ \o -> do
+    r <- o .: "results"
+    Array xs <- r .: "channels"
     fmap (fromMaybe (Result [])) $ 
-      for (xs V.!? 0) $ fmap Result . parseJSON @[Alternatives]
+      for (xs V.!? 0) $ \(Object x) -> do
+        ys <- x .: "alternatives"
+        fmap Result $ parseJSON @[Alternatives] ys
