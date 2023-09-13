@@ -121,6 +121,15 @@ data Sendgrid =
           '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Sendgrid)]]
           Sendgrid
 
+data Deepgram = Deepgram {  deepgramKey :: T.Text, deepgramUrl :: T.Text, deepgramLang :: T.Text, deepgramClarifyingPrefix :: !T.Text  } 
+  deriving stock (Generic)
+  deriving stock (Show)
+  deriving
+    (FromJSON)
+    via WithOptions
+          '[FieldLabelModifier '[UserDefined ToLower, UserDefined (StripConstructor Deepgram)]]
+          Deepgram
+
 data EnvKeys = EnvKeys
   { envKeysSendgrid :: !(Maybe Sendgrid),
     envKeysTelegramBot :: !(Maybe T.Text),
@@ -129,7 +138,8 @@ data EnvKeys = EnvKeys
     envKeysBark :: !(Maybe Bark),
     envKeysTelnyx :: !(Maybe Telnyx),
     envKeysOpenAI :: !(Maybe OpenAI),
-    envKeysGoogle :: !(Maybe Google)
+    envKeysGoogle :: !(Maybe Google),
+    envKeysDeepgram :: !(Maybe Deepgram)
   }
   deriving stock (Generic)
   deriving stock (Show)
@@ -146,3 +156,4 @@ makeFields ''OpenAI
 makeFields ''Sendgrid
 makeFields ''Introduction
 makeFields ''Google
+makeFields ''Deepgram

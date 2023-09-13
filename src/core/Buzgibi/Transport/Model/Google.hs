@@ -50,7 +50,7 @@ data Config =
           Config
 
 defConfig :: Config
-defConfig = Config 20 "default" True "tr-TR" 2
+defConfig = Config 20 "default" True "en-EN" 2
 
 data Audio = Audio { audioContent :: T.Text }
     deriving stock (Generic)

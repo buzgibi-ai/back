@@ -295,7 +295,8 @@ main = do
           webhook = cfg^.webhook,
           jobFrequency = cfg^.jobFrequency,
           sendgridCfg = envKeys >>= envKeysSendgrid,
-          gcCfg = envKeys >>= envKeysGoogle
+          gcCfg = envKeys >>= envKeysGoogle,
+          deepgramCfg = envKeys >>= envKeysDeepgram
         }
 
   jwke <- liftIO $ fmap (eitherDecode' @JWK) $ B.readFile pathToJwk
